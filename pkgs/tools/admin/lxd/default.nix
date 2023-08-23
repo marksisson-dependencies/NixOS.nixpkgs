@@ -19,7 +19,7 @@
 , libcap
 , dqlite
 , raft-canonical
-, sqlite-replication
+, sqlite
 , udev
 , writeShellScriptBin
 , apparmor-profiles
@@ -28,21 +28,23 @@
 , bash
 , installShellFiles
 , nixosTests
+, gitUpdater
+, callPackage
 }:
 
 buildGoModule rec {
   pname = "lxd";
-  version = "5.7";
+  version = "5.15";
 
   src = fetchurl {
     urls = [
       "https://linuxcontainers.org/downloads/lxd/lxd-${version}.tar.gz"
       "https://github.com/lxc/lxd/releases/download/lxd-${version}/lxd-${version}.tar.gz"
     ];
-    sha256 = "sha256-TZeF/VPrP4qRAVezJwQWtfypsxBJpnTrST0uDdw3WVI=";
+    hash = "sha256-ez/875yu0XYu5ORf4ak6RN1jWGxuGk0n9023zJkoluM=";
   };
 
-  vendorSha256 = null;
+  vendorHash = null;
 
   postPatch = ''
     substituteInPlace shared/usbid/load.go \
@@ -58,7 +60,7 @@ buildGoModule rec {
     libcap
     dqlite.dev
     raft-canonical.dev
-    sqlite-replication
+    sqlite
     udev.dev
   ];
 
@@ -98,13 +100,19 @@ buildGoModule rec {
 
   passthru.tests.lxd = nixosTests.lxd;
   passthru.tests.lxd-nftables = nixosTests.lxd-nftables;
+  passthru.tests.lxd-ui = nixosTests.lxd-ui;
+  passthru.ui = callPackage ./ui.nix { };
+  passthru.updateScript = gitUpdater {
+    url = "https://github.com/lxc/lxd.git";
+    rev-prefix = "lxd-";
+  };
 
   meta = with lib; {
     description = "Daemon based on liblxc offering a REST API to manage containers";
     homepage = "https://linuxcontainers.org/lxd/";
     changelog = "https://github.com/lxc/lxd/releases/tag/lxd-${version}";
     license = licenses.asl20;
-    maintainers = with maintainers; [ marsam ];
+    maintainers = with maintainers; [ marsam adamcstephens ];
     platforms = platforms.linux;
   };
 }

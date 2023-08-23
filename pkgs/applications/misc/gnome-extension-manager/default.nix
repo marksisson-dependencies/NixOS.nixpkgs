@@ -22,13 +22,13 @@
 
 stdenv.mkDerivation rec {
   pname = "gnome-extension-manager";
-  version = "0.4.0";
+  version = "0.4.2";
 
   src = fetchFromGitHub {
     owner = "mjakeman";
     repo = "extension-manager";
     rev = "v${version}";
-    sha256 = "sha256-M+jMEJXtzUP6dQp9vpyMhh1wuKG9YJ8i0ys92nbmmpw=";
+    hash = "sha256-AQdYZsOaTk+EX1bi/kDI2GcVfu7ZKIyrFpNf/fRcJmo=";
   };
 
   nativeBuildInputs = [
@@ -54,14 +54,13 @@ stdenv.mkDerivation rec {
     text-engine
   ];
 
-  # See https://github.com/NixOS/nixpkgs/issues/36468.
-  mesonFlags = [ "-Dc_args=-I${glib.dev}/include/gio-unix-2.0" ];
-
   meta = with lib; {
     description = "Desktop app for managing GNOME shell extensions";
     homepage = "https://github.com/mjakeman/extension-manager";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
     maintainers = with maintainers; [ foo-dogsquared ];
+    # never built on aarch64-linux since first introduction in nixpkgs
+    broken = stdenv.isLinux && stdenv.isAarch64;
   };
 }

@@ -4,14 +4,14 @@
 , griffe
 , mkdocs-material
 , mkdocstrings
-, pdm-pep517
+, pdm-backend
 , pytestCheckHook
 , pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "mkdocstrings-python";
-  version = "0.7.1";
+  version = "0.10.1";
   format = "pyproject";
 
   disabled = pythonOlder "3.7";
@@ -20,11 +20,11 @@ buildPythonPackage rec {
     owner = "mkdocstrings";
     repo = "python";
     rev = version;
-    hash = "sha256-cZk6Eu6Jp3tSPAb0HplR/I0pX2YIFhOaAsI3YRS0LVw=";
+    hash = "sha256-VGPlOHQNtXrfmcne93xDIxN20KDGlTQrjeAKhX/L6K0=";
   };
 
   nativeBuildInputs = [
-    pdm-pep517
+    pdm-backend
   ];
 
   propagatedBuildInputs = [
@@ -32,14 +32,14 @@ buildPythonPackage rec {
     mkdocstrings
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mkdocs-material
     pytestCheckHook
   ];
 
   postPatch = ''
     substituteInPlace pyproject.toml \
-      --replace 'dynamic = ["version"]' 'version = "${version}"'
+      --replace 'license = "ISC"' 'license = {text = "ISC"}' \
   '';
 
   pythonImportsCheck = [
@@ -49,6 +49,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python handler for mkdocstrings";
     homepage = "https://github.com/mkdocstrings/python";
+    changelog = "https://github.com/mkdocstrings/python/blob/${version}/CHANGELOG.md";
     license = licenses.isc;
     maintainers = with maintainers; [ fab ];
   };

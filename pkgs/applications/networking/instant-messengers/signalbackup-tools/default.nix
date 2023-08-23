@@ -1,14 +1,14 @@
-{ lib, stdenv, fetchFromGitHub, openssl, sqlite }:
+{ lib, stdenv, darwin, fetchFromGitHub, openssl, sqlite }:
 
-stdenv.mkDerivation rec {
+(if stdenv.isDarwin then darwin.apple_sdk_11_0.llvmPackages_14.stdenv else stdenv).mkDerivation rec {
   pname = "signalbackup-tools";
-  version = "20221025";
+  version = "20230707";
 
   src = fetchFromGitHub {
     owner = "bepaald";
     repo = pname;
     rev = version;
-    sha256 = "sha256-icUyuohJ+nUrmFx/q5+hvjY1My25TwIqh6W6hq1pG4k=";
+    hash = "sha256-kVXkcAhDpwc6/d5iXMJ3Z31p9REqWUvSimE8p+OD8aU=";
   };
 
   postPatch = ''
@@ -17,15 +17,9 @@ stdenv.mkDerivation rec {
 
   buildInputs = [ openssl sqlite ];
 
-  # Manually define `CXXFLAGS` and `LDFLAGS` on Darwin since the build scripts includes flags
-  # that don't work on Darwin.
   buildPhase = ''
     runHook preBuild
-  '' + lib.optionalString stdenv.isDarwin ''
-    export CXXFLAGS="-Wall -Wextra -Wshadow -Wold-style-cast -Woverloaded-virtual -pedantic -O3"
-    export LDFLAGS="-Wall -Wextra -O3"
-  '' + ''
-    ./BUILDSCRIPT_MULTIPROC.bash44
+    ./BUILDSCRIPT_MULTIPROC.bash44${lib.optionalString stdenv.isDarwin " --config nixpkgs-darwin"}
     runHook postBuild
   '';
 

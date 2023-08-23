@@ -47,6 +47,10 @@ let
       feature = "set `strictDeps` to true by default";
     };
 
+    structuredAttrsByDefault = mkMassRebuild {
+      feature = "set `__structuredAttrs` to true by default";
+    };
+
     enableParallelBuildingByDefault = mkMassRebuild {
       feature = "set `enableParallelBuilding` to true by default";
     };
@@ -131,7 +135,7 @@ let
     checkMeta = mkOption {
       type = types.bool;
       default = false;
-      description = ''
+      description = lib.mdDoc ''
         Whether to check that the `meta` attribute of derivations are correct during evaluation time.
       '';
     };

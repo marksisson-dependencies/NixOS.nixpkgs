@@ -1,6 +1,5 @@
 { lib
 , fetchPypi
-, fetchpatch
 , python
 , buildPythonPackage
 , gfortran
@@ -40,14 +39,14 @@ let
   };
 in buildPythonPackage rec {
   pname = "numpy";
-  version = "1.23.3";
+  version = "1.24.2";
   format = "setuptools";
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
     extension = "tar.gz";
-    hash = "sha256-Ub9JwM0dUr4KJAqmbzRYr8S5XYmT0tBPDZH6YMEK9s0=";
+    hash = "sha256-ADqfUw6IDLLNF3y6GvciC5qkLe+cSvwqL8Pua+frKyI=";
   };
 
   patches = lib.optionals python.hasDistutilsCxxPatch [
@@ -75,7 +74,7 @@ in buildPythonPackage rec {
 
   enableParallelBuilding = true;
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest
     hypothesis
     typing-extensions

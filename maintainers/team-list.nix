@@ -81,6 +81,7 @@ with lib.maintainers; {
     # Verify additions to this team with at least one already existing member of the team.
     members = [
       cdepillabout
+      wraithm
     ];
     scope = "Group registration for packages maintained by Bitnomial.";
     shortName = "Bitnomial employees";
@@ -121,7 +122,7 @@ with lib.maintainers; {
       bobby285271
       mkg20001
     ];
-    scope = "Maintain Cinnamon desktop environment and applications made by the LinuxMint team.";
+    scope = "Maintain Cinnamon desktop environment and applications made by the Linux Mint team.";
     shortName = "Cinnamon";
     enableFeatureFreezePing = true;
   };
@@ -141,10 +142,22 @@ with lib.maintainers; {
       # gares has no entry in the maintainers list
       siraben
       vbgl
+      alizter
     ];
     scope = "Maintain the Coq theorem prover and related packages.";
     shortName = "Coq";
     enableFeatureFreezePing = true;
+  };
+
+  cuda = {
+    members = [
+      connorbaker
+      samuela
+      SomeoneSerge
+    ];
+    scope = "Maintain CUDA-enabled packages";
+    shortName = "Cuda";
+    githubTeams = [ "cuda-maintainers" ];
   };
 
   darwin = {
@@ -166,6 +179,15 @@ with lib.maintainers; {
     ];
     scope = "Maintain the Cosmopolitan LibC and related programs.";
     shortName = "Cosmopolitan";
+  };
+
+  deepin = {
+    members = [
+      rewine
+    ];
+    scope = "Maintain deepin desktop environment and related packages.";
+    shortName = "DDE";
+    enableFeatureFreezePing = true;
   };
 
   deshaw = {
@@ -191,7 +213,7 @@ with lib.maintainers; {
 
   dhall = {
     members = [
-      Gabriel439
+      Gabriella439
       ehmry
     ];
     scope = "Maintain Dhall and related packages.";
@@ -210,6 +232,7 @@ with lib.maintainers; {
 
   docs = {
     members = [
+      asymmetric
       ryantm
     ];
     scope = "Maintain nixpkgs/NixOS documentation and tools for building it.";
@@ -249,6 +272,14 @@ with lib.maintainers; {
     enableFeatureFreezePing = true;
   };
 
+  flutter = {
+    members = [ gilice mkg20001 RossComputerGuy FlafyDev hacker1024 ];
+    scope = "Maintain Flutter and Dart-related packages and build tools";
+    shortName = "flutter";
+    enableFeatureFreezePing = false;
+    githubTeams = [ "flutter" ];
+  };
+
   freedesktop = {
     members = [ jtojnar ];
     scope = "Maintain Freedesktop.org packages for graphical desktop.";
@@ -265,12 +296,38 @@ with lib.maintainers; {
     shortName = "GCC";
   };
 
+  geospatial = {
+    members = [
+      imincik
+      sikmir
+      nh2
+      willcohen
+    ];
+    scope = "Maintain geospatial packages.";
+    shortName = "Geospatial";
+  };
+
+  gitlab = {
+    members = [
+      globin
+      krav
+      talyz
+      yayayayaka
+      yuka
+    ];
+    scope = "Maintain gitlab packages.";
+    shortName = "gitlab";
+  };
+
   golang = {
     members = [
-      c00w
       kalbasit
       mic92
       zowoq
+      qbit
+    ];
+    githubTeams = [
+      "golang"
     ];
     scope = "Maintain Golang compilers.";
     shortName = "Go";
@@ -291,6 +348,19 @@ with lib.maintainers; {
     scope = "Maintain GNOME desktop environment and platform.";
     shortName = "GNOME";
     enableFeatureFreezePing = true;
+  };
+
+  graalvm-ce = {
+    members = [
+      bandresen
+      hlolli
+      glittershark
+      babariviere
+      ericdallo
+      thiagokokada
+    ];
+    scope = "Maintain GraalVM Community Edition packages.";
+    shortName = "GraalVM-CE";
   };
 
   haskell = {
@@ -335,7 +405,6 @@ with lib.maintainers; {
     members = [
       cleeyv
       ryantm
-      yuka
     ];
     scope = "Maintain Jitsi.";
     shortName = "Jitsi";
@@ -386,6 +455,47 @@ with lib.maintainers; {
     ];
     scope = "Maintain the Linux kernel.";
     shortName = "Linux Kernel";
+  };
+
+  lisp = {
+    members = [
+      raskin
+      lukego
+      nagy
+      uthar
+      hraban
+    ];
+    githubTeams = [
+      "lisp"
+    ];
+    scope = "Maintain the Lisp ecosystem.";
+    shortName = "lisp";
+    enableFeatureFreezePing = true;
+  };
+
+  llvm = {
+    members = [
+      dtzWill
+      ericson2314
+      lovek323
+      primeos
+      qyliss
+      raitobezarius
+      rrbutani
+      sternenseemann
+    ];
+    scope = "Maintain LLVM package sets and related packages";
+    shortName = "LLVM";
+    enableFeatureFreezePing = true;
+  };
+
+  lomiri = {
+    members = [
+      OPNA2608
+    ];
+    scope = "Maintain Lomiri desktop environment and related packages.";
+    shortName = "Lomiri";
+    enableFeatureFreezePing = true;
   };
 
   lumiguide = {
@@ -443,6 +553,7 @@ with lib.maintainers; {
 
   mate = {
     members = [
+      bobby285271
       j03
       romildo
     ];
@@ -456,13 +567,33 @@ with lib.maintainers; {
       ma27
       fadenb
       mguentner
-      ekleog
       ralith
       dandellion
       sumnerevans
     ];
     scope = "Maintain the ecosystem around Matrix, a decentralized messenger.";
     shortName = "Matrix";
+  };
+
+  minimal-bootstrap = {
+    members = [
+      artturin
+      emilytrau
+      ericson2314
+      jk
+      siraben
+    ];
+    scope = "Maintain the minimal-bootstrap toolchain and related packages.";
+    shortName = "Minimal Bootstrap";
+  };
+
+  mercury = {
+    members = [
+      _9999years
+      Gabriella439
+    ];
+    scope = "Group registry for packages maintained by Mercury";
+    shortName = "Mercury Employees";
   };
 
   mobile = {
@@ -475,7 +606,6 @@ with lib.maintainers; {
 
   nix = {
     members = [
-      Profpatsch
       eelco
       grahamc
       pierron
@@ -497,6 +627,17 @@ with lib.maintainers; {
     enableFeatureFreezePing = true;
   };
 
+  node = {
+    members = [
+      lilyinstarlight
+      marsam
+      winter
+    ];
+    scope = "Maintain Node.js runtimes and build tooling.";
+    shortName = "Node.js";
+    enableFeatureFreezePing = true;
+  };
+
   numtide = {
     members = [
       mic92
@@ -511,7 +652,6 @@ with lib.maintainers; {
 
   openstack = {
     members = [
-      emilytrau
       SuperSandro2000
     ];
     scope = "Maintain the ecosystem around OpenStack";
@@ -631,6 +771,18 @@ with lib.maintainers; {
     shortName = "Release";
   };
 
+  rocm = {
+    members = [
+      Madouura
+      Flakebi
+    ];
+    githubTeams = [
+      "rocm-maintainers"
+    ];
+    scope = "Maintain ROCm and related packages.";
+    shortName = "ROCm";
+  };
+
   ruby = {
     members = [
       marsam
@@ -642,10 +794,14 @@ with lib.maintainers; {
 
   rust = {
     members = [
-      andir
-      lnl7
+      figsoda
       mic92
+      tjni
+      winter
       zowoq
+    ];
+    githubTeams = [
+      "rust"
     ];
     scope = "Maintain the Rust compiler toolchain and nixpkgs integration.";
     shortName = "Rust";
@@ -710,6 +866,7 @@ with lib.maintainers; {
 
   vim = {
     members = [
+      figsoda
       jonringer
       softinio
       teto
@@ -720,7 +877,9 @@ with lib.maintainers; {
 
   xfce = {
     members = [
+      bobby285271
       romildo
+      muscaln
     ];
     scope = "Maintain Xfce desktop environment and related packages.";
     shortName = "Xfce";

@@ -2,20 +2,23 @@
 
 stdenv.mkDerivation rec {
   pname = "spirv-tools";
-  version = "1.3.231.0";
+  version = "2023.3.rc1";
 
-  src = (assert version == spirv-headers.version;
-    fetchFromGitHub {
-      owner = "KhronosGroup";
-      repo = "SPIRV-Tools";
-      rev = "sdk-${version}";
-      hash = "sha256-sqjQoz9v9alSPc0ujEcWZxDAWh2S6oAPP1+JZmNCpA0=";
-    }
-  );
+  src = fetchFromGitHub {
+    owner = "KhronosGroup";
+    repo = "SPIRV-Tools";
+    rev = "v${version}";
+    hash = "sha256-HV7jNvgTRRGnhurtT5pf5f5gzUOmr3iWNcDc8TE4ICQ=";
+  };
 
   nativeBuildInputs = [ cmake python3 ];
 
-  cmakeFlags = [ "-DSPIRV-Headers_SOURCE_DIR=${spirv-headers.src}" ];
+  cmakeFlags = [
+    "-DSPIRV-Headers_SOURCE_DIR=${spirv-headers.src}"
+    # Avoid blanket -Werror to evade build failures on less
+    # tested compilers.
+    "-DSPIRV_WERROR=OFF"
+  ];
 
   # https://github.com/KhronosGroup/SPIRV-Tools/issues/3905
   postPatch = ''
@@ -33,8 +36,8 @@ stdenv.mkDerivation rec {
   '';
 
   meta = with lib; {
-    inherit (src.meta) homepage;
     description = "The SPIR-V Tools project provides an API and commands for processing SPIR-V modules";
+    homepage = "https://github.com/KhronosGroup/SPIRV-Tools";
     license = licenses.asl20;
     platforms = platforms.unix;
     maintainers = [ maintainers.ralith ];

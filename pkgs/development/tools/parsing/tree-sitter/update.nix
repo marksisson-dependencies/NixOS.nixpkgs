@@ -31,8 +31,6 @@ let
     "tree-sitter-scala"
     "tree-sitter-ocaml"
     "tree-sitter-julia"
-    "tree-sitter-agda"
-    "tree-sitter-fluent"
     "tree-sitter-html"
     "tree-sitter-haskell"
     "tree-sitter-regex"
@@ -73,6 +71,10 @@ let
     "tree-sitter-graph"
     # abandoned
     "tree-sitter-swift"
+    # abandoned
+    "tree-sitter-agda"
+    # abandoned
+    "tree-sitter-fluent"
   ];
   ignoredTreeSitterOrgReposJson = jsonFile "ignored-tree-sitter-org-repos" ignoredTreeSitterOrgRepos;
 
@@ -137,8 +139,9 @@ let
       repo = "tree-sitter-svelte";
     };
     "tree-sitter-sql" = {
-      orga = "m-novikov";
+      orga = "derekstride";
       repo = "tree-sitter-sql";
+      branch = "gh-pages";
     };
     "tree-sitter-vim" = {
       orga = "vigoux";
@@ -223,6 +226,10 @@ let
     "tree-sitter-surface" = {
       orga = "connorlay";
       repo = "tree-sitter-surface";
+    };
+    "tree-sitter-eex" = {
+      orga = "connorlay";
+      repo = "tree-sitter-eex";
     };
     "tree-sitter-heex" = {
       orga = "connorlay";
@@ -352,6 +359,22 @@ let
       orga = "sourcegraph";
       repo = "tree-sitter-jsonnet";
     };
+    "tree-sitter-solidity" = {
+      orga = "JoranHonig";
+      repo = "tree-sitter-solidity";
+    };
+    "tree-sitter-nu" = {
+      orga = "LhKipp";
+      repo = "tree-sitter-nu";
+    };
+    "tree-sitter-cue" = {
+      orga = "eonpatapon";
+      repo = "tree-sitter-cue";
+    };
+    "tree-sitter-wing" = {
+      orga = "winglang";
+      repo = "wing";
+    };
   };
 
   allGrammars =
@@ -369,19 +392,7 @@ let
           knownTreeSitterOrgGrammarRepos);
 
     in
-    mergeAttrsUnique otherGrammars treeSitterOrgaGrammars;
-
-  # TODO: move to lib
-  mergeAttrsUnique = left: right:
-    let intersect = lib.intersectLists (lib.attrNames left) (lib.attrNames right); in
-    assert
-    lib.assertMsg (intersect == [ ])
-      (lib.concatStringsSep "\n" [
-        "mergeAttrsUnique: keys in attrset overlapping:"
-        "left: ${lib.generators.toPretty {} (lib.getAttrs intersect left)}"
-        "right: ${lib.generators.toPretty {} (lib.getAttrs intersect right)}"
-      ]);
-    left // right;
+    lib.attrsets.unionOfDisjoint otherGrammars treeSitterOrgaGrammars;
 
 
 

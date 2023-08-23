@@ -8,14 +8,14 @@
 
 python3.pkgs.buildPythonApplication rec {
   pname = "memray";
-  version = "1.4.0";
+  version = "1.8.1";
   format = "setuptools";
 
   src = fetchFromGitHub {
     owner = "bloomberg";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-NR6wziuER7Vm4Er0WSkQKGkDOrsFUT4gmHO36h9yRWw=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-ztoIUYuXfD8Mgj5vIsZnpuF8a5F9Za6xXHKW0Hscz20=";
   };
 
   nativeBuildInputs = [
@@ -34,7 +34,7 @@ python3.pkgs.buildPythonApplication rec {
     rich
   ];
 
-  checkInputs = with python3.pkgs; [
+  nativeCheckInputs = with python3.pkgs; [
     ipython
     pytestCheckHook
   ] ++ lib.optionals (pythonOlder "3.11") [
@@ -66,5 +66,6 @@ python3.pkgs.buildPythonApplication rec {
     license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
     platforms = platforms.linux;
+    changelog = "https://github.com/bloomberg/memray/releases/tag/v${version}";
   };
 }

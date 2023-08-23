@@ -1,5 +1,5 @@
 { lib, stdenv, fetchurl, fetchpatch, xmlto, docbook_xml_dtd_412
-, libxslt, docbook_xsl, autoconf, automake, gettext, libiconv, libtool
+, docbook_xsl, autoconf, automake, libtool
 }:
 
 stdenv.mkDerivation rec {
@@ -48,7 +48,7 @@ stdenv.mkDerivation rec {
   meta = with lib; {
     description = "A suite of SGML/XML processing tools";
     license = licenses.mit;
-    homepage = "http://openjade.sourceforge.net/";
+    homepage = "https://openjade.sourceforge.net/";
     platforms = platforms.unix;
     maintainers = with maintainers; [ ];
   };

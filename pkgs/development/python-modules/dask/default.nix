@@ -1,13 +1,16 @@
 { lib
 , stdenv
+, arrow-cpp
 , bokeh
 , buildPythonPackage
+, click
 , cloudpickle
 , distributed
 , fastparquet
 , fetchFromGitHub
 , fetchpatch
 , fsspec
+, importlib-metadata
 , jinja2
 , numpy
 , packaging
@@ -20,30 +23,39 @@
 , pythonOlder
 , pyyaml
 , scipy
+, setuptools
 , toolz
+, versioneer
 , zarr
 }:
 
 buildPythonPackage rec {
   pname = "dask";
-  version = "2022.9.1";
+  version = "2023.4.1";
   format = "setuptools";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "dask";
     repo = pname;
-    rev = version;
-    hash = "sha256-4Tok9eYhi2FF+8bpKnwKT3KIRGHIMtxczTkZ6qD8x7g=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-PkEFXF6OFZU+EMFBUopv84WniQghr5Q6757Qx6D5MyE=";
   };
 
+  nativeBuildInputs = [
+    setuptools
+    versioneer
+  ];
+
   propagatedBuildInputs = [
+    click
     cloudpickle
     fsspec
     packaging
     partd
     pyyaml
+    importlib-metadata
     toolz
   ];
 
@@ -67,14 +79,15 @@ buildPythonPackage rec {
     ];
   };
 
-  checkInputs = [
-    fastparquet
-    pyarrow
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-rerunfailures
     pytest-xdist
     scipy
     zarr
+  ] ++ lib.optionals (!arrow-cpp.meta.broken) [ # support is sparse on aarch64
+    fastparquet
+    pyarrow
   ];
 
   dontUseSetuptoolsCheck = true;
@@ -87,8 +100,9 @@ buildPythonPackage rec {
       --replace "version=versioneer.get_version()," "version='${version}'," \
       --replace "cmdclass=versioneer.get_cmdclass()," ""
 
-    substituteInPlace setup.cfg \
+    substituteInPlace pyproject.toml \
       --replace " --durations=10" "" \
+      --replace " --cov-config=pyproject.toml" "" \
       --replace " -v" ""
   '';
 
@@ -97,8 +111,6 @@ buildPythonPackage rec {
     "--reruns 3"
     # Don't run tests that require network access
     "-m 'not network'"
-    # DeprecationWarning: The 'sym_pos' keyword is deprecated and should be replaced by using 'assume_a = "pos"'. 'sym_pos' will be removed in SciPy 1.11.0.
-    "-W" "ignore::DeprecationWarning"
   ];
 
   disabledTests = lib.optionals stdenv.isDarwin [
@@ -109,6 +121,11 @@ buildPythonPackage rec {
     "test_read_dir_nometa"
   ] ++ [
     "test_chunksize_files"
+    # TypeError: 'ArrowStringArray' with dtype string does not support reduction 'min'
+    "test_set_index_string"
+    # numpy 1.24
+    # RuntimeWarning: invalid value encountered in cast
+    "test_setitem_extended_API_2d_mask"
   ];
 
   __darwinAllowLocalNetworking = true;

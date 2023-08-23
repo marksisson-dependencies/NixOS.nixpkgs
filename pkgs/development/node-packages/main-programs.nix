@@ -4,10 +4,10 @@
   # Packages that provide multiple executables where one is clearly the `mainProgram`.
   "@antfu/ni" = "ni";
   "@electron-forge/cli" = "electron-forge";
+  "@microsoft/rush" = "rush";
   "@squoosh/cli" = "squoosh-cli";
   "@webassemblyjs/cli-1.11.1" = "wasm2wast";
   coffee-script = "coffee";
-  typescript = "tsc";
   vue-cli = "vue";
   "@withgraphite/graphite-cli" = "gt";
 
@@ -15,15 +15,14 @@
   "@angular/cli" = "ng";
   "@antora/cli" = "antora";
   "@astrojs/language-server" = "astro-ls";
+  "@babel/cli" = "babel";
   "@bitwarden/cli" = "bw";
   "@commitlint/cli" = "commitlint";
   "@forge/cli" = "forge";
   "@gitbeaker/cli" = "gitbeaker";
-  "@google/clasp" = "clasp";
   "@medable/mdctl-cli" = "mdctl";
   "@mermaid-js/mermaid-cli" = "mmdc";
   "@nerdwallet/shepherd" = "shepherd";
-  "@nestjs/cli" = "nest";
   "@prisma/language-server" = "prisma-language-server";
   "@tailwindcss/language-server" = "tailwindcss-language-server";
   "@uppy/companion" = "companion";
@@ -42,6 +41,7 @@
   clubhouse-cli = "club";
   conventional-changelog-cli = "conventional-changelog";
   cpy-cli = "cpy";
+  diff2html-cli = "diff2html";
   dockerfile-language-server-nodejs = "docker-langserver";
   fast-cli = "fast";
   fauna-shell = "fauna";
@@ -57,6 +57,7 @@
   kaput-cli = "kaput";
   leetcode-cli = "leetcode";
   less = "lessc";
+  localtunnel = "lt";
   lua-fmt = "luafmt";
   markdownlint-cli = "markdownlint";
   near-cli = "near";

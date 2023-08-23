@@ -10,29 +10,27 @@
 
 buildGoModule rec {
   pname = "buf";
-  version = "1.9.0";
+  version = "1.23.1";
 
   src = fetchFromGitHub {
     owner = "bufbuild";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-KnG1FUdC8xpW/wI4E8+RzO0StKF+N7Wx1jTWNm4302M=";
+    hash = "sha256-6Zp4QuH0wJQCt8w2230Ugrds8tFmnCcICxgWJiqTBWc=";
   };
 
-  vendorSha256 = "sha256-e/hkJoQ1GkSl4mhhgYVB4POult87DzWOXRLGyDVP+M0=";
+  vendorHash = "sha256-e4frrLrG6OxOUcr5iqY+QEokdy95glmc3Rw2HPWUPEI=";
 
   patches = [
     # Skip a test that requires networking to be available to work.
     ./skip_test_requiring_network.patch
-    # Skip TestWorkspaceGit which requires .git and commits.
-    ./skip_test_requiring_dotgit.patch
   ];
 
   nativeBuildInputs = [ installShellFiles ];
 
   ldflags = [ "-s" "-w" ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     git # Required for TestGitCloner
     protobuf # Required for buftesting.GetProtocFilePaths
   ];
@@ -40,9 +38,10 @@ buildGoModule rec {
   preCheck = ''
     # The tests need access to some of the built utilities
     export PATH="$PATH:$GOPATH/bin"
-    # To skip TestCloneBranchAndRefToBucket
-    export CI=true
   '';
+
+  # Allow tests that bind or connect to localhost on macOS.
+  __darwinAllowLocalNetworking = true;
 
   installPhase = ''
     runHook preInstall
@@ -73,6 +72,6 @@ buildGoModule rec {
     changelog = "https://github.com/bufbuild/buf/releases/tag/v${version}";
     description = "Create consistent Protobuf APIs that preserve compatibility and comply with design best-practices";
     license = licenses.asl20;
-    maintainers = with maintainers; [ raboof jk lrewega ];
+    maintainers = with maintainers; [ jk lrewega ];
   };
 }

@@ -8,13 +8,13 @@
 
 stdenv.mkDerivation rec {
   pname = "vgmtools";
-  version = "unstable-2022-08-03";
+  version = "unstable-2023-06-29";
 
   src = fetchFromGitHub {
     owner = "vgmrips";
     repo = "vgmtools";
-    rev = "a33c7b9d7c7608a3cfebbee4467c6909b42077d6";
-    sha256 = "oVasSToGp2APfaD/xCt/3SwvGq7JtpP8VVDRPznYDH4=";
+    rev = "e1f3e053e390bde6bd53b81bd853a0298ccb0ab4";
+    hash = "sha256-evIvW9Nk9g7R+EmaQXLmr0ecpAS5Ashditk3komBwyw=";
   };
 
   nativeBuildInputs = [
@@ -27,7 +27,7 @@ stdenv.mkDerivation rec {
 
   # Some targets are not enabled by default
   makeFlags = [
-    "all" "opt_oki" "optdac" "optvgm32"
+    "all" "optdac" "optvgm32"
   ];
 
   passthru.updateScript = unstableGitUpdater {

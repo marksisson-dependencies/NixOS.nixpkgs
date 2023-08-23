@@ -2,8 +2,10 @@
 , stdenv
 , anyio
 , buildPythonPackage
+, cargo
 , fetchFromGitHub
 , rustPlatform
+, rustc
 , setuptools-rust
 , pythonOlder
 , dirty-equals
@@ -11,11 +13,13 @@
 , pytest-timeout
 , pytestCheckHook
 , python
+, CoreServices
+, libiconv
 }:
 
 buildPythonPackage rec {
   pname = "watchfiles";
-  version = "0.18.0";
+  version = "0.19.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.7";
@@ -24,28 +28,32 @@ buildPythonPackage rec {
     owner = "samuelcolvin";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-biGGn0YAUbSO1hCJ4kU0ZWlqlXl/HRrBS3iIA3myRI8=";
+    hash = "sha256-NmmeoaIfFMNKCcjH6tPnkpflkN35bKlT76MqF9W8LBc=";
   };
 
   cargoDeps = rustPlatform.fetchCargoTarball {
     inherit src;
     name = "${pname}-${version}";
-    hash = "sha256-nmkIKA4EDMOeppOxKwLSh3oREInlDIcFzE7/EYZRGKY=";
+    hash = "sha256-9ruk3PMcWNLOIGth5fo91/miyF17lgERWL3F4y4as18=";
   };
 
+  buildInputs = lib.optionals stdenv.isDarwin [
+    CoreServices
+    libiconv
+  ];
+
   nativeBuildInputs = [
-  ] ++ (with rustPlatform; [
-    cargoSetupHook
-    maturinBuildHook
-    rust.cargo
-    rust.rustc
-  ]);
+    rustPlatform.cargoSetupHook
+    rustPlatform.maturinBuildHook
+    cargo
+    rustc
+  ];
 
   propagatedBuildInputs = [
     anyio
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     dirty-equals
     pytest-mock
     pytest-timeout
@@ -69,6 +77,5 @@ buildPythonPackage rec {
     homepage = "https://watchfiles.helpmanual.io/";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
-    broken = stdenv.isDarwin;
   };
 }

@@ -7,16 +7,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "stylua";
-  version = "0.15.2";
+  version = "0.18.0";
 
   src = fetchFromGitHub {
     owner = "johnnymorganz";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-cMT6+U9tfucPE5IkHjsWlzcD+nLQC24fqTyOhsTwFqk=";
+    sha256 = "sha256-BrXdULBwsdfjtG/r/V7SEDvT7k7lgUc0s1187/EdGP4=";
   };
 
-  cargoSha256 = "sha256-H8oD769xdsXIJWqfFCL76MIKrKkHUSTzzciuHJBdjyI=";
+  cargoSha256 = "sha256-v4Ip1jgq0YhYkdxkcdYDCBgN81bmstC0M89UkirudAQ=";
 
   # remove cargo config so it can find the linker on aarch64-unknown-linux-gnu
   postPatch = ''

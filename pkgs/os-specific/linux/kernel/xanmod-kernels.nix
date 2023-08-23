@@ -3,20 +3,20 @@
 let
   # These names are how they are designated in https://xanmod.org.
   ltsVariant = {
-    version = "5.15.75";
-    hash = "sha256-tgm5nmguEfRFq3OhmZgRgFLIW7E798Rv1basxnfdqLI=";
+    version = "6.1.37";
+    hash = "sha256-g8cmAhsM03jBu7UZoNOLBX7cGg8rz70/xhF7sJj9nCY=";
     variant = "lts";
   };
 
   mainVariant = {
-    version = "6.0.6";
-    hash = "sha256-JMfAtiPDgoVF+ypeFXev06PL39ZM2H7m07IxpasjAoM=";
+    version = "6.4.1";
+    hash = "sha256-WPnINDkOj0IoUDLBG/2LOrppVi9o9XSSgMrs/NBbqdA=";
     variant = "main";
   };
 
   xanmodKernelFor = { version, suffix ? "xanmod1", hash, variant }: buildLinux (args // rec {
     inherit version;
-    modDirVersion = "${version}-${suffix}";
+    modDirVersion = lib.versions.pad 3 "${version}-${suffix}";
 
     src = fetchFromGitHub {
       owner = "xanmod";
@@ -32,10 +32,6 @@ let
       # Google's BBRv2 TCP congestion Control
       TCP_CONG_BBR2 = yes;
       DEFAULT_BBR2 = yes;
-
-      # Google's Multigenerational LRU framework
-      LRU_GEN = yes;
-      LRU_GEN_ENABLED = yes;
 
       # FQ-PIE Packet Scheduling
       NET_SCH_DEFAULT = yes;
@@ -56,7 +52,7 @@ let
 
     extraMeta = {
       branch = lib.versions.majorMinor version;
-      maintainers = with lib.maintainers; [ fortuneteller2k lovesegfault atemu ];
+      maintainers = with lib.maintainers; [ fortuneteller2k lovesegfault atemu shawn8901 ];
       description = "Built with custom settings and new features built to provide a stable, responsive and smooth desktop experience";
       broken = stdenv.isAarch64;
     };

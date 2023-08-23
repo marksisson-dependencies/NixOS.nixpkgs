@@ -1,6 +1,12 @@
-{ stdenv, lib, callPackage, fetchurl
+{ stdenv
+, lib
+, callPackage
+, fetchurl
+, nixosTests
+, srcOnly
 , isInsiders ? false
 , commandLineArgs ? ""
+, useVSCodeRipgrep ? stdenv.isDarwin
 }:
 
 let
@@ -18,23 +24,26 @@ let
   archive_fmt = if stdenv.isDarwin then "zip" else "tar.gz";
 
   sha256 = {
-    x86_64-linux = "1dcp6r78kaq3wzcw7dfra59kfpdzqy9qnlyp1ywayxh610ryjyfc";
-    x86_64-darwin = "0ypxjh5z0v83y0wb22m942qqlvx5df7k4dk8ip9wqd4p7h8540q8";
-    aarch64-linux = "1qq4zg0j3rpx06cqaic7a1x7ckk5wf8w1gp5y8hwhvkym4s8g4i7";
-    aarch64-darwin = "18hrsvr7hgmlpi64dbk581i516my6c5zwz6g8awp4fhxilk0wbrg";
-    armv7l-linux = "1y357ci4gllxg26m5qdv9652i5rra5vj972l7kdnxiimfgm6h83b";
+    x86_64-linux = "09prf6sv0znsrmysflbsa8f9gsdjxjscl5jmwz1b7gx06ambkx40";
+    x86_64-darwin = "1xgxf5drrc8dhl3hjp7xia0ccb5244avr1ckmqkxdcxy70h1s4ki";
+    aarch64-linux = "0fjhw903kyx38v22fr253cx9xqwbgak7ksxsp30ngyzh5zpp8854";
+    aarch64-darwin = "0klbmgjy3bwjb8svggd5j0mlxp3ni711jp2bnh35n64z8ai29rqk";
+    armv7l-linux = "03im7n827fmdm6g5x7n63fiac9g9p3rrwbj2na0ljyn5072mmh6d";
   }.${system} or throwSystem;
 in
   callPackage ./generic.nix rec {
     # Please backport all compatible updates to the stable release.
     # This is important for the extension ecosystem.
-    version = "1.73.0";
+    version = "1.80.0";
     pname = "vscode";
+
+    # This is used for VS Code - Remote SSH test
+    rev = "660393deaaa6d1996740ff4880f1bad43768c814";
 
     executableName = "code" + lib.optionalString isInsiders "-insiders";
     longName = "Visual Studio Code" + lib.optionalString isInsiders " - Insiders";
     shortName = "Code" + lib.optionalString isInsiders " - Insiders";
-    inherit commandLineArgs;
+    inherit commandLineArgs useVSCodeRipgrep;
 
     src = fetchurl {
       name = "VSCode_${version}_${plat}.${archive_fmt}";
@@ -42,7 +51,22 @@ in
       inherit sha256;
     };
 
+    # We don't test vscode on CI, instead we test vscodium
+    tests = {};
+
     sourceRoot = "";
+
+    # As tests run without networking, we need to download this for the Remote SSH server
+    vscodeServer = srcOnly {
+      name = "vscode-server-${rev}.tar.gz";
+      src = fetchurl {
+        name = "vscode-server-${rev}.tar.gz";
+        url = "https://update.code.visualstudio.com/commit:${rev}/server-linux-x64/stable";
+        sha256 = "1pkpfsrd686whl9zghxxyiw3x696msh24cf67h2k9yp1d4a9cdz8";
+      };
+    };
+
+    tests = { inherit (nixosTests) vscode-remote-ssh; };
 
     updateScript = ./update-vscode.sh;
 
@@ -67,7 +91,7 @@ in
       homepage = "https://code.visualstudio.com/";
       downloadPage = "https://code.visualstudio.com/Updates";
       license = licenses.unfree;
-      maintainers = with maintainers; [ eadwu synthetica maxeaubrey bobby285271 ];
+      maintainers = with maintainers; [ eadwu synthetica maxeaubrey bobby285271 Enzime ];
       platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" "aarch64-linux" "armv7l-linux" ];
     };
   }
