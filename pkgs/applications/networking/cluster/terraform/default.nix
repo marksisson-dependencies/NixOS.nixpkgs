@@ -8,7 +8,7 @@
 , runtimeShell
 , writeText
 , terraform-providers
-, fetchpatch
+, installShellFiles
 }:
 
 let
@@ -34,13 +34,11 @@ let
           --replace "/bin/stty" "${coreutils}/bin/stty"
       '';
 
+      nativeBuildInputs = [ installShellFiles ];
+
       postInstall = ''
-        # remove all plugins, they are part of the main binary now
-        for i in $out/bin/*; do
-          if [[ $(basename $i) != terraform ]]; then
-            rm "$i"
-          fi
-        done
+        # https://github.com/posener/complete/blob/9a4745ac49b29530e07dc2581745a218b646b7a3/cmd/install/bash.go#L8
+        installShellCompletion --bash --name terraform <(echo complete -C terraform terraform)
       '';
 
       preCheck = ''
@@ -67,6 +65,7 @@ let
           zowoq
           techknowlogick
         ];
+        mainProgram = "terraform";
       };
     } // attrs');
 
@@ -121,7 +120,7 @@ let
             (orig: { passthru = orig.passthru // passthru; })
         else
           lib.appendToName "with-plugins" (stdenv.mkDerivation {
-            inherit (terraform) name meta;
+            inherit (terraform) meta pname version;
             nativeBuildInputs = [ makeWrapper ];
 
             # Expose the passthru set with the override functions
@@ -168,9 +167,9 @@ rec {
   mkTerraform = attrs: pluggable (generic attrs);
 
   terraform_1 = mkTerraform {
-    version = "1.3.9";
-    hash = "sha256-gwuUdO9m4Q2tFRLSVTbcsclOq9jcbQU4JV9nIElTkQ4=";
-    vendorHash = "sha256-CE6jNBvM0980+R0e5brK5lMrkad+91qTt9mp2h3NZyY=";
+    version = "1.5.5";
+    hash = "sha256-SBS3a/CIUdyIUJvc+rANIs+oXCQgfZut8b0517QKq64=";
+    vendorHash = "sha256-lQgWNMBf+ioNxzAV7tnTQSIS840XdI9fg9duuwoK+U4=";
     patches = [ ./provider-path-0_15.patch ];
     passthru = {
       inherit plugins;

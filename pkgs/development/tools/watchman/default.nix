@@ -1,4 +1,5 @@
 { boost
+, cargo
 , cmake
 , config
 , CoreServices
@@ -25,6 +26,7 @@
 , pkg-config
 , python3
 , rustPlatform
+, rustc
 , stateDir ? "/tmp"
 , stdenv
 , wangle
@@ -47,6 +49,7 @@ stdenv.mkDerivation rec {
     "-DBUILD_SHARED_LIBS=ON"
     "-DENABLE_EDEN_SUPPORT=NO" # requires sapling (formerly known as eden), which is not packaged in nixpkgs
     "-DWATCHMAN_STATE_DIR=${stateDir}"
+    "-DWATCHMAN_VERSION_OVERRIDE=${version}"
   ] ++ lib.optionals stdenv.isDarwin [
     "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.14" # For aligned allocation
   ];
@@ -55,11 +58,10 @@ stdenv.mkDerivation rec {
     cmake
     pkg-config
     ensureNewerSourcesForZipFilesHook
-  ] ++ (with rustPlatform; [
-    cargoSetupHook
-    rust.cargo
-    rust.rustc
-  ]);
+    rustPlatform.cargoSetupHook
+    cargo
+    rustc
+  ];
 
   buildInputs = [
     pcre

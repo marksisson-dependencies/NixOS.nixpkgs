@@ -1,28 +1,66 @@
-{ lib
-, stdenv
-, fetchCrate
-, rustPlatform
+{
+  alsa-lib
+, AppKit
+, CoreAudio
+, CoreGraphics
+, dbus
+, Foundation
+, fetchFromGitHub
+, glib
+, gst_all_1
+, IOKit
+, lib
+, MediaPlayer
+, openssl
 , pkg-config
-, alsa-lib }:
+, protobuf
+, rustPlatform
+, Security
+, sqlite
+, stdenv
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "termusic";
-  version = "0.7.8";
+  version = "0.7.11";
 
-  src = fetchCrate {
-    inherit pname version;
-    sha256 = "sha256-1RlG1/2+NuMO9zqFHQaEkEX1YrYYMjnaNprjdl1ZnHQ=";
+  src = fetchFromGitHub {
+    owner = "tramhao";
+    repo = "termusic";
+    rev = "v${version}";
+    hash = "sha256-ykOBXM/WF+zasAt+6mgY2aSFCpGaYcqk+YI7YLM3MWs=";
   };
 
-  cargoHash = "sha256-SYk2SiFbp40/6Z0aBoX4MPnPLHjEfsJKCW4cErm0D78=";
+  cargoHash = "sha256-BrOpU0RFdlRXQIMjfHfs/XYIdBCYKFSA+5by/rGzC8Y=";
 
-  nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ alsa-lib ];
+  nativeBuildInputs = [
+    pkg-config
+    protobuf
+    rustPlatform.bindgenHook
+  ];
 
-  meta = with lib; {
+  buildInputs = [
+    dbus
+    glib
+    gst_all_1.gstreamer
+    openssl
+    sqlite
+  ] ++ lib.optionals stdenv.isDarwin [
+    AppKit
+    CoreAudio
+    CoreGraphics
+    Foundation
+    IOKit
+    MediaPlayer
+    Security
+  ] ++ lib.optionals stdenv.isLinux [
+    alsa-lib
+  ];
+
+  meta = {
     description = "Terminal Music Player TUI written in Rust";
     homepage = "https://github.com/tramhao/termusic";
-    license = with licenses; [ gpl3Only ];
-    maintainers = with maintainers; [ devhell ];
+    license = with lib.licenses; [ gpl3Only ];
+    maintainers = with lib.maintainers; [ devhell ];
   };
 }

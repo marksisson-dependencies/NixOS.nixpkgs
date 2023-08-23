@@ -20,7 +20,7 @@ stdenv.mkDerivation rec {
   '';
 
   # do not let -march=skylake to enable FMA (https://lists.gnu.org/archive/html/bug-gsl/2011-11/msg00019.html)
-  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isx86_64 "-mno-fma";
+  env.NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isx86_64 "-mno-fma";
 
   # https://lists.gnu.org/archive/html/bug-gsl/2015-11/msg00012.html
   doCheck = stdenv.hostPlatform.system != "i686-linux";
@@ -40,6 +40,6 @@ stdenv.mkDerivation rec {
       fitting.  There are over 1000 functions in total with an
       extensive test suite.
     '';
-    platforms = lib.platforms.unix;
+    platforms = lib.platforms.all;
   };
 }

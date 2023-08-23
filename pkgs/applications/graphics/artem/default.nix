@@ -2,28 +2,30 @@
 , rustPlatform
 , fetchFromGitHub
 , installShellFiles
-, pkg-config
-, openssl
+, stdenv
+, darwin
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "artem";
-  version = "1.1.5";
+  version = "2.0.1_2";
 
   src = fetchFromGitHub {
     owner = "finefindus";
-    repo = pname;
+    repo = "artem";
     rev = "v${version}";
-    sha256 = "1jax39gizlcbqnkjckxwm5h0wdk5dk8dasaj9wxv7yidbcbgj4zh";
+    hash = "sha256-R7ouOFeLKnTZI6NbAg8SkkSo4zh9AwPiMPNqhPthpCk=";
   };
 
-  cargoSha256 = "sha256-n2NOWrgcMVHpNCHL7r8+Kl1e01XYadaNM7UdE8fQo1U=";
+  cargoHash = "sha256-sbIINbuIbu38NrYr87ljJJD7Y9Px0o6Qv/MGX8N54Rc=";
 
-  nativeBuildInputs = [ installShellFiles pkg-config ];
+  nativeBuildInputs = [
+    installShellFiles
+  ];
 
-  buildInputs = [ openssl ];
-
-  OPENSSL_NO_VENDOR = 1;
+  buildInputs = lib.optionals stdenv.isDarwin [
+    darwin.apple_sdk.frameworks.Security
+  ];
 
   checkFlags = [
     # require internet access
@@ -33,6 +35,11 @@ rustPlatform.buildRustPackage rec {
     # flaky
     "--skip=full_file_compare_html"
   ];
+
+  # Cargo.lock is outdated
+  postConfigure = ''
+    cargo metadata --offline
+  '';
 
   postInstall = ''
     installManPage $releaseDir/build/artem-*/out/artem.1

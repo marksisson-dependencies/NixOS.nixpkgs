@@ -1,17 +1,17 @@
-{ stdenv, lib, buildGoModule, fetchFromGitHub, installShellFiles }:
+{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
 
 buildGoModule rec {
   pname = "steampipe";
-  version = "0.18.5";
+  version = "0.20.10";
 
   src = fetchFromGitHub {
     owner = "turbot";
     repo = "steampipe";
     rev = "v${version}";
-    sha256 = "sha256-Y/Nn2jAkz135HxRNpeotoPRvyexG9QgtvIcTdXsj034=";
+    sha256 = "sha256-v0ZVyiFHiRsn6ARA7sLCfNfoljTFegCXb1/C4sY0vfg=";
   };
 
-  vendorHash = "sha256-W30f7QYgm+QyLDJICpjMn7mtUIziTR1igThEbv+Aa7M=";
+  vendorHash = "sha256-VuUzo+afUazXH7jaR4Qm5Kfr6qiyHqdGLJWS3MX8oOA=";
   proxyVendor = true;
 
   patchPhase = ''

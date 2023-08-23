@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "redis_exporter";
-  version = "1.46.0";
+  version = "1.52.0";
 
   src = fetchFromGitHub {
     owner = "oliver006";
     repo = "redis_exporter";
     rev = "v${version}";
-    sha256 = "sha256-5OZ4DuGIVMw0Yvd4JC+dbX01RAUAZHmROzl+7Pd6+tc=";
+    sha256 = "sha256-DVl67+pouQHg26vF5ONntPjQfyxnLusI3LTpT96ogNw=";
   };
 
-  vendorHash = "sha256-p6C/j1591cmPtIvBH1022YRkfBo07KQ8fqUwJ5YIUn8=";
+  vendorHash = "sha256-nezvUbKZ8yi7Etp/dg3sT2g5bWBFMYZimt31NT91BEo=";
 
   ldflags = [
     "-X main.BuildVersion=${version}"
@@ -26,9 +26,8 @@ buildGoModule rec {
 
   meta = with lib; {
     description = "Prometheus exporter for Redis metrics";
-    inherit (src.meta) homepage;
+    homepage = "https://github.com/oliver006/redis_exporter";
     license = licenses.mit;
-    maintainers = with maintainers; [ eskytthe srhb ];
-    platforms = platforms.unix;
+    maintainers = with maintainers; [ eskytthe srhb ma27 ];
   };
 }

@@ -11,11 +11,11 @@ stdenv.mkDerivation rec {
     hash = "sha256-qE5i4dGugm7tR5tgDCpbla/R7hYR/PI8BzrZQ4y6Yz8=";
   };
 
-  sourceRoot = "source/octomap";
+  sourceRoot = "${src.name}/octomap";
 
   nativeBuildInputs = [ cmake ];
 
-  NIX_CFLAGS_COMPILE = [
+  env.NIX_CFLAGS_COMPILE = toString [
     # Needed with GCC 12
     "-Wno-error=deprecated-declarations"
   ];

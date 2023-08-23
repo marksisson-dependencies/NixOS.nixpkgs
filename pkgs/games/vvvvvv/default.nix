@@ -26,7 +26,7 @@ stdenv.mkDerivation rec {
     rev = version;
     sha256 = "sha256-sLNO4vkmlirsqJmCV9YWpyNnIiigU1KMls7rOgWgSmQ=";
   };
-  sourceRoot = "source/desktop_version";
+  sourceRoot = "${src.name}/desktop_version";
   dataZip = fetchurl {
     url = "https://thelettervsixtim.es/makeandplay/data.zip";
     name = "data.zip";
@@ -49,7 +49,7 @@ stdenv.mkDerivation rec {
   ] ++ lib.optionals stdenv.isDarwin [ Foundation IOKit ];
 
   # Help CMake find SDL_mixer.h
-  NIX_CFLAGS_COMPILE = "-I${lib.getDev SDL2_mixer}/include/SDL2";
+  env.NIX_CFLAGS_COMPILE = "-I${lib.getDev SDL2_mixer}/include/SDL2";
 
   cmakeFlags = [ "-DBUNDLE_DEPENDENCIES=OFF" ] ++ lib.optional makeAndPlay "-DMAKEANDPLAY=ON";
 
