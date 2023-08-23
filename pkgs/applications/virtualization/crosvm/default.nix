@@ -1,35 +1,35 @@
-{ stdenv, lib, rust, rustPlatform, fetchgit, fetchpatch
-, clang, pkg-config, protobuf, python3, wayland-scanner
+{ lib, rustPlatform, fetchgit, fetchpatch
+, pkg-config, protobuf, python3, wayland-scanner
 , libcap, libdrm, libepoxy, minijail, virglrenderer, wayland, wayland-protocols
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "crosvm";
-  version = "107.1";
+  version = "115.2";
 
   src = fetchgit {
     url = "https://chromium.googlesource.com/chromiumos/platform/crosvm";
-    rev = "5a49a836e63aa6e9ae38b80daa09a013a57bfb7f";
-    sha256 = "F+5i3R7Tbd9xF63Olnyavzg/hD+8HId1duWm8bvAmLA=";
+    rev = "d14053a211eb6753c53ced71fad2d3b402b997e6";
+    sha256 = "8p6M9Q9E07zqtHYdIIi6io9LLatd+9fH4Inod2Xjy5M=";
     fetchSubmodules = true;
   };
 
-  separateDebugInfo = true;
-
   patches = [
-    # Backport seccomp sandbox update for recent Glibc.
-    # fetchpatch is not currently gerrit/gitiles-compatible, so we
-    # have to use the mirror.
-    # https://github.com/NixOS/nixpkgs/pull/133604
+    # Backport option to not vendor virglrenderer.
     (fetchpatch {
-      url = "https://github.com/google/crosvm/commit/aae01416807e7c15270b3d44162610bcd73952ff.patch";
-      sha256 = "nQuOMOwBu8QvfwDSuTz64SQhr2dF9qXt2NarbIU55tU=";
+      url = "https://chromium.googlesource.com/crosvm/crosvm/+/dde9aa0e6d89a090f5d5f000822f7911eba98445%5E%21/?format=TEXT";
+      decode = "base64 -d";
+      hash = "sha256-W/s1i2reBXsbr0AOEtL9go3TNNYMwDVEu6pz3Q9wBSU=";
     })
   ];
 
-  cargoSha256 = "1jg9x5adz1lbqdwnzld4xg4igzmh90nd9xm287cgkvh5fbmsjfjv";
+  separateDebugInfo = true;
 
-  nativeBuildInputs = [ clang pkg-config protobuf python3 wayland-scanner ];
+  cargoSha256 = "ZXyMeu2forItGcsGrNBWhV1V9HzVQK6LM4TxBrxAZnU=";
+
+  nativeBuildInputs = [
+    pkg-config protobuf python3 rustPlatform.bindgenHook wayland-scanner
+  ];
 
   buildInputs = [
     libcap libdrm libepoxy minijail virglrenderer wayland wayland-protocols
@@ -37,17 +37,9 @@ rustPlatform.buildRustPackage rec {
 
   preConfigure = ''
     patchShebangs third_party/minijail/tools/*.py
-    substituteInPlace build.rs --replace '"clang"' '"${stdenv.cc.targetPrefix}clang"'
   '';
 
-  "CARGO_TARGET_${lib.toUpper (builtins.replaceStrings ["-"] ["_"] (rust.toRustTarget stdenv.hostPlatform))}_LINKER" =
-    "${stdenv.cc.targetPrefix}cc";
-
-  # crosvm mistakenly expects the stable protocols to be in the root
-  # of the pkgdatadir path, rather than under the "stable"
-  # subdirectory.
-  PKG_CONFIG_WAYLAND_PROTOCOLS_PKGDATADIR =
-    "${wayland-protocols}/share/wayland-protocols/stable";
+  CROSVM_USE_SYSTEM_VIRGLRENDERER = true;
 
   buildFeatures = [ "default" "virgl_renderer" "virgl_renderer_next" ];
 

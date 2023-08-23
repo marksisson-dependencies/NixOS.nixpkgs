@@ -3,6 +3,7 @@
 , stdenv
 , fetchurl
 , fetchFromGitHub
+, gitUpdater
 , cctools
 , sigtool
 , cereal
@@ -23,7 +24,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "MoltenVK";
-  version = "1.2.1";
+  version = "1.2.4";
 
   buildInputs = [
     AppKit
@@ -46,7 +47,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "KhronosGroup";
     repo = "MoltenVK";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-JqHPKLSFq+8hyOjVZbjh4AsHM8zSF7ZVxlEePmnEC2w=";
+    hash = "sha256-BL46BgZHUpk0dpzmeZ/2W0msHxFwieeGDjmVB8Nb1J4=";
   };
 
   patches = [
@@ -73,7 +74,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   dontConfigure = true;
 
-  NIX_CFLAGS_COMPILE = [
+  env.NIX_CFLAGS_COMPILE = toString [
     "-isystem ${lib.getDev libcxx}/include/c++/v1"
     "-I${lib.getDev spirv-cross}/include/spirv_cross"
     "-I${lib.getDev spirv-headers}/include/spirv/unified1/"
@@ -144,7 +145,12 @@ stdenv.mkDerivation (finalAttrs: {
   postFixup = ''
     install_name_tool -id "$out/lib/libMoltenVK.dylib" "$out/lib/libMoltenVK.dylib"
     codesign -s - -f "$out/lib/libMoltenVK.dylib"
+    codesign -s - -f "$bin/bin/MoltenVKShaderConverter"
   '';
+
+  passthru.updateScript = gitUpdater {
+    rev-prefix = "v";
+  };
 
   meta = {
     description = "A Vulkan Portability implementation built on top of Apple’s Metal API";

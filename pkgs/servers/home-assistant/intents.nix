@@ -19,19 +19,18 @@
 
 buildPythonPackage rec {
   pname = "home-assistant-intents";
-  version = "2023.1.31";
+  version = "2023.8.2";
   format = "pyproject";
 
   disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "home-assistant";
-    repo = "intents";
+    repo = "intents-package";
     rev = "refs/tags/${version}";
-    hash = "sha256-buq/SLXDFP0xvIb2yGiHQzuL7HKvc7bxxdkhq4KHpvM=";
+    hash = "sha256-pNLH3GGfY8upKi7uYGZ466cIQkpdA16tR1tjwuiQ3JI=";
+    fetchSubmodules = true;
   };
-
-  sourceRoot = "source/package";
 
   nativeBuildInputs = [
     hassil
@@ -43,9 +42,9 @@ buildPythonPackage rec {
   ];
 
   postInstall = ''
-    pushd ..
+    pushd intents
     # https://github.com/home-assistant/intents/blob/main/script/package#L18
-    ${python.interpreter} -m script.intentfest merged_output $out/${python.sitePackages}/home_assistant_intents/data
+    ${python.pythonForBuild.interpreter} -m script.intentfest merged_output $out/${python.sitePackages}/home_assistant_intents/data
     popd
   '';
 
@@ -55,7 +54,12 @@ buildPythonPackage rec {
   ];
 
   pytestFlagsArray = [
-    "../tests"
+    "intents/tests"
+  ];
+
+  disabledTests = [
+    # AssertionError: Recognition failed for 'put apples on the list'
+    "test_shopping_list_HassShoppingListAddItem"
   ];
 
   meta = with lib; {

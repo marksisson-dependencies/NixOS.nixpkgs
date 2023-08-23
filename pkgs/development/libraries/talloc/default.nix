@@ -13,11 +13,11 @@
 
 stdenv.mkDerivation rec {
   pname = "talloc";
-  version = "2.3.4";
+  version = "2.4.1";
 
   src = fetchurl {
     url = "mirror://samba/talloc/${pname}-${version}.tar.gz";
-    sha256 = "sha256-F5+eviZeZ+SrLCbK0rfeS2p3xsIS+WaQM4KGnwa+ZQU=";
+    sha256 = "sha256-QQpUfwhVcAe+DogZTyGIaDWO3Aq5jJi6jBZ5MNs9M/k=";
   };
 
   nativeBuildInputs = [
@@ -71,5 +71,6 @@ stdenv.mkDerivation rec {
     homepage = "https://tdb.samba.org/";
     license = licenses.gpl3;
     platforms = platforms.all;
+    maintainers = [ maintainers.matthiasbeyer ];
   };
 }

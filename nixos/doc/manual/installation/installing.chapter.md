@@ -249,14 +249,14 @@ update /etc/fstab.
     which will be used by the boot partition.
 
     ```ShellSession
-    # parted /dev/sda -- mkpart primary 512MB -8GB
+    # parted /dev/sda -- mkpart root ext4 512MB -8GB
     ```
 
 3.  Next, add a *swap* partition. The size required will vary according
     to needs, here a 8GB one is created.
 
     ```ShellSession
-    # parted /dev/sda -- mkpart primary linux-swap -8GB 100%
+    # parted /dev/sda -- mkpart swap linux-swap -8GB 100%
     ```
 
     ::: {.note}
@@ -428,7 +428,7 @@ Use the following commands:
 
     UEFI systems
 
-    :   You must select a boot-loader, either system-boot or GRUB. The recommended
+    :   You must select a boot-loader, either systemd-boot or GRUB. The recommended
         option is systemd-boot: set the option [](#opt-boot.loader.systemd-boot.enable)
         to `true`. `nixos-generate-config` should do this automatically
         for new configurations when booted in UEFI mode.
@@ -441,10 +441,10 @@ Use the following commands:
         If you want to use GRUB, set [](#opt-boot.loader.grub.device) to `nodev` and
         [](#opt-boot.loader.grub.efiSupport) to `true`.
 
-        With system-boot, you should not need any special configuration to detect
+        With systemd-boot, you should not need any special configuration to detect
         other installed systems. With GRUB, set [](#opt-boot.loader.grub.useOSProber)
-        to `true`, but this will only detect windows partitions, not other linux
-        distributions. If you dual boot another linux distribution, use system-boot
+        to `true`, but this will only detect windows partitions, not other Linux
+        distributions. If you dual boot another Linux distribution, use systemd-boot
         instead.
 
     If you need to configure networking for your machine the
@@ -538,7 +538,7 @@ drive (here `/dev/sda`). [Example: NixOS Configuration](#ex-config) shows a
 corresponding configuration Nix expression.
 
 ::: {#ex-partition-scheme-MBR .example}
-**Example: Example partition schemes for NixOS on `/dev/sda` (MBR)**
+### Example partition schemes for NixOS on `/dev/sda` (MBR)
 ```ShellSession
 # parted /dev/sda -- mklabel msdos
 # parted /dev/sda -- mkpart primary 1MB -8GB
@@ -547,18 +547,18 @@ corresponding configuration Nix expression.
 :::
 
 ::: {#ex-partition-scheme-UEFI .example}
-**Example: Example partition schemes for NixOS on `/dev/sda` (UEFI)**
+### Example partition schemes for NixOS on `/dev/sda` (UEFI)
 ```ShellSession
 # parted /dev/sda -- mklabel gpt
-# parted /dev/sda -- mkpart primary 512MB -8GB
-# parted /dev/sda -- mkpart primary linux-swap -8GB 100%
+# parted /dev/sda -- mkpart root ext4 512MB -8GB
+# parted /dev/sda -- mkpart swap linux-swap -8GB 100%
 # parted /dev/sda -- mkpart ESP fat32 1MB 512MB
 # parted /dev/sda -- set 3 esp on
 ```
 :::
 
 ::: {#ex-install-sequence .example}
-**Example: Commands for Installing NixOS on `/dev/sda`**
+### Commands for Installing NixOS on `/dev/sda`
 
 With a partitioned disk.
 
@@ -578,7 +578,7 @@ With a partitioned disk.
 :::
 
 ::: {#ex-config .example}
-**Example: NixOS Configuration**
+### Example: NixOS Configuration
 ```ShellSession
 { config, pkgs, ... }: {
   imports = [
@@ -602,11 +602,11 @@ With a partitioned disk.
 
 ## Additional installation notes {#sec-installation-additional-notes}
 
-```{=docbook}
-<xi:include href="installing-usb.section.xml" />
-<xi:include href="installing-pxe.section.xml" />
-<xi:include href="installing-kexec.section.xml" />
-<xi:include href="installing-virtualbox-guest.section.xml" />
-<xi:include href="installing-from-other-distro.section.xml" />
-<xi:include href="installing-behind-a-proxy.section.xml" />
+```{=include=} sections
+installing-usb.section.md
+installing-pxe.section.md
+installing-kexec.section.md
+installing-virtualbox-guest.section.md
+installing-from-other-distro.section.md
+installing-behind-a-proxy.section.md
 ```

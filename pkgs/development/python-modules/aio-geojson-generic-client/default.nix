@@ -1,7 +1,6 @@
 { lib
 , aiohttp
 , aresponses
-, asynctest
 , buildPythonPackage
 , aio-geojson-client
 , fetchFromGitHub
@@ -31,9 +30,10 @@ buildPythonPackage rec {
     pytz
   ];
 
+  __darwinAllowLocalNetworking = true;
+
   nativeCheckInputs = [
     aresponses
-    asynctest
     pytest-asyncio
     pytestCheckHook
   ];

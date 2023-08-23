@@ -6,7 +6,7 @@
 mkChromiumDerivation (base: rec {
   name = "chromium-browser";
   packageName = "chromium";
-  buildTargets = [ "mksnapshot" "chrome_sandbox" "chrome" ];
+  buildTargets = [ "run_mksnapshot_default" "chrome_sandbox" "chrome" ];
 
   outputs = ["out" "sandbox"];
 
@@ -82,17 +82,15 @@ mkChromiumDerivation (base: rec {
       of source code for Google Chrome (which has some additional features).
     '';
     homepage = if ungoogled
-      then "https://github.com/Eloston/ungoogled-chromium"
+      then "https://github.com/ungoogled-software/ungoogled-chromium"
       else "https://www.chromium.org/";
     maintainers = with lib.maintainers; if ungoogled
-      then [ squalus primeos michaeladler ]
-      else [ primeos thefloweringash ];
+      then [ squalus primeos michaeladler networkexception ]
+      else [ primeos thefloweringash networkexception ];
     license = if enableWideVine then lib.licenses.unfree else lib.licenses.bsd3;
     platforms = lib.platforms.linux;
     mainProgram = "chromium";
-    hydraPlatforms = if (channel == "stable" || channel == "ungoogled-chromium")
-      then ["aarch64-linux" "x86_64-linux"]
-      else [];
+    hydraPlatforms = lib.optionals (channel == "stable" || channel == "ungoogled-chromium") ["aarch64-linux" "x86_64-linux"];
     timeout = 172800; # 48 hours (increased from the Hydra default of 10h)
   };
 })

@@ -9,7 +9,7 @@ with pkgs.lib;
 let
   # A testScript fragment that prepares a disk with some empty, unpartitioned
   # space. and uses it to boot the test with. Takes a single argument `machine`
-  # from which the diskImage is extraced.
+  # from which the diskImage is extracted.
   useDiskImage = machine: ''
     import os
     import shutil
@@ -21,7 +21,7 @@ let
     shutil.copyfile("${machine.system.build.diskImage}/nixos.img", tmp_disk_image.name)
 
     subprocess.run([
-      "${pkgs.qemu}/bin/qemu-img",
+      "${machine.config.virtualisation.qemu.package}/bin/qemu-img",
       "resize",
       "-f",
       "raw",
@@ -52,15 +52,12 @@ let
       };
     };
 
-    boot.initrd.systemd.enable = true;
-    boot.initrd.systemd.repart.enable = true;
-
     # systemd-repart operates on disks with a partition table. The qemu module,
     # however, creates separate filesystem images without a partition table, so
     # we have to create a disk image manually.
     #
-    # This creates two partitions, an ESP mounted on /dev/vda1 and the root
-    # partition mounted on /dev/vda2
+    # This creates two partitions, an ESP available as /dev/vda1 and the root
+    # partition available as /dev/vda2.
     system.build.diskImage = import ../lib/make-disk-image.nix {
       inherit config pkgs lib;
       # Use a raw format disk so that it can be resized before starting the
@@ -88,7 +85,10 @@ in
     nodes.machine = { config, pkgs, ... }: {
       imports = [ common ];
 
-      boot.initrd.systemd.repart.partitions = {
+      boot.initrd.systemd.enable = true;
+
+      boot.initrd.systemd.repart.enable = true;
+      systemd.repart.partitions = {
         "10-root" = {
           Type = "linux-generic";
         };
@@ -103,6 +103,90 @@ in
 
       systemd_repart_logs = machine.succeed("journalctl --boot --unit systemd-repart.service")
       assert "Growing existing partition 1." in systemd_repart_logs
+    '';
+  };
+
+  after-initrd = makeTest {
+    name = "systemd-repart-after-initrd";
+    meta.maintainers = with maintainers; [ nikstur ];
+
+    nodes.machine = { config, pkgs, ... }: {
+      imports = [ common ];
+
+      systemd.repart.enable = true;
+      systemd.repart.partitions = {
+        "10-root" = {
+          Type = "linux-generic";
+        };
+      };
+    };
+
+    testScript = { nodes, ... }: ''
+      ${useDiskImage nodes.machine}
+
+      machine.start()
+      machine.wait_for_unit("multi-user.target")
+
+      systemd_repart_logs = machine.succeed("journalctl --unit systemd-repart.service")
+      assert "Growing existing partition 1." in systemd_repart_logs
+    '';
+  };
+
+  create-root = makeTest {
+    name = "systemd-repart-create-root";
+    meta.maintainers = with maintainers; [ nikstur ];
+
+    nodes.machine = { config, lib, pkgs, ... }: {
+      virtualisation.useDefaultFilesystems = false;
+      virtualisation.fileSystems = {
+        "/" = {
+          device = "/dev/disk/by-partlabel/created-root";
+          fsType = "ext4";
+        };
+        "/nix/store" = {
+          device = "/dev/vda2";
+          fsType = "ext4";
+        };
+      };
+
+      # Create an image containing only the Nix store. This enables creating
+      # the root partition with systemd-repart and then successfully booting
+      # into a working system.
+      #
+      # This creates two partitions, an ESP available as /dev/vda1 and the Nix
+      # store available as /dev/vda2.
+      system.build.diskImage = import ../lib/make-disk-image.nix {
+        inherit config pkgs lib;
+        onlyNixStore = true;
+        format = "raw";
+        bootSize = "32M";
+        additionalSpace = "0M";
+        partitionTableType = "efi";
+        installBootLoader = false;
+        copyChannel = false;
+      };
+
+      boot.initrd.systemd.enable = true;
+
+      boot.initrd.systemd.repart.enable = true;
+      boot.initrd.systemd.repart.device = "/dev/vda";
+      systemd.repart.partitions = {
+        "10-root" = {
+          Type = "root";
+          Label = "created-root";
+          Format = "ext4";
+        };
+      };
+    };
+
+    testScript = { nodes, ... }: ''
+      ${useDiskImage nodes.machine}
+
+      machine.start()
+      machine.wait_for_unit("multi-user.target")
+
+      systemd_repart_logs = machine.succeed("journalctl --boot --unit systemd-repart.service")
+      assert "Adding new partition 2 to partition table." in systemd_repart_logs
     '';
   };
 }

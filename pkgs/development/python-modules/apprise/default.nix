@@ -19,14 +19,14 @@
 
 buildPythonPackage rec {
   pname = "apprise";
-  version = "1.2.1";
+  version = "1.4.5";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-Z+DCJ+7O4mAACYDbv4uh5e69vklPRzCAgpfJ5kXANXk=";
+    hash = "sha256-t8ZlE8VFZpCimO2IfJAW3tQvFeNl0WFC5yi3T3z/7oI=";
   };
 
   nativeBuildInputs = [
@@ -73,7 +73,7 @@ buildPythonPackage rec {
     description = "Push Notifications that work with just about every platform";
     homepage = "https://github.com/caronc/apprise";
     changelog = "https://github.com/caronc/apprise/releases/tag/v${version}";
-    license = licenses.mit;
+    license = licenses.bsd3;
     maintainers = with maintainers; [ marsam ];
   };
 }

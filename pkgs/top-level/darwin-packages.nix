@@ -1,8 +1,9 @@
 { lib
 , buildPackages, pkgs, targetPackages
-, generateSplicesForMkScope, makeScopeWithSplicing
+, generateSplicesForMkScope, makeScopeWithSplicing'
 , stdenv
 , preLibcCrossHeaders
+, config
 }:
 
 let
@@ -14,7 +15,10 @@ let
                                         (stdenv.targetPlatform.config + "-");
 in
 
-makeScopeWithSplicing (generateSplicesForMkScope "darwin") (_: {}) (spliced: spliced.apple_sdk.frameworks) (self: let
+makeScopeWithSplicing' {
+  otherSplices = generateSplicesForMkScope "darwin";
+  extra = spliced: spliced.apple_sdk.frameworks;
+  f = (self: let
   inherit (self) mkDerivation callPackage;
 
   # Must use pkgs.callPackage to avoid infinite recursion.
@@ -41,7 +45,7 @@ makeScopeWithSplicing (generateSplicesForMkScope "darwin") (_: {}) (spliced: spl
   useAppleSDKLibs = stdenv.hostPlatform.isAarch64;
 
   selectAttrs = attrs: names:
-    lib.listToAttrs (lib.concatMap (n: if attrs ? "${n}" then [(lib.nameValuePair n attrs."${n}")] else []) names);
+    lib.listToAttrs (lib.concatMap (n: lib.optionals (attrs ? "${n}") [(lib.nameValuePair n attrs."${n}")]) names);
 
   chooseLibs = (
     # There are differences in which libraries are exported. Avoid evaluation
@@ -100,15 +104,21 @@ impure-cmds // appleSourcePackages // chooseLibs // {
     bintools = self.binutils-unwrapped;
   };
 
-  cctools = callPackage ../os-specific/darwin/cctools/port.nix {
-    stdenv = if stdenv.isDarwin then stdenv else pkgs.libcxxStdenv;
-  };
+  cctools = self.cctools-llvm;
 
   cctools-apple = callPackage ../os-specific/darwin/cctools/apple.nix {
     stdenv = if stdenv.isDarwin then stdenv else pkgs.libcxxStdenv;
   };
 
-  # TODO: remove alias.
+  cctools-llvm = callPackage ../os-specific/darwin/cctools/llvm.nix {
+    stdenv = if stdenv.isDarwin then stdenv else pkgs.libcxxStdenv;
+  };
+
+  cctools-port = callPackage ../os-specific/darwin/cctools/port.nix {
+    stdenv = if stdenv.isDarwin then stdenv else pkgs.libcxxStdenv;
+  };
+
+  # TODO(@connorbaker): See https://github.com/NixOS/nixpkgs/issues/229389.
   cf-private = self.apple_sdk.frameworks.CoreFoundation;
 
   DarwinTools = callPackage ../os-specific/darwin/DarwinTools { };
@@ -121,28 +131,18 @@ impure-cmds // appleSourcePackages // chooseLibs // {
 
   checkReexportsHook = pkgs.makeSetupHook {
     name = "darwin-check-reexports-hook";
-    deps = [ pkgs.darwin.print-reexports ];
+    propagatedBuildInputs = [ pkgs.darwin.print-reexports ];
   } ../os-specific/darwin/print-reexports/setup-hook.sh;
 
   sigtool = callPackage ../os-specific/darwin/sigtool { };
 
-  postLinkSignHook = pkgs.writeTextFile {
-    name = "post-link-sign-hook";
-    executable = true;
-
-    text = ''
-      if [ "$linkerOutput" != "/dev/null" ]; then
-        CODESIGN_ALLOCATE=${targetPrefix}codesign_allocate \
-          ${self.sigtool}/bin/codesign -f -s - "$linkerOutput"
-      fi
-    '';
-  };
-
   signingUtils = callPackage ../os-specific/darwin/signing-utils { };
+
+  postLinkSignHook = callPackage ../os-specific/darwin/signing-utils/post-link-sign-hook.nix { };
 
   autoSignDarwinBinariesHook = pkgs.makeSetupHook {
     name = "auto-sign-darwin-binaries-hook";
-    deps = [ self.signingUtils ];
+    propagatedBuildInputs = [ self.signingUtils ];
   } ../os-specific/darwin/signing-utils/auto-sign-hook.sh;
 
   maloader = callPackage ../os-specific/darwin/maloader {
@@ -182,9 +182,12 @@ impure-cmds // appleSourcePackages // chooseLibs // {
 
   inherit (pkgs.callPackages ../os-specific/darwin/xcode { })
     xcode_8_1 xcode_8_2
-    xcode_9_1 xcode_9_2 xcode_9_4 xcode_9_4_1
-    xcode_10_2 xcode_10_2_1 xcode_10_3
-    xcode_11
+    xcode_9_1 xcode_9_2 xcode_9_3 xcode_9_4 xcode_9_4_1
+    xcode_10_1 xcode_10_2 xcode_10_2_1 xcode_10_3
+    xcode_11 xcode_11_1 xcode_11_2 xcode_11_3_1 xcode_11_4 xcode_11_5 xcode_11_6 xcode_11_7
+    xcode_12 xcode_12_0_1 xcode_12_1 xcode_12_2 xcode_12_3 xcode_12_4 xcode_12_5 xcode_12_5_1
+    xcode_13 xcode_13_1 xcode_13_2 xcode_13_3 xcode_13_3_1 xcode_13_4 xcode_13_4_1
+    xcode_14 xcode_14_1
     xcode;
 
   CoreSymbolication = callPackage ../os-specific/darwin/CoreSymbolication { };
@@ -213,8 +216,6 @@ impure-cmds // appleSourcePackages // chooseLibs // {
   # As the name says, this is broken, but I don't want to lose it since it's a direction we want to go in
   # libdispatch-broken = callPackage ../os-specific/darwin/swift-corelibs/libdispatch.nix { };
 
-  darling = callPackage ../os-specific/darwin/darling/default.nix { };
-
   libtapi = callPackage ../os-specific/darwin/libtapi {};
 
   ios-deploy = callPackage ../os-specific/darwin/ios-deploy {};
@@ -222,7 +223,7 @@ impure-cmds // appleSourcePackages // chooseLibs // {
   discrete-scroll = callPackage ../os-specific/darwin/discrete-scroll { };
 
   # See doc/builders/special/darwin-builder.section.md
-  builder =
+  linux-builder = lib.makeOverridable ({ modules }:
     let
       toGuest = builtins.replaceStrings [ "darwin" ] [ "linux" ];
 
@@ -230,7 +231,7 @@ impure-cmds // appleSourcePackages // chooseLibs // {
         configuration = {
           imports = [
             ../../nixos/modules/profiles/macos-builder.nix
-          ];
+          ] ++ modules;
 
           virtualisation.host = { inherit pkgs; };
         };
@@ -239,5 +240,9 @@ impure-cmds // appleSourcePackages // chooseLibs // {
       };
 
     in
-      nixos.config.system.build.macos-builder-installer;
-})
+      nixos.config.system.build.macos-builder-installer) { modules = [ ]; };
+
+} // lib.optionalAttrs config.allowAliases {
+  builder = throw "'darwin.builder' has been changed and renamed to 'darwin.linux-builder'. The default ssh port is now 31022. Please update your configuration or override the port back to 22. See https://nixos.org/manual/nixpkgs/unstable/#sec-darwin-builder"; # added 2023-07-06
+});
+}

@@ -4,11 +4,13 @@
 , fetchFromGitHub
 , git
 , httpx
+, lxml
 , packaging
 , poetry-core
 , pytestCheckHook
 , python-dateutil
 , pythonOlder
+, semver
 , rich
 , tomlkit
 , typing-extensions
@@ -16,16 +18,16 @@
 
 buildPythonPackage rec {
   pname = "pontos";
-  version = "23.2.8";
+  version = "23.8.5";
   format = "pyproject";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "greenbone";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-yxE+Gx48JQE++7SB8ouwgh2/rKKv8CC0QQSvwaSeFVc=";
+    hash = "sha256-mWnQIQEG1kTytAarhdNf2AI2Sq4TSfNtCN3riklNAeQ=";
   };
 
   nativeBuildInputs = [
@@ -35,8 +37,10 @@ buildPythonPackage rec {
   propagatedBuildInputs = [
     colorful
     httpx
+    lxml
     packaging
     python-dateutil
+    semver
     rich
     typing-extensions
     tomlkit
@@ -61,6 +65,11 @@ buildPythonPackage rec {
     # Network access
     "test_fail_sign_on_upload_fail"
     "test_successfully_sign"
+    # calls git log, but our fetcher removes .git
+    "test_git_error"
+    # Tests require git executable
+    "test_github_action_output"
+    "test_initial_release"
   ];
 
   pythonImportsCheck = [

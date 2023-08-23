@@ -7,6 +7,7 @@
 , makeWrapper
 , openresolv
 , procps
+, bash
 }:
 
 stdenv.mkDerivation rec {
@@ -20,9 +21,11 @@ stdenv.mkDerivation rec {
 
   outputs = [ "out" "man" ];
 
-  sourceRoot = "source/src";
+  sourceRoot = "${src.name}/src";
 
   nativeBuildInputs = [ makeWrapper ];
+
+  buildInputs = [ bash ];
 
   makeFlags = [
     "DESTDIR=$(out)"

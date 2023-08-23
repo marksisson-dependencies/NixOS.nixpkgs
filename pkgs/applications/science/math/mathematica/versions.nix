@@ -8,6 +8,34 @@
 
 let versions = [
   {
+    version = "13.3.0";
+    lang = "en";
+    language = "English";
+    sha256 = "sha256-24MC0O+kBUe3TrwXUb+7QZt8tQHvWVIT8F9B6Ih+4k8=";
+    installer = "Mathematica_13.3.0_LINUX.sh";
+  }
+  {
+    version = "13.3.0";
+    lang = "en";
+    language = "English";
+    sha256 = "sha256-91bw7+4ht+7g+eF32BNYf77yEQWyuPffisj4kB63pcI=";
+    installer = "Mathematica_13.3.0_BNDL_LINUX.sh";
+  }
+  {
+    version = "13.2.1";
+    lang = "en";
+    language = "English";
+    sha256 = "sha256-GA2k+jvE4mTJsIbMHce5c516h/glHLnXdthEfnNmk0w=";
+    installer = "Mathematica_13.2.1_LINUX.sh";
+  }
+  {
+    version = "13.2.1";
+    lang = "en";
+    language = "English";
+    sha256 = "sha256-ZvgG2W/gjQIo4hyXHsGta5FyTslrz/ltOe/ZK/U2Sx8=";
+    installer = "Mathematica_13.2.1_BNDL_LINUX.sh";
+  }
+  {
     version = "13.2.0";
     lang = "en";
     language = "English";

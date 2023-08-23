@@ -4,6 +4,7 @@
 , socat
 , iptables
 , iproute2
+, ipset
 , bridge-utils
 , btrfs-progs
 , conntrack-tools
@@ -21,6 +22,7 @@
 , fetchgit
 , zstd
 , yq-go
+, sqlite
 , nixosTests
 , pkgsBuildBuild
 , k3s
@@ -170,10 +172,12 @@ let
     vendorSha256 = k3sVendorSha256;
 
     nativeBuildInputs = [ pkg-config ];
-    buildInputs = [ libseccomp ];
+    buildInputs = [ libseccomp sqlite.dev ];
 
     subPackages = [ "cmd/server" ];
     ldflags = versionldflags;
+
+    tags = [ "libsqlite3" "linux" ];
 
     # create the multicall symlinks for k3s
     postInstall = ''
@@ -249,6 +253,7 @@ buildGoModule rec {
     socat
     iptables
     iproute2
+    ipset
     bridge-utils
     ethtool
     util-linux # kubelet wants 'nsenter' from util-linux: https://github.com/kubernetes/kubernetes/issues/26093#issuecomment-705994388
@@ -312,6 +317,9 @@ buildGoModule rec {
     wrapProgram $out/bin/k3s \
       --prefix PATH : ${lib.makeBinPath k3sRuntimeDeps} \
       --prefix PATH : "$out/bin"
+    ln -s $out/bin/k3s $out/bin/kubectl
+    ln -s $out/bin/k3s $out/bin/crictl
+    ln -s $out/bin/k3s $out/bin/ctr
   '';
 
   doInstallCheck = true;
@@ -322,8 +330,7 @@ buildGoModule rec {
   # Fix-Me: Needs to be adapted specifically for 1.25
   # passthru.updateScript = ./update.sh;
 
-  # Fix-Me: Needs to be adapted specifically for 1.25
-  # passthru.tests = nixosTests.k3s;
+  passthru.tests = k3s.passthru.mkTests k3sVersion;
 
   meta = baseMeta;
 }

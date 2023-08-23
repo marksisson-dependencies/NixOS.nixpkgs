@@ -1,12 +1,12 @@
 { lib
 , aiohttp
 , aresponses
-, asynctest
 , backoff
 , beautifulsoup4
 , buildPythonPackage
 , docutils
 , fetchFromGitHub
+, fetchpatch
 , poetry-core
 , pytest-aiohttp
 , pytest-asyncio
@@ -20,17 +20,31 @@
 
 buildPythonPackage rec {
   pname = "simplisafe-python";
-  version = "2022.12.1";
+  version = "2023.05.0";
   format = "pyproject";
 
-  disabled = pythonOlder "3.8";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "bachya";
     repo = pname;
     rev = "refs/tags/${version}";
-    hash = "sha256-AOlO4K8ku+auEKw7OmgEo5E4ftAar0ukPQVIYzBJBW0=";
+    hash = "sha256-dcWDB9tpKrFbnWf35HLDmgy2zNTzKNeJQrdtRXbSMvs=";
   };
+
+  patches = [
+    # This patch removes references to setuptools and wheel that are no longer
+    # necessary and changes poetry to poetry-core, so that we don't need to add
+    # unnecessary nativeBuildInputs.
+    #
+    #   https://github.com/bachya/simplisafe-python/pull/596
+    #
+    (fetchpatch {
+      name = "clean-up-build-dependencies.patch";
+      url = "https://github.com/bachya/simplisafe-python/commit/60f41c690fac7acb614490b542cbbf2fa0052266.patch";
+      hash = "sha256-RLRbHmaR2A8MNc96WHx0L8ccyygoBUaOulAuRJkFuUM=";
+    })
+  ];
 
   nativeBuildInputs = [
     poetry-core
@@ -48,17 +62,11 @@ buildPythonPackage rec {
 
   nativeCheckInputs = [
     aresponses
-    asynctest
     pytest-aiohttp
     pytest-asyncio
     pytestCheckHook
     types-pytz
   ];
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'docutils = "<0.18"' 'docutils = "*"'
-  '';
 
   disabledTests = [
     # simplipy/api.py:253: InvalidCredentialsError

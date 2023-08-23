@@ -98,9 +98,10 @@ stdenv.mkDerivation rec {
     "DEFAULT_CC=cc"
     "CROSS=${stdenv.cc.targetPrefix}"
     "HOST_CC=${buildStdenv.cc}/bin/cc"
-  ] ++ lib.optional enableJITDebugModule "INSTALL_LJLIBD=$(INSTALL_LMOD)";
+  ] ++ lib.optional enableJITDebugModule "INSTALL_LJLIBD=$(INSTALL_LMOD)"
+    ++ lib.optional stdenv.hostPlatform.isStatic "BUILDMODE=static";
   enableParallelBuilding = true;
-  NIX_CFLAGS_COMPILE = XCFLAGS;
+  env.NIX_CFLAGS_COMPILE = toString XCFLAGS;
 
   postInstall = ''
     ( cd "$out/include"; ln -s luajit-*/* . )
@@ -127,7 +128,7 @@ stdenv.mkDerivation rec {
     luaOnBuildForHost = override pkgsBuildHost.${luaAttr};
     luaOnBuildForTarget = override pkgsBuildTarget.${luaAttr};
     luaOnHostForHost = override pkgsHostHost.${luaAttr};
-    luaOnTargetForTarget = if lib.hasAttr luaAttr pkgsTargetTarget then (override pkgsTargetTarget.${luaAttr}) else {};
+    luaOnTargetForTarget = lib.optionalAttrs (lib.hasAttr luaAttr pkgsTargetTarget) (override pkgsTargetTarget.${luaAttr});
   };
 
   meta = with lib; {
