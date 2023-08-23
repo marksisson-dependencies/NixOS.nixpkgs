@@ -11,7 +11,9 @@
 , python-dateutil
 , pyyaml
 , requests
-, requests_oauthlib
+, requests-oauthlib
+, setuptools
+, six
 , urllib3
 , websocket-client
 
@@ -22,16 +24,16 @@
 
 buildPythonPackage rec {
   pname = "kubernetes";
-  version = "20.13.0";
+  version = "26.1.0";
   format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "kubernetes-client";
     repo = "python";
-    rev = "v${version}";
-    sha256 = "sha256-zZb5jEQEluY1dfa7UegW+P7MV86ESqOey7kkC74ETlM=";
-    fetchSubmodules = true;
+    rev = "refs/tags/v${version}";
+    hash = "sha256-2QkQGZ4Dho2PykH90ijosWWBzhQoCHoWhRL3ruOiDBg=";
   };
 
   propagatedBuildInputs = [
@@ -41,7 +43,9 @@ buildPythonPackage rec {
     python-dateutil
     pyyaml
     requests
-    requests_oauthlib
+    requests-oauthlib
+    setuptools
+    six
     urllib3
     websocket-client
   ];
@@ -50,7 +54,7 @@ buildPythonPackage rec {
     "kubernetes"
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     pytestCheckHook
   ];
@@ -61,7 +65,7 @@ buildPythonPackage rec {
   ];
 
   meta = with lib; {
-    description = "Kubernetes python client";
+    description = "Kubernetes Python client";
     homepage = "https://github.com/kubernetes-client/python";
     license = licenses.asl20;
     maintainers = with maintainers; [ lsix ];

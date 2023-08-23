@@ -1,34 +1,66 @@
-{ lib, nimPackages, nixosTests, fetchFromGitHub, libsass }:
+{ lib
+, buildNimPackage
+, fetchFromGitHub
+, nimPackages
+, nixosTests
+, substituteAll
+, unstableGitUpdater
+, flatty
+, jester
+, jsony
+, karax
+, markdown
+, nimcrypto
+, packedjson
+, redis
+, redpool
+, sass
+, supersnappy
+, zippy
+}:
 
-nimPackages.buildNimPackage rec {
+buildNimPackage rec {
   pname = "nitter";
-  version = "unstable-2022-03-21";
-  nimBinOnly = true;
+  version = "unstable-2023-08-08";
 
   src = fetchFromGitHub {
     owner = "zedeus";
     repo = "nitter";
-    rev = "6884f05041a9b8619ec709afacdfdd6482a120a0";
-    sha256 = "1mnc6jqljpqp9lgcrxxvf3aiswssr34v139cxfbwlmj45swmsazh";
+    rev = "d7ca353a55ea3440a2ec1f09155951210a374cc7";
+    hash = "sha256-nlpUzbMkDzDk1n4X+9Wk7+qQk+KOfs5ID6euIfHBoa8=";
   };
 
-  buildInputs = with nimPackages; [
-    jester
-    karax
-    sass
-    nimcrypto
-    markdown
-    packedjson
-    supersnappy
-    redpool
-    redis
-    zippy
-    flatty
-    jsony
+  patches = [
+    (substituteAll {
+      src = ./nitter-version.patch;
+      inherit version;
+      inherit (src) rev;
+      url = builtins.replaceStrings [ "archive" ".tar.gz" ] [ "commit" "" ] src.url;
+    })
   ];
+
+  buildInputs = [
+    flatty
+    jester
+    jsony
+    karax
+    markdown
+    nimcrypto
+    packedjson
+    redis
+    redpool
+    sass
+    supersnappy
+    zippy
+  ];
+
+  nimBinOnly = true;
+
+  nimFlags = [ "--mm:refc" ];
 
   postBuild = ''
     nim c --hint[Processing]:off -r tools/gencss
+    nim c --hint[Processing]:off -r tools/rendermd
   '';
 
   postInstall = ''
@@ -36,13 +68,16 @@ nimPackages.buildNimPackage rec {
     cp -r public $out/share/nitter/public
   '';
 
-  passthru.tests = { inherit (nixosTests) nitter; };
+  passthru = {
+    tests = { inherit (nixosTests) nitter; };
+    updateScript = unstableGitUpdater {};
+  };
 
   meta = with lib; {
-    description = "Alternative Twitter front-end";
     homepage = "https://github.com/zedeus/nitter";
-    maintainers = with maintainers; [ erdnaxe ];
+    description = "Alternative Twitter front-end";
     license = licenses.agpl3Only;
+    maintainers = with maintainers; [ erdnaxe infinidoge ];
     mainProgram = "nitter";
   };
 }

@@ -33,12 +33,12 @@ stdenv.mkDerivation rec {
   # either $HOME or $PWD - so help it along by moving $PWD to 'share',
   # where we just copied those two directories:
   preFixup = ''
-    wrapProgram "$out/bin/structure-synth" --run "cd $out/share"
+    wrapProgram "$out/bin/structure-synth" --chdir "$out/share"
   '';
 
   meta = with lib; {
     description = "Application for generating 3D structures by specifying a design grammar";
-    homepage = "http://structuresynth.sourceforge.net";
+    homepage = "https://structuresynth.sourceforge.net";
     maintainers = with maintainers; [ hodapp ];
     license = licenses.gpl3;
     platforms = platforms.linux;

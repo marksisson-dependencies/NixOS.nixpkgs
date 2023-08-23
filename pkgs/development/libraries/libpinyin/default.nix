@@ -16,13 +16,13 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "libpinyin";
-  version = "2.6.1";
+  version = "2.8.1";
 
   src = fetchFromGitHub {
     owner = "libpinyin";
     repo = "libpinyin";
     rev = version;
-    sha256 = "0izisma5g9a7mxfxs177pi1d7v9dklm0ar4z404nf2s8x4wcg3ib";
+    hash = "sha256-3+CBbjCaY0Ubyphf0uCfYvF2rtc9fF1eEAM1doonjHg=";
   };
 
   postUnpack = ''
@@ -38,7 +38,7 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Library for intelligent sentence-based Chinese pinyin input method";
-    homepage = "https://sourceforge.net/projects/libpinyin";
+    homepage = "https://github.com/libpinyin/libpinyin";
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ linsui ericsagnes ];
     platforms = platforms.linux;

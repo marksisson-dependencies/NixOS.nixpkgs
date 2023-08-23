@@ -2,22 +2,27 @@
 
 stdenv.mkDerivation rec {
   pname = "SonyHeadphonesClient";
-  version = "1.2";
+  version = "1.3.2";
 
   src = fetchFromGitHub {
     owner = "Plutoberth";
     repo = "SonyHeadphonesClient";
     rev = "v${version}";
-    sha256 = "sha256-oejXrs9X+R6Jydro0XIw2XifzFA7asDhpobtaE3//Hc=";
+    hash = "sha256-vhI97KheKzr87exCh4xNN7NDefcagdMu1tWSt67vLiU=";
     fetchSubmodules = true;
   };
 
   nativeBuildInputs = [ cmake pkg-config copyDesktopItems ];
   buildInputs = [ bluez dbus glew glfw imgui ];
 
-  sourceRoot = "./source/Client";
+  sourceRoot = "./${src.name}/Client";
 
   cmakeFlags = [ "-Wno-dev" ];
+
+  postPatch = ''
+    substituteInPlace Constants.h \
+      --replace "UNKNOWN = -1" "// UNKNOWN removed since it doesn't fit in char"
+  '';
 
   installPhase = ''
     runHook preInstall
@@ -25,20 +30,22 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
-  desktopItems = [ (makeDesktopItem {
-    name = "SonyHeadphonesClient";
-    exec = "SonyHeadphonesClient";
-    icon = "SonyHeadphonesClient";
-    desktopName = "Sony Headphones Client";
-    comment     = "A client recreating the functionality of the Sony Headphones app";
-    categories  = [ "Audio" "Mixer" ];
-  }) ];
+  desktopItems = [
+    (makeDesktopItem {
+      name = "SonyHeadphonesClient";
+      exec = "SonyHeadphonesClient";
+      icon = "SonyHeadphonesClient";
+      desktopName = "Sony Headphones Client";
+      comment = "A client recreating the functionality of the Sony Headphones app";
+      categories = [ "Audio" "Mixer" ];
+    })
+  ];
 
   meta = with lib; {
     description = "A client recreating the functionality of the Sony Headphones app";
-    homepage    = "https://github.com/Plutoberth/SonyHeadphonesClient";
-    license     = licenses.mit;
+    homepage = "https://github.com/Plutoberth/SonyHeadphonesClient";
+    license = licenses.mit;
     maintainers = with maintainers; [ stunkymonkey ];
-    platforms   = platforms.linux;
+    platforms = platforms.linux;
   };
 }

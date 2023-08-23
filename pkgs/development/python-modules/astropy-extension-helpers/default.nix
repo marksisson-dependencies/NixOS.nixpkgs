@@ -4,7 +4,9 @@
 , findutils
 , pytestCheckHook
 , pythonOlder
+, pip
 , setuptools-scm
+, wheel
 }:
 
 buildPythonPackage rec {
@@ -21,18 +23,25 @@ buildPythonPackage rec {
 
   nativeBuildInputs = [
     setuptools-scm
+    wheel
   ];
 
   patches = [ ./permissions.patch ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     findutils
+    pip
     pytestCheckHook
   ];
 
   # avoid import mismatch errors, as conftest.py is copied to build dir
   pytestFlagsArray = [
     "extension_helpers"
+  ];
+
+  disabledTests = [
+    # https://github.com/astropy/extension-helpers/issues/43
+    "test_write_if_different"
   ];
 
   pythonImportsCheck = [

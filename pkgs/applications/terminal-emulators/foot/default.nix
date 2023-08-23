@@ -2,6 +2,7 @@
 , lib
 , fetchFromGitea
 , fetchurl
+, fetchpatch
 , runCommand
 , fcft
 , freetype
@@ -18,16 +19,15 @@
 , wayland-scanner
 , pkg-config
 , utf8proc
-, allowPgo ? true
+, allowPgo ? !stdenv.hostPlatform.isMusl
 , python3  # for PGO
 # for clang stdenv check
 , foot
 , llvmPackages
-, llvmPackages_latest
 }:
 
 let
-  version = "1.11.0";
+  version = "1.15.3";
 
   # build stimuli file for PGO build and the script to generate it
   # independently of the foot's build, so we can cache the result
@@ -40,7 +40,7 @@ let
 
     src = fetchurl {
       url = "https://codeberg.org/dnkl/foot/raw/tag/${version}/scripts/generate-alt-random-writes.py";
-      sha256 = "0w4d0rxi54p8lvbynypcywqqwbbzmyyzc0svjab27ngmdj1034ii";
+      hash = "sha256-NvkKJ75n/OzgEd2WHX1NQIXPn9R0Z+YI1rpFmNxaDhk=";
     };
 
     dontUnpack = true;
@@ -90,16 +90,16 @@ let
 
   terminfoDir = "${placeholder "terminfo"}/share/terminfo";
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "foot";
   inherit version;
 
   src = fetchFromGitea {
     domain = "codeberg.org";
     owner = "dnkl";
-    repo = pname;
+    repo = "foot";
     rev = version;
-    sha256 = "1d9bk8lhmw5lc8k0mw80g0vbwgxyh3gw5c7ppy3sir07s9y0y0fn";
+    hash = "sha256-jn/S0xjxZPnkGYpTRIpL3dKxGe7+Z+EmOGHiE0UkQqg=";
   };
 
   depsBuildBuild = [
@@ -153,6 +153,8 @@ stdenv.mkDerivation rec {
     "-Ddefault-terminfo=foot"
     # Tell foot to set TERMINFO and where to install the terminfo files
     "-Dcustom-terminfo-install-location=${terminfoDir}"
+    # Install systemd user units for foot-server
+    "-Dsystemd-units-dir=${placeholder "out"}/lib/systemd/user"
   ];
 
   # build and run binary generating PGO profiles,
@@ -163,6 +165,7 @@ stdenv.mkDerivation rec {
     # make sure there is _some_ profiling data on all binaries
     ./footclient --version
     ./foot --version
+    ./utils/xtgettcap
     ./tests/test-config
     # generate pgo data of wayland independent code
     ./pgo ${stimuliFile} ${stimuliFile} ${stimuliFile}
@@ -182,10 +185,6 @@ stdenv.mkDerivation rec {
   passthru.tests = {
     clang-default-compilation = foot.override {
       inherit (llvmPackages) stdenv;
-    };
-
-    clang-latest-compilation = foot.override {
-      inherit (llvmPackages_latest) stdenv;
     };
 
     noPgo = foot.override {
@@ -220,5 +219,6 @@ stdenv.mkDerivation rec {
     # TERMINFO to a store path, but allows installing foot.terminfo
     # on remote systems for proper foot terminfo support.
     priority = (ncurses.meta.priority or 5) + 3 + 1;
+    mainProgram = "foot";
   };
 }

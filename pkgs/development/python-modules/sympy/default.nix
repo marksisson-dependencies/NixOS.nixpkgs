@@ -7,14 +7,14 @@
 
 buildPythonPackage rec {
   pname = "sympy";
-  version = "1.9";
+  version = "1.12";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "c7a880e229df96759f955d4f3970d4cabce79f60f5b18830c08b90ce77cd5fdc";
+    hash = "sha256-6/WVyNrD4P3EFSxRh4tJg5bsfzDnqRTWBx5nTUlCD7g=";
   };
 
-  checkInputs = [ glibcLocales ];
+  nativeCheckInputs = [ glibcLocales ];
 
   propagatedBuildInputs = [ mpmath ];
 

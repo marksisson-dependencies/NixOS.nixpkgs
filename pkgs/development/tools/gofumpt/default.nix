@@ -13,12 +13,11 @@ buildGoModule rec {
 
   vendorSha256 = "sha256-Il1E1yOejLEdKRRMqelGeJbHRjx4qFymf7N98BEdFzg=";
 
-  doCheck = false;
-
   meta = with lib; {
     description = "A stricter gofmt";
     homepage = "https://github.com/mvdan/gofumpt";
     license = licenses.bsd3;
     maintainers = with maintainers; [ rvolosatovs ];
+    mainProgram = "gofumpt";
   };
 }

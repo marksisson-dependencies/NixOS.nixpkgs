@@ -2,13 +2,13 @@
 
 buildGoModule rec {
   pname = "syft";
-  version = "0.44.1";
+  version = "0.87.0";
 
   src = fetchFromGitHub {
     owner = "anchore";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-kDTTOc2sPCKWGeVuXlGhOo2dHjBZ1QEE7jAEVs4a70U=";
+    hash = "sha256-qDeUo/xAGCy/Ih5B8AyiJ7q9aCd5iWNkW7T+0OqAfTY=";
     # populate values that require us to use git. By doing this in postFetch we
     # can delete .git afterwards and maintain better reproducibility of the src.
     leaveDotGit = true;
@@ -20,11 +20,13 @@ buildGoModule rec {
       find "$out" -name .git -print0 | xargs -0 rm -rf
     '';
   };
-  vendorSha256 = "sha256-ZWJzMDfCop5IT6mOvCWdtjGjVrZJxyM0z7iK3TiO+PI=";
+  # hash mismatch with darwin
+  proxyVendor = true;
+  vendorHash = "sha256-7lrim4N3hT2qkpTIVF1A/GUu5BfJ3Z8A6H1nd8yHwaw=";
 
   nativeBuildInputs = [ installShellFiles ];
 
-  subPackages = [ "." ];
+  subPackages = [ "cmd/syft" ];
 
   ldflags = [
     "-s"
@@ -52,6 +54,17 @@ buildGoModule rec {
       --zsh <($out/bin/syft completion zsh)
   '';
 
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
+
+    export SYFT_CHECK_FOR_APP_UPDATE=false
+    $out/bin/syft --help
+    $out/bin/syft version | grep "${version}"
+
+    runHook postInstallCheck
+  '';
+
   meta = with lib; {
     homepage = "https://github.com/anchore/syft";
     changelog = "https://github.com/anchore/syft/releases/tag/v${version}";
@@ -62,6 +75,6 @@ buildGoModule rec {
       vulnerability detection when used with a scanner tool like Grype.
     '';
     license = with licenses; [ asl20 ];
-    maintainers = with maintainers; [ jk ];
+    maintainers = with maintainers; [ jk developer-guy kashw2 ];
   };
 }

@@ -31,7 +31,7 @@ stdenv.mkDerivation rec {
     && (stdenv.hostPlatform.libc != "musl")
     && stdenv.hostPlatform == stdenv.buildPlatform;
 
-  outputs = [ "out" "info" ];
+  outputs = [ "out" "info" "locate"];
 
   configureFlags = [
     # "sort" need not be on the PATH as a run-time dep, so we need to tell
@@ -46,7 +46,24 @@ stdenv.mkDerivation rec {
     "-D__nonnull\\(params\\)="
   ];
 
+  postInstall = ''
+    moveToOutput bin/locate $locate
+    moveToOutput bin/updatedb $locate
+  '';
+
+  # can't move man pages in postInstall because the multi-output hook will move them back to $out
+  postFixup = ''
+    moveToOutput share/man/man5 $locate
+    moveToOutput share/man/man1/locate.1.gz $locate
+    moveToOutput share/man/man1/updatedb.1.gz $locate
+  '';
+
   enableParallelBuilding = true;
+
+  # bionic libc is super weird and has issues with fortify outside of its own libc, check this comment:
+  # https://github.com/NixOS/nixpkgs/pull/192630#discussion_r978985593
+  # or you can check libc/include/sys/cdefs.h in bionic source code
+  hardeningDisable = lib.optional (stdenv.hostPlatform.libc == "bionic") "fortify";
 
   meta = {
     homepage = "https://www.gnu.org/software/findutils/";
@@ -62,13 +79,18 @@ stdenv.mkDerivation rec {
       The tools supplied with this package are:
 
           * find - search for files in a directory hierarchy;
+          * xargs - build and execute command lines from standard input.
+
+      The following are available in the locate output:
+
           * locate - list files in databases that match a pattern;
           * updatedb - update a file name database;
-          * xargs - build and execute command lines from standard input.
     '';
 
     platforms = lib.platforms.all;
 
     license = lib.licenses.gpl3Plus;
+
+    mainProgram = "find";
   };
 }

@@ -14,18 +14,20 @@
 , xkeyboardconfig
 , libxkbfile
 , libXdmcp
+, plasma5Packages
+, plasma-framework
 , kcmSupport ? true
 }:
 
 mkDerivation rec {
   pname = "fcitx5-configtool";
-  version = "5.0.12";
+  version = "5.1.0";
 
   src = fetchFromGitHub {
     owner = "fcitx";
     repo = pname;
     rev = version;
-    sha256 = "sha256-Xjk/Z+1V6Az85N5I+Icoj0kOPJVL7hxyQvqlsp50Ybk=";
+    sha256 = "sha256-kjoAcoqLJ8XHMI6NUr5DZfltWfX3GPco3VGseze6qbw=";
   };
 
   cmakeFlags = [
@@ -50,6 +52,8 @@ mkDerivation rec {
   ] ++ lib.optionals kcmSupport [
     kdeclarative
     kwidgetsaddons
+    plasma5Packages.kiconthemes
+    plasma-framework
   ];
 
   meta = with lib; {
@@ -58,5 +62,6 @@ mkDerivation rec {
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ poscat ];
     platforms = platforms.linux;
+    mainProgram = "fcitx5-config-qt";
   };
 }

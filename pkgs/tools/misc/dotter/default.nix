@@ -1,25 +1,37 @@
-{ lib, fetchFromGitHub, rustPlatform, which }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, nix-update-script
+, rustPlatform
+, CoreServices
+, which
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "dotter";
-  version = "0.12.9";
+  version = "0.13.0";
 
   src = fetchFromGitHub {
     owner = "SuperCuber";
     repo = "dotter";
-    rev = version;
-    sha256 = "0rxinrm110i5cbkl7c7vgk7dl0x79cg6g23bdjixsg7h0572c2gi";
+    rev = "v${version}";
+    hash = "sha256-mAvTy/11a9RGSQpElhpKMzsMC7vA7cbeHsNRy9MnIjw=";
   };
 
-  cargoSha256 = "0fr2dvzbpwqvf98wwrxv76nwbrv4m9ppx7br4x78gm8dhf2nj4zx";
+  cargoHash = "sha256-XsDp/ssoNVdTHDTPm2ucgBeYmFgbeBIxQ/NsGjCl5Qg=";
 
-  checkInputs = [ which ];
+  buildInputs = lib.optionals stdenv.isDarwin [ CoreServices ];
+
+  nativeCheckInputs = [ which ];
+
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     description = "A dotfile manager and templater written in rust 🦀";
     homepage = "https://github.com/SuperCuber/dotter";
     license = licenses.unlicense;
     maintainers = with maintainers; [ linsui ];
-    mainProgram = "dotter";
   };
 }

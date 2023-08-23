@@ -2,6 +2,7 @@
 , fetchPypi
 , buildPythonPackage
 , blessed
+, browser-cookie3
 , keyring
 , keyrings-alt
 , lxml
@@ -9,6 +10,7 @@
 , python-dateutil
 , requests
 , rich
+, typing-extensions
 , pytestCheckHook
 , mock
 , nose
@@ -17,18 +19,19 @@
 
 buildPythonPackage rec {
   pname = "myfitnesspal";
-  version = "1.17.0";
+  version = "2.0.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-UXFvKQtC44EvscYWXK7KI/do3U0wTWI3zKwvsRdzKrs=";
+    hash = "sha256-wlQ/mo9MBQo0t1p0h6/TJir3I87DKYAUc022T3hZjH8=";
   };
 
   propagatedBuildInputs = [
     blessed
+    browser-cookie3
     keyring
     keyrings-alt
     lxml
@@ -36,9 +39,10 @@ buildPythonPackage rec {
     python-dateutil
     requests
     rich
+    typing-extensions
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     nose
     pytestCheckHook

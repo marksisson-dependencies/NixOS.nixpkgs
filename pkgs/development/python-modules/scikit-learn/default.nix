@@ -19,12 +19,12 @@
 
 buildPythonPackage rec {
   pname = "scikit-learn";
-  version = "1.0.2";
+  version = "1.3.0";
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-tYcJWaVIS2FPJtMcpMF1JLGwMXUiGZ3JhcO0JW4DB2c=";
+    hash = "sha256-i+VJiG9e2kZDa25VWw5Ic7TxCqIcB99FxLwXNa+8zXo=";
   };
 
   buildInputs = [
@@ -47,7 +47,7 @@ buildPythonPackage rec {
     threadpoolctl
   ];
 
-  checkInputs = [ pytestCheckHook pytest-xdist ];
+  nativeCheckInputs = [ pytestCheckHook pytest-xdist ];
 
   LC_ALL="en_US.UTF-8";
 
@@ -65,6 +65,8 @@ buildPythonPackage rec {
     "check_regressors_train"
     "check_classifiers_train"
     "xfail_ignored_in_check_estimator"
+  ] ++ lib.optionals (stdenv.isDarwin) [
+    "test_graphical_lasso"
   ];
 
   pytestFlagsArray = [
@@ -78,8 +80,6 @@ buildPythonPackage rec {
     # https://github.com/scikit-learn/scikit-learn/issues/17582
     # Since we are overriding '-k' we need to include the 'disabledTests' from above manually.
     "-k" "'not (NuSVC and memmap) ${toString (lib.forEach disabledTests (t: "and not ${t}"))}'"
-
-    "-n" "$NIX_BUILD_CORES"
   ];
 
   preCheck = ''
@@ -95,7 +95,7 @@ buildPythonPackage rec {
     changelog = let
       major = versions.major version;
       minor = versions.minor version;
-      dashVer = replaceChars ["."] ["-"] version;
+      dashVer = replaceStrings ["."] ["-"] version;
     in
       "https://scikit-learn.org/stable/whats_new/v${major}.${minor}.html#version-${dashVer}";
     homepage = "https://scikit-learn.org";

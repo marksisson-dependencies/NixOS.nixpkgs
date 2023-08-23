@@ -7,22 +7,25 @@
 
 buildPythonPackage rec {
   pname = "markupsafe";
-  version = "2.1.0";
-  disabled = pythonOlder "3.6";
+  version = "2.1.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     pname = "MarkupSafe";
     inherit version;
-    sha256 = "sha256-gL6vY937xkoEUrhB2ANsoGEeBJZQ4gr8uIL108Jm1l8=";
+    hash = "sha256-r1mO0y1q6G8bdHuCeDlYsaSrj2F7Bv5oeVx/Amq73K0=";
   };
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
   pythonImportsCheck = [ "markupsafe" ];
 
   meta = with lib; {
+    changelog = "https://markupsafe.palletsprojects.com/en/${versions.majorMinor version}.x/changes/#version-${replaceStrings [ "." ] [ "-" ] version}";
     description = "Implements a XML/HTML/XHTML Markup safe string";
     homepage = "https://palletsprojects.com/p/markupsafe/";
     license = licenses.bsd3;

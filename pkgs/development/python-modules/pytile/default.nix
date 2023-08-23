@@ -3,8 +3,8 @@
 , aresponses
 , buildPythonPackage
 , fetchFromGitHub
+, fetchpatch
 , poetry-core
-, pylint
 , pytest-aiohttp
 , pytest-asyncio
 , pytestCheckHook
@@ -13,7 +13,7 @@
 
 buildPythonPackage rec {
   pname = "pytile";
-  version = "2022.02.0";
+  version = "2023.04.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.8";
@@ -22,8 +22,22 @@ buildPythonPackage rec {
     owner = "bachya";
     repo = pname;
     rev = version;
-    sha256 = "sha256-IGjM9yU/3EjO9sV1ZZUX7RUL/a6CcMPzANhVMTcbZGU=";
+    hash = "sha256-SFHWhXKC7PIqanJIQyGcpM8klwxOAJPVtzk9w0i2YYA=";
   };
+
+  patches = [
+    # This patch removes references to setuptools and wheel that are no longer
+    # necessary and changes poetry to poetry-core, so that we don't need to add
+    # unnecessary nativeBuildInputs.
+    #
+    #   https://github.com/bachya/pytile/pull/286
+    #
+    (fetchpatch {
+      name = "clean-up-build-dependencies.patch";
+      url = "https://github.com/bachya/pytile/commit/bdb5d96ba9d640bf85a1ae9c3787704dbc2ced23.patch";
+      hash = "sha256-RLRbHmaR2A8MNc96WHx0L8ccyygoBUaOulAuRJkFuUM=";
+    })
+  ];
 
   nativeBuildInputs = [
     poetry-core
@@ -31,10 +45,9 @@ buildPythonPackage rec {
 
   propagatedBuildInputs = [
     aiohttp
-    pylint
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aresponses
     pytest-aiohttp
     pytest-asyncio

@@ -1,34 +1,32 @@
 { lib
-, buildPythonPackage
-, fetchPypi
-, python-dateutil
-, sigtools
-, six
 , attrs
-, od
+, buildPythonPackage
 , docutils
+, fetchPypi
+, od
 , pygments
-, unittest2
 , pytestCheckHook
+, pythonOlder
+, python-dateutil
+, repeated-test
+, setuptools-scm
+, sigtools
 }:
 
 buildPythonPackage rec {
   pname = "clize";
-  version = "4.2.1";
+  version = "5.0.2";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "3177a028e4169d8865c79af82bdd441b24311d4bd9c0ae8803641882d340a51d";
+    hash = "sha256-BH9aRHNgJxirG4VnKn4VMDOHF41agcJ13EKd+sHstRA=";
   };
 
-  # repeated_test no longer exists in nixpkgs
-  # also see: https://github.com/epsy/clize/issues/74
-  doCheck = false;
-  checkInputs = [
-    pytestCheckHook
-    python-dateutil
-    pygments
-    unittest2
+  nativeBuildInputs = [
+    setuptools-scm
   ];
 
   propagatedBuildInputs = [
@@ -36,10 +34,24 @@ buildPythonPackage rec {
     docutils
     od
     sigtools
-    six
   ];
 
-  pythonImportsCheck = [ "clize" ];
+  passthru.optional-dependencies = {
+    datetime = [
+      python-dateutil
+    ];
+  };
+
+  nativeCheckInputs = [
+    pytestCheckHook
+    python-dateutil
+    pygments
+    repeated-test
+  ];
+
+  pythonImportsCheck = [
+    "clize"
+  ];
 
   meta = with lib; {
     description = "Command-line argument parsing for Python";

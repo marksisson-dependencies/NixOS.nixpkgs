@@ -1,31 +1,41 @@
-{ lib, stdenv, fetchFromGitHub, autoreconfHook, alsa-lib, fftw,
-  libpulseaudio, ncurses }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, alsa-lib
+, fftw
+, iniparser
+, libpulseaudio
+, ncurses
+, pkgconf
+}:
 
 stdenv.mkDerivation rec {
   pname = "cava";
-  version = "0.7.4";
+  version = "0.9.1";
+
+  src = fetchFromGitHub {
+    owner = "karlstav";
+    repo = "cava";
+    rev = version;
+    hash = "sha256-W/2B9iTcO2F2vHQzcbg/6pYBwe+rRNfADdOiw4NY9Jk=";
+  };
 
   buildInputs = [
     alsa-lib
     fftw
     libpulseaudio
     ncurses
+    iniparser
   ];
 
-  src = fetchFromGitHub {
-    owner = "karlstav";
-    repo = "cava";
-    rev = version;
-    sha256 = "sha256-BlHGst34aUgQcXcuQG43VnKUTclCxfQmWRa6iCud8dc=";
-  };
+  nativeBuildInputs = [
+    autoreconfHook
+    pkgconf
+  ];
 
-  nativeBuildInputs = [ autoreconfHook ];
-
-  postConfigure = ''
-    substituteInPlace Makefile.am \
-      --replace "-L/usr/local/lib -Wl,-rpath /usr/local/lib" ""
-    substituteInPlace configure.ac \
-      --replace "/usr/share/consolefonts" "$out/share/consolefonts"
+  preAutoreconf = ''
+    echo ${version} > version
   '';
 
   meta = with lib; {
@@ -34,5 +44,6 @@ stdenv.mkDerivation rec {
     license = licenses.mit;
     maintainers = with maintainers; [ offline mirrexagon ];
     platforms = platforms.linux;
+    mainProgram = "cava";
   };
 }

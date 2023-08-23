@@ -1,31 +1,35 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, isPy3k
+, pythonOlder
 , setuptools
 , pytest
 }:
 
 buildPythonPackage rec {
   pname = "pglast";
-  version = "3.9";
+  version = "5.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-fwXOfQW+ybhROdgayOAsgaFjf8HHh5jr5xczkBnA40w=";
+    hash = "sha256-fiNd+11hqMHgzSMNT7fgne3pTeJ4nu5krA48LCgIaIQ=";
   };
 
-  disabled = !isPy3k;
-
-  # ModuleNotFoundError: No module named 'pkg_resources'
-  propagatedBuildInputs = [ setuptools ];
+  propagatedBuildInputs = [
+    setuptools
+  ];
 
   postPatch = ''
     substituteInPlace setup.cfg \
       --replace "--cov=pglast --cov-report term-missing" ""
   '';
 
-  checkInputs = [ pytest ];
+  nativeCheckInputs = [
+    pytest
+  ];
 
   # pytestCheckHook doesn't work
   # ImportError: cannot import name 'parse_sql' from 'pglast'
@@ -38,6 +42,7 @@ buildPythonPackage rec {
     description = "PostgreSQL Languages AST and statements prettifier";
     changelog = "https://github.com/lelit/pglast/raw/v${version}/CHANGES.rst";
     license = licenses.gpl3Plus;
-    maintainers = [ maintainers.marsam ];
+    maintainers = with maintainers; [ marsam ];
+    mainProgram = "pgpp";
   };
 }

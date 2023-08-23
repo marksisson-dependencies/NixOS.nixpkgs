@@ -1,62 +1,59 @@
 { lib
-, brotli
+, stdenv
 , brotlicffi
 , buildPythonPackage
 , certifi
 , chardet
 , charset-normalizer
 , fetchPypi
+, fetchpatch
 , idna
-, isPy27
-, isPy3k
 , pysocks
 , pytest-mock
 , pytest-xdist
 , pytestCheckHook
+, pythonOlder
 , urllib3
 }:
 
 buildPythonPackage rec {
   pname = "requests";
-  version = "2.27.1";
+  version = "2.31.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
+
+  __darwinAllowLocalNetworking = true;
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-aNfFb9WomZiHco7zBKbRLtx7508c+kdxT8i0FFJcmmE=";
+    hash = "sha256-lCxadY+Y15Dq7Ropy27vx/+w0c968Fw9J5Flbb1q0eE=";
   };
 
-  patches = [
-    # Use the default NixOS CA bundle from the certifi package
-    ./0001-Prefer-NixOS-Nix-default-CA-bundles-over-certifi.patch
-  ];
-
-  postPatch = ''
-    # Use latest idna
-    substituteInPlace setup.py \
-      --replace ",<3" ""
-  '';
-
   propagatedBuildInputs = [
+    brotlicffi
     certifi
+    charset-normalizer
     idna
     urllib3
-    chardet
-  ] ++ lib.optionals (isPy3k) [
-    brotlicffi
-    charset-normalizer
-  ] ++ lib.optionals (isPy27) [
-    brotli
   ];
 
-  checkInputs = [
-    pysocks
+  passthru.optional-dependencies = {
+    security = [];
+    socks = [
+      pysocks
+    ];
+    use_chardet_on_py3 = [
+      chardet
+    ];
+  };
+
+  nativeCheckInputs = [
     pytest-mock
     pytest-xdist
     pytestCheckHook
-  ];
-
-  # AttributeError: 'KeywordMapping' object has no attribute 'get'
-  doCheck = !isPy27;
+  ]
+  ++ passthru.optional-dependencies.socks;
 
   disabledTests = [
     # Disable tests that require network access and use httpbin
@@ -72,6 +69,15 @@ buildPythonPackage rec {
     "test_use_proxy_from_environment"
     "TestRequests"
     "TestTimeout"
+  ] ++ lib.optionals (stdenv.isDarwin && stdenv.isAarch64) [
+    # Fatal Python error: Aborted
+    "test_basic_response"
+    "test_text_response"
+  ];
+
+  disabledTestPaths = lib.optionals (stdenv.isDarwin && stdenv.isAarch64) [
+    # Fatal Python error: Aborted
+    "tests/test_lowlevel.py"
   ];
 
   pythonImportsCheck = [
@@ -81,6 +87,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "HTTP library for Python";
     homepage = "http://docs.python-requests.org/";
+    changelog = "https://github.com/psf/requests/blob/v${version}/HISTORY.md";
     license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
   };

@@ -1,32 +1,39 @@
 { lib
 , aiohttp
 , aioresponses
+, async-timeout
 , buildPythonPackage
 , fetchFromGitHub
+, orjson
 , pytest-aiohttp
 , pytest-asyncio
 , pytestCheckHook
 , pythonOlder
+, segno
 }:
 
 buildPythonPackage rec {
   pname = "aiounifi";
-  version = "31";
+  version = "52";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "Kane610";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-8Hm7sUkIW4rVLCL5+vHfhAvmc8+IKDXaSLtYJTf14XY=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-mghAUZrRBKHM+mIeUGnbJqWD+NhZyikdGsIhf1uohiM=";
   };
 
   propagatedBuildInputs = [
     aiohttp
+    async-timeout
+    orjson
+    segno
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aioresponses
     pytest-aiohttp
     pytest-asyncio
@@ -37,11 +44,14 @@ buildPythonPackage rec {
     "--asyncio-mode=auto"
   ];
 
-  pythonImportsCheck = [ "aiounifi" ];
+  pythonImportsCheck = [
+    "aiounifi"
+  ];
 
   meta = with lib; {
     description = "Python library for communicating with Unifi Controller API";
     homepage = "https://github.com/Kane610/aiounifi";
+    changelog = "https://github.com/Kane610/aiounifi/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ peterhoeg ];
   };

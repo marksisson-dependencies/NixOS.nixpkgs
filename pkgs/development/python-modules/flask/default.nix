@@ -3,39 +3,48 @@
 , fetchPypi
 , asgiref
 , click
+, importlib-metadata
 , itsdangerous
 , jinja2
 , python-dotenv
 , werkzeug
-, setuptools
 , pytestCheckHook
+, pythonOlder
+  # used in passthru.tests
+, flask-limiter
+, flask-restful
+, flask-restx
+, moto
 }:
 
 buildPythonPackage rec {
-  version = "2.0.3";
-  pname = "Flask";
+  pname = "flask";
+  version = "2.2.5";
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-4RIMIoyi9VO0cN9KX6knq2YlhGdSYGmYGz6wqRkCaH0=";
+    pname = "Flask";
+    inherit version;
+    hash = "sha256-7e6bCn/yZiG9WowQ/0hK4oc3okENmbC7mmhQx/uXeqA=";
   };
 
   propagatedBuildInputs = [
-    asgiref
-    python-dotenv
     click
     itsdangerous
     jinja2
     werkzeug
+  ] ++ lib.optional (pythonOlder "3.10") importlib-metadata;
 
-    # required for CLI subcommand autodiscovery
-    # see: https://github.com/pallets/flask/blob/fdac8a5404e3e3a316568107a293f134707c75bb/src/flask/cli.py#L498
-    setuptools
-  ];
-
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
+
+  passthru.tests = {
+    inherit flask-limiter flask-restful flask-restx moto;
+  };
+  passthru.optional-dependencies = {
+    dotenv = [ python-dotenv ];
+    async = [ asgiref ];
+  };
 
   meta = with lib; {
     homepage = "https://flask.palletsprojects.com/";
@@ -48,5 +57,6 @@ buildPythonPackage rec {
       Python web application frameworks.
     '';
     license = licenses.bsd3;
+    maintainers = with maintainers; [ nickcao ];
   };
 }

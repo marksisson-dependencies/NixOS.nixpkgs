@@ -9,15 +9,20 @@
 
 buildPythonPackage rec {
   pname = "grpcio-status";
-  version = "1.44.0";
+  version = "1.57.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-rGE6t6RTgMv6PlKQItCzcxfYWPFyum5lwYiqc1VTk5g=";
+    hash = "sha256-sJjamd8e6+WDN/j3jlDfmQJzzKzBIm/d60fFkOPfngI=";
   };
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace 'protobuf>=4.21.6' 'protobuf'
+  '';
 
   propagatedBuildInputs = [
     googleapis-common-protos

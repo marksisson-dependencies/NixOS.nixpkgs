@@ -1,29 +1,47 @@
 { lib
 , python
 , buildPythonPackage
-, fetchPypi
+, fetchFromGitHub
+, pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "tornado";
-  version = "6.1";
+  version = "6.2.0";
 
-  # We specify the name of the test files to prevent
-  # https://github.com/NixOS/nixpkgs/issues/14634
-  checkPhase = ''
-    ${python.interpreter} -m unittest discover *_test.py
-  '';
-
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "33c6e81d7bd55b468d2e793517c909b139960b6c790a60b7991b9b6b76fb9791";
+  src = fetchFromGitHub {
+    owner = "tornadoweb";
+    repo = "tornado";
+    rev = "v${version}";
+    hash = "sha256-IV0QN3GqoclFo9kWJVc21arypmBkvUClo86Zmt/Gv6E=";
   };
+
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
+
+  disabledTestPaths = [
+    # additional tests that have extra dependencies, run slowly, or produce more output than a simple pass/fail
+    # https://github.com/tornadoweb/tornado/blob/v6.2.0/maint/test/README
+    "maint/test"
+
+    # AttributeError: 'TestIOStreamWebMixin' object has no attribute 'io_loop'
+    "tornado/test/iostream_test.py"
+  ];
+
+  disabledTests = [
+    # Exception: did not get expected log message
+    "test_unix_socket_bad_request"
+  ];
+
+  pythonImportsCheck = [ "tornado" ];
 
   __darwinAllowLocalNetworking = true;
 
-  meta = {
+  meta = with lib; {
     description = "A web framework and asynchronous networking library";
     homepage = "https://www.tornadoweb.org/";
-    license = lib.licenses.asl20;
+    license = licenses.asl20;
+    maintainers = with maintainers; [ ];
   };
 }

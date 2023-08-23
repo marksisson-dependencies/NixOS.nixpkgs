@@ -1,4 +1,5 @@
-{ lib
+{ stdenv
+, lib
 , angr
 , buildPythonPackage
 , cmd2
@@ -23,27 +24,27 @@ buildPythonPackage rec {
     hash = "sha256-a5ajUBQwt3xUNkeSOeGOAFf47wd4UVk+LcuAHGqbq4s=";
   };
 
+  postPatch = ''
+    substituteInPlace tests/test_derefs.py \
+      --replace "/bin/ls" "${coreutils}/bin/ls"
+  '';
+
   propagatedBuildInputs = [
     angr
     cmd2
     pygments
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     coreutils
     pytestCheckHook
   ];
 
-  postPatch = ''
-    substituteInPlace tests/test_derefs.py \
-      --replace "/bin/ls" "${coreutils}/bin/ls"
-  '';
-
-  disabledTests = [
-    "test_sims"
-    "test_proper_termination"
-    "test_branching"
-    "test_morph"
+  disabledTests = lib.optionals (!stdenv.hostPlatform.isx86) [
+    # expects the x86 register "rax" to exist
+    "test_cc"
+    "test_loop"
+    "test_max_depth"
   ];
 
   pythonImportsCheck = [

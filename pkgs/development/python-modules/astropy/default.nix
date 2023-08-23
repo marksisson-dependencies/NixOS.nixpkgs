@@ -5,10 +5,11 @@
 
 # build time
 , astropy-extension-helpers
-, astropy-helpers
 , cython
 , jinja2
+, oldest-supported-numpy
 , setuptools-scm
+, wheel
 
 # runtime
 , numpy
@@ -19,7 +20,7 @@
 
 let
   pname = "astropy";
-  version = "5.0.1";
+  version = "5.2.1";
 in
 buildPythonPackage {
   inherit pname version;
@@ -29,17 +30,21 @@ buildPythonPackage {
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-Y4LN5qIFqgsWoNXmHAwBMevU8BdNbHPilk9L7hMqkCc=";
+    hash = "sha256-9q4noHf46oSQPvp2x5C5hWFzQaAISw0hw5H3o/MyrCM=";
   };
 
-  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace 'cython==' 'cython>='
+  '';
 
   nativeBuildInputs = [
     astropy-extension-helpers
-    astropy-helpers
     cython
     jinja2
+    oldest-supported-numpy
     setuptools-scm
+    wheel
   ];
 
   propagatedBuildInputs = [

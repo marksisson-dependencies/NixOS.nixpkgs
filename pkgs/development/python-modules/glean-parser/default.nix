@@ -15,7 +15,7 @@
 
 buildPythonPackage rec {
   pname = "glean-parser";
-  version = "5.1.2";
+  version = "7.2.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
@@ -23,8 +23,14 @@ buildPythonPackage rec {
   src = fetchPypi {
     pname = "glean_parser";
     inherit version;
-    hash = "sha256-PjOMNUnrz0kDfYEXv5Ni/9RIHn4Yylle6NJOK1Rb3SY=";
+    hash = "sha256-EUlqwAT+QhuRTH+9yaHWIOSCHVbh2fZVI9OFjNuQe70=";
   };
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "pytest-runner" "" \
+      --replace "MarkupSafe>=1.1.1,<=2.0.1" "MarkupSafe>=1.1.1"
+  '';
 
   nativeBuildInputs = [
     setuptools-scm
@@ -40,18 +46,19 @@ buildPythonPackage rec {
     yamllint
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "pytest-runner" ""
+  preCheck = ''
+    export HOME=$TMPDIR
   '';
 
   disabledTests = [
-    # https://bugzilla.mozilla.org/show_bug.cgi?id=1741668
+    # Network access
     "test_validate_ping"
+    # Fails since yamllint 1.27.x
+    "test_yaml_lint"
   ];
 
   pythonImportsCheck = [
@@ -61,7 +68,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Tools for parsing the metadata for Mozilla's glean telemetry SDK";
     homepage = "https://github.com/mozilla/glean_parser";
+    changelog = "https://github.com/mozilla/glean_parser/blob/v${version}/CHANGELOG.md";
     license = licenses.mpl20;
-    maintainers = with maintainers; [ kvark ];
+    maintainers = with maintainers; [];
   };
 }

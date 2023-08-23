@@ -16,7 +16,6 @@
 , pyyaml
 , uvicorn
 , httpx
-# Check Inputs
 , pytestCheckHook
 , pytest-asyncio
 , pytest-timeout
@@ -30,16 +29,23 @@
 
 buildPythonPackage rec {
   pname = "datasette";
-  version = "0.61.1";
+  version = "0.64.3";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "simonw";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-HVzMyF4ujYK12UQ25il/XROPo+iBldsMxOTx+duoc5o=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-hUMaveScSGbiELvN2oo8Nf/jFvYXeLpxTONl1R4UOZU=";
   };
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace '"pytest-runner"' "" \
+      --replace "click-default-group-wheel>=1.2.2" "click-default-group"
+  '';
 
   propagatedBuildInputs = [
     aiofiles
@@ -61,7 +67,7 @@ buildPythonPackage rec {
     uvicorn
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aiohttp
     beautifulsoup4
     pytest-asyncio
@@ -69,17 +75,6 @@ buildPythonPackage rec {
     pytestCheckHook
     trustme
   ];
-
-  postConfigure = ''
-    substituteInPlace setup.py \
-      --replace '"pytest-runner"' ""
-    substituteInPlace setup.py \
-      --replace "click-default-group~=1.2.2" "click-default-group" \
-      --replace "hupper~=1.9" "hupper" \
-      --replace "pint~=0.9" "pint" \
-      --replace "pluggy~=0.13.0" "pluggy" \
-      --replace "uvicorn~=0.11" "uvicorn" \
-  '';
 
   # takes 30-180 mins to run entire test suite, not worth the CPU resources, slows down reviews
   # with pytest-xdist, it still takes around 10 mins with 32 cores
@@ -107,6 +102,6 @@ buildPythonPackage rec {
     description = "Multi-tool for exploring and publishing data";
     homepage = "https://datasette.io/";
     license = licenses.asl20;
-    maintainers = with maintainers; [ costrouc ];
+    maintainers = with maintainers; [ ];
   };
 }

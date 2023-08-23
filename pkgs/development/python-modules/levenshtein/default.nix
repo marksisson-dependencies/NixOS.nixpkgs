@@ -1,35 +1,51 @@
 { lib
+, stdenv
 , buildPythonPackage
 , fetchFromGitHub
 , pythonOlder
+, cmake
+, cython_3
 , pytestCheckHook
 , rapidfuzz
+, rapidfuzz-cpp
+, scikit-build
 }:
 
 buildPythonPackage rec {
   pname = "levenshtein";
-  version = "0.18.1";
-  format = "setuptools";
+  version = "0.21.1";
+  format = "pyproject";
 
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "maxbachmann";
     repo = "Levenshtein";
-    rev = "v${version}";
-    sha256 = "sha256-3p9LM4tv45bqeTsuyngivqfd5uml7uqGB2ICKqPa0qY=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-I1kVGbZI1hQRNv0e44giWiMqmeqaqFZks20IyFQ9VIU=";
   };
 
-  postPatch = ''
-    substituteInPlace setup.cfg \
-      --replace "rapidfuzz >= 1.8.2, < 1.9" "rapidfuzz"
-  '';
+  nativeBuildInputs = [
+    cmake
+    cython_3
+    scikit-build
+  ];
+
+  dontUseCmakeConfigure = true;
+
+  buildInputs = [
+    rapidfuzz-cpp
+  ];
+
+  env.NIX_CFLAGS_COMPILE = toString (lib.optionals (stdenv.cc.isClang && stdenv.isDarwin) [
+    "-fno-lto"  # work around https://github.com/NixOS/nixpkgs/issues/19098
+  ]);
 
   propagatedBuildInputs = [
     rapidfuzz
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
@@ -40,6 +56,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Functions for fast computation of Levenshtein distance and string similarity";
     homepage = "https://github.com/maxbachmann/Levenshtein";
+    changelog = "https://github.com/maxbachmann/Levenshtein/blob/${src.rev}/HISTORY.md";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ fab ];
   };

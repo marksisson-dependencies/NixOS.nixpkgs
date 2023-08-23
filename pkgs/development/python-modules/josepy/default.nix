@@ -1,32 +1,41 @@
 { lib
 , buildPythonPackage
 , cryptography
+, fetchpatch
 , fetchPypi
 , pyopenssl
 , pytestCheckHook
 , pythonOlder
-, setuptools
 }:
 
 buildPythonPackage rec {
   pname = "josepy";
-  version = "1.12.0";
+  version = "1.13.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "267004a64f08c016cd54b7aaf7c323fa3ef3679fb62f4b086cd56448d0fecb25";
+    hash = "sha256-iTHa84+KTIUnSg6LfLJa3f2NHyj5+4++0FPdUa7HXck=";
   };
+
+  patches = [
+    # https://github.com/certbot/josepy/pull/158
+    (fetchpatch {
+      name = "fix-setuptools-deprecation.patch";
+      url = "https://github.com/certbot/josepy/commit/8f1b4b57a29a868a87fd6eee19a67a7ebfc07ea1.patch";
+      hash = "sha256-9d+Bk/G4CJXpnjJU0YkXLsg0G3tPxR8YN2niqriQQkI=";
+      includes = [ "tests/test_util.py" ];
+    })
+  ];
 
   propagatedBuildInputs = [
     pyopenssl
     cryptography
-    setuptools
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 

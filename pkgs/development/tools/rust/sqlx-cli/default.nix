@@ -1,30 +1,63 @@
-{ stdenv, lib, rustPlatform, fetchFromGitHub, pkg-config, openssl, SystemConfiguration, CoreFoundation, Security, libiconv }:
+{ stdenv
+, lib
+, rustPlatform
+, fetchFromGitHub
+, installShellFiles
+, pkg-config
+, libiconv
+, testers
+, sqlx-cli
+, CoreFoundation
+, Security
+, SystemConfiguration
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "sqlx-cli";
-  version = "0.5.11";
+  version = "0.7.1";
 
   src = fetchFromGitHub {
     owner = "launchbadge";
     repo = "sqlx";
     rev = "v${version}";
-    sha256 = "sha256-Tz7YzGkQUwH0U14dvsttP2GpnM9kign6L9PkAVs3dEc=";
+    hash = "sha256-567/uJPQhrNqDqBF/PqklXm2avSjvtQsddjChwUKUCI=";
   };
 
-  cargoSha256 = "sha256-EKuRaVxwotgTPj95GJnrQGbulsFPClSettwS5f0TzoM=";
+  cargoHash = "sha256-X7fLbih1s3sxn8vb2kQeFUKDK2DlC+sjm9ZTwj3FD1Y=";
 
   doCheck = false;
-  cargoBuildFlags = [ "-p sqlx-cli" ];
+  cargoBuildFlags = [ "--package sqlx-cli --no-default-features --features rustls,postgres,sqlite,mysql,completions" ];
 
-  nativeBuildInputs = [ pkg-config ];
-  buildInputs = lib.optionals stdenv.isLinux [ openssl ]
-    ++ lib.optionals stdenv.isDarwin [ SystemConfiguration CoreFoundation Security libiconv ];
+  nativeBuildInputs = [
+    installShellFiles
+    pkg-config
+  ];
+
+  buildInputs = lib.optionals stdenv.isDarwin [
+    CoreFoundation
+    Security
+    SystemConfiguration
+    libiconv
+  ];
+
+  postInstall = ''
+    for shell in bash fish zsh; do
+      $out/bin/sqlx completions $shell > sqlx.$shell
+      installShellCompletion sqlx.$shell
+    done
+  '';
+
+  passthru.tests.version = testers.testVersion {
+    package = sqlx-cli;
+    command = "sqlx --version";
+  };
 
   meta = with lib; {
     description =
       "SQLx's associated command-line utility for managing databases, migrations, and enabling offline mode with sqlx::query!() and friends.";
     homepage = "https://github.com/launchbadge/sqlx";
     license = licenses.asl20;
-    maintainers = with maintainers; [ greizgh ];
+    maintainers = with maintainers; [ greizgh xrelkd fd ];
+    mainProgram = "sqlx";
   };
 }

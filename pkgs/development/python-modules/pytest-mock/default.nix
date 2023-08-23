@@ -1,6 +1,8 @@
 { lib
 , buildPythonPackage
+, pythonOlder
 , fetchPypi
+, fetchpatch
 , pytest
 , pytest-asyncio
 , pytestCheckHook
@@ -9,36 +11,35 @@
 
 buildPythonPackage rec {
   pname = "pytest-mock";
-  version = "3.7.0";
+  version = "3.11.1";
+
+  disabled = pythonOlder "3.7";
+
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-URK9ksyfGG7pbhqS78hJaepJSTnDrq05xQ9CHEzGlTQ=";
+    hash = "sha256-f2sSVgKsbXQ+Ujrgv6ceGml6L1U0BkUoxv+EwvfC/H8=";
   };
 
   nativeBuildInputs = [ setuptools-scm ];
 
-  propagatedBuildInputs = [
+  buildInputs = [
     pytest
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytestCheckHook
-  ];
-
-  disabledTests = [
-    # output of pytest has changed
-    "test_used_with_"
-    "test_plain_stopall"
   ];
 
   pythonImportsCheck = [ "pytest_mock" ];
 
   meta = with lib; {
-    description = "Thin-wrapper around the mock package for easier use with pytest";
+    description = "Thin wrapper around the mock package for easier use with pytest";
     homepage = "https://github.com/pytest-dev/pytest-mock";
-    license = with licenses; [ mit ];
+    changelog = "https://github.com/pytest-dev/pytest-mock/blob/v${version}/CHANGELOG.rst";
+    license = licenses.mit;
     maintainers = with maintainers; [ dotlambda ];
   };
 }

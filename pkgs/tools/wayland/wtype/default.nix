@@ -21,6 +21,7 @@ stdenv.mkDerivation rec {
     hash = "sha256-TfpzAi0mkXugQn70MISyNFOXIJpDwvgh3enGv0Xq8S4=";
   };
 
+  strictDeps = true;
   nativeBuildInputs = [ meson ninja pkg-config wayland ];
   buildInputs = [ libxkbcommon wayland ];
 
@@ -30,5 +31,6 @@ stdenv.mkDerivation rec {
     license = licenses.mit;
     platforms = platforms.linux;
     maintainers = with maintainers; [ justinlovinger ];
+    mainProgram = "wtype";
   };
 }

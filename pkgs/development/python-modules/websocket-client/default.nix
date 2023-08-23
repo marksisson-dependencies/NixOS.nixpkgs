@@ -8,23 +8,27 @@
 
 buildPythonPackage rec {
   pname = "websocket-client";
-  version = "1.3.1";
-  disabled = pythonOlder "3.6";
+  version = "1.5.1";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-YninUGU5VBgoP4h958O+r7OqaNraXKy+SyFOjSbaSZs=";
+    hash = "sha256-Pwnm2CMIklRxMhd/V1pOPnPP3wZSbiDMAqocO0cYTUA=";
   };
 
   propagatedBuildInputs = [
     python-socks
    ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "websocket" ];
+  pythonImportsCheck = [
+    "websocket"
+  ];
 
   meta = with lib; {
     description = "Websocket client for Python";

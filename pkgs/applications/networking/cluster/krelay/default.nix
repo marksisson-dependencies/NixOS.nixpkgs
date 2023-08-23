@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "krelay";
-  version = "0.0.2";
+  version = "0.0.5";
 
   src = fetchFromGitHub {
     owner = "knight42";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-7P+pGiML/1aZEpYAWtAPEhrBAo8e8ATcemrH8tD73w8=";
+    sha256 = "sha256-TC+1y0RNBobHr1BsvZdmOM58N2CIBeA7pQoWRj1SXCw=";
   };
 
-  vendorSha256 = "sha256-PrL3GYP5K6ZaSAShwuDQA7WfOVJeQraxZ8jrtnajR9g=";
+  vendorHash = "sha256-yW6Uephj+cpaMO8LMOv3I02nvooscACB9N2vq1qrXwY=";
 
   subPackages = [ "cmd/client" ];
 
@@ -27,5 +27,6 @@ buildGoModule rec {
     changelog = "https://github.com/knight42/krelay/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ ivankovnatsky ];
+    mainProgram = "kubectl-relay";
   };
 }

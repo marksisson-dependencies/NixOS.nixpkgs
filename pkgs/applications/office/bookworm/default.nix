@@ -2,7 +2,6 @@
 , stdenv
 , fetchFromGitHub
 , appstream
-, bash
 , coreutils
 , curl
 , desktop-file-utils
@@ -40,19 +39,18 @@ stdenv.mkDerivation rec {
   };
 
   nativeBuildInputs = [
-    bash
     meson
     ninja
     pkg-config
     vala
     wrapGAppsHook
+    gobject-introspection
   ];
 
   buildInputs = [
     appstream
     desktop-file-utils
     glib
-    gobject-introspection
     gtk3
     html2text
     libgee

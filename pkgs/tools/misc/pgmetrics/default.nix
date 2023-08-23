@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "pgmetrics";
-  version = "1.12.0";
+  version = "1.15.1";
 
   src = fetchFromGitHub {
     owner = "rapidloop";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1fwc4qc17fqmzx08kiyfx5iwgzr14dxk9i8zjd9bq5gk281v0ybd";
+    sha256 = "sha256-6JqlAJHFJAvJjLqOwXLmW7sRwQCmYFfLGrSw5lTY8Sc=";
   };
 
-  vendorSha256 = "18da45axjl8l3qb6f3w5v2c7clz4bjhdz2bck20j729k7693hpsl";
+  vendorHash = "sha256-KIMnvGMIipuIFPTSeERtCfvlPuvHvEHdjBJ1TbT2d1s=";
 
   doCheck = false;
 

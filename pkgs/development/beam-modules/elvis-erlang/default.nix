@@ -8,10 +8,10 @@ in rebar3Relx rec {
   releaseType = "escript";
   # The package name "elvis" is already taken
   pname = "elvis-erlang";
-  version = "1.1.0";
+  version = "3.0.1";
   src = fetchFromGitHub {
     inherit owner repo;
-    sha256 = "6vNxr3AYpFuXaIVH9bWw7K5KiF1swfI+CSI43RoMQEA=";
+    sha256 = "vXCsGLTpqoKBAN2K35Zl9W82uKbZAFFFzpXh+HTEAwA=";
     rev = version;
   };
   beamDeps = builtins.attrValues (import ./rebar-deps.nix {
@@ -24,7 +24,7 @@ in rebar3Relx rec {
 
     set -euo pipefail
 
-    latest=$(list-git-tags --url=https://github.com/${owner}/${repo}.git | sort -V | tail -1)
+    latest=$(list-git-tags | sort -V | tail -1)
     if [ "$latest" != "${version}" ]; then
       nixpkgs="$(git rev-parse --show-toplevel)"
       nix_path="$nixpkgs/pkgs/development/beam-modules/elvis-erlang"

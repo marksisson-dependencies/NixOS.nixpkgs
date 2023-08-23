@@ -1,40 +1,62 @@
-{ lib
-, mkDerivation
+{ copyDesktopItems
 , fetchFromGitHub
-, pipewire
 , glibmm
-, qmake
-, makeDesktopItem
-, pkg-config
+, gst_all_1
+, lib
 , libarchive
-, fetchpatch
+, makeDesktopItem
+, pipewire
+, pkg-config
+, pulseaudio
+, qmake
+, qtbase
+, qtsvg
+, stdenv
+, usePipewire ? true
+, usePulseaudio ? false
+, wrapQtAppsHook
 }:
 
-mkDerivation rec{
+assert lib.asserts.assertMsg (usePipewire != usePulseaudio) "You need to enable one and only one of pulseaudio or pipewire support";
+
+stdenv.mkDerivation (finalAttrs: {
   pname = "jamesdsp";
-  version = "2.3";
-  src = fetchFromGitHub rec{
+  version = "2.6.1";
+
+  src = fetchFromGitHub {
     owner = "Audio4Linux";
     repo = "JDSP4Linux";
     fetchSubmodules = true;
-    rev = version;
-    hash = "sha256-Hkzurr+s+vvSyOMCYH9kHI+nIm6mL9yORGNzY2FXslc=";
+    rev = finalAttrs.version;
+    hash = "sha256-XYJl94/PstWG5qaBQ2rXc/nG9bDeP3Q62zDYHmZvPaw=";
   };
 
-  patches = [
-    # fixing /usr install assumption, remove on version bump
-    (fetchpatch {
-      url = "https://github.com/Audio4Linux/JDSP4Linux/commit/003c9e9fc426f83e269aed6e05be3ed55273931a.patch";
-      hash = "sha256-crll/a7C9pUq9eL5diq8/YgC5bNC6SrdijZEBxZpJ8E=";
-    })
+  nativeBuildInputs = [
+    qmake
+    pkg-config
+    copyDesktopItems
+    wrapQtAppsHook
   ];
 
-  nativeBuildInputs = [ qmake pkg-config ];
   buildInputs = [
     glibmm
     libarchive
+    qtbase
+    qtsvg
+  ] ++ lib.optionals usePipewire [
     pipewire
+  ] ++ lib.optionals usePulseaudio [
+    pulseaudio
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gstreamer
   ];
+
+  preFixup = lib.optionalString usePulseaudio ''
+    qtWrapperArgs+=(--prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "$GST_PLUGIN_SYSTEM_PATH_1_0")
+  '';
+
+  qmakeFlags = lib.optionals usePulseaudio [ "CONFIG+=USE_PULSEAUDIO" ];
 
   desktopItems = [
     (makeDesktopItem {
@@ -50,11 +72,17 @@ mkDerivation rec{
     })
   ];
 
-  meta = with lib;{
+  postInstall = ''
+    install -D resources/icons/icon.png $out/share/pixmaps/jamesdsp.png
+    install -D resources/icons/icon.svg $out/share/icons/hicolor/scalable/apps/jamesdsp.svg
+  '';
+
+  meta = {
+    broken = (stdenv.isLinux && stdenv.isAarch64);
     description = "An audio effect processor for PipeWire clients";
     homepage = "https://github.com/Audio4Linux/JDSP4Linux";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers;[ pasqui23 ];
-    platforms = platforms.linux;
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ pasqui23 rewine ];
+    platforms = lib.platforms.linux;
   };
-}
+})

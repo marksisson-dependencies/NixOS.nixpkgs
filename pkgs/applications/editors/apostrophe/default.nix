@@ -7,26 +7,26 @@
 
 let
   pythonEnv = pythonPackages.python.withPackages(p: with p; [
-    regex setuptools python-Levenshtein pyenchant
+    regex setuptools levenshtein pyenchant
     pygobject3 pycairo pypandoc chardet
   ]);
 
 in stdenv.mkDerivation rec {
   pname = "apostrophe";
-  version = "2.6.2";
+  version = "2.6.3";
 
   src = fetchFromGitLab {
     owner  = "World";
     repo   = pname;
     domain = "gitlab.gnome.org";
     rev    = "v${version}";
-    sha256 = "sha256-At3kaVJE07j/QWXerYnvxleE2Cbn0FjlBXH69tkuFys=";
+    sha256 = "sha256-RBrrG1TO810LidIelYGNaK7PjDq84D0cA8VcMojAW3M=";
   };
 
   nativeBuildInputs = [ meson ninja pkg-config desktop-file-utils
-    appstream-glib wrapGAppsHook sassc ];
+    appstream-glib wrapGAppsHook sassc gobject-introspection ];
 
-  buildInputs = [ glib pythonEnv gobject-introspection gtk3
+  buildInputs = [ glib pythonEnv gtk3
     gnome.adwaita-icon-theme webkitgtk gspell texlive
     glib-networking libhandy ];
 

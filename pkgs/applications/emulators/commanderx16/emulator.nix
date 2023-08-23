@@ -1,42 +1,56 @@
-{ stdenv
-, lib
+{ lib
+, stdenv
 , fetchFromGitHub
 , SDL2
+, zlib
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "x16-emulator";
-  version = "38";
+  version = "43";
 
   src = fetchFromGitHub {
-    owner = "commanderx16";
-    repo = pname;
-    rev = "r${version}";
-    sha256 = "WNRq/m97NpOBWIk6mtxBAKmkxCGWacWjXeOvIhBrkYE=";
+    owner = "X16Community";
+    repo = "x16-emulator";
+    rev = "r${finalAttrs.version}";
+    hash = "sha256-cZB7MRYlchD3zcBSWBIzyBiGHJobJvozkVT/7ftFkNg=";
   };
+
+  postPatch = ''
+    substituteInPlace Makefile \
+      --replace '/bin/echo' 'echo'
+  '';
 
   dontConfigure = true;
 
-  buildInputs = [ SDL2 ];
+  buildInputs = [
+    SDL2
+    zlib
+  ];
 
   installPhase = ''
     runHook preInstall
-    install -D --mode 755 --target-directory $out/bin/ x16emu
-    install -D --mode 444 --target-directory $out/share/doc/${pname} README.md
+
+    install -Dm 755 -t $out/bin/ x16emu
+    install -Dm 444 -t $out/share/doc/x16-emulator/ README.md
+
     runHook postInstall
   '';
 
-  meta = with lib; {
-    homepage = "https://www.commanderx16.com/forum/index.php?/home/";
-    description = "The official emulator of CommanderX16 8-bit computer";
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ AndersonTorres ];
-    platforms = SDL2.meta.platforms;
+  passthru = {
+    # upstream project recommends emulator and rom to be synchronized; passing
+    # through the version is useful to ensure this
+    inherit (finalAttrs) version;
   };
 
-  passthru = {
-    # upstream project recommends emulator and rom synchronized;
-    # passing through the version is useful to ensure this
-    inherit version;
+  meta = {
+    homepage = "https://cx16forum.com/";
+    description = "The official emulator of CommanderX16 8-bit computer";
+    changelog = "https://github.com/X16Community/x16-emulator/blob/r${finalAttrs.version}/RELEASES.md";
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    mainProgram = "x16emu";
+    inherit (SDL2.meta) platforms;
+    broken = stdenv.isAarch64; # ofborg fails to compile it
   };
-}
+})

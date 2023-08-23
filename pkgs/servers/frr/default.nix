@@ -1,8 +1,6 @@
 { lib
 , stdenv
 , fetchFromGitHub
-, fetchpatch
-, python3Packages
 
 # build time
 , autoreconfHook
@@ -11,6 +9,7 @@
 , perl
 , pkg-config
 , texinfo
+, buildPackages
 
 # runtime
 , c-ares
@@ -25,31 +24,73 @@
 , pcre2
 , python3
 , readline
+, rtrlib
 
 # tests
 , nettools
 , nixosTests
+
+# FRR's configure.ac gets SNMP options by executing net-snmp-config on the build host
+# This leads to compilation errors when cross compiling.
+# E.g. net-snmp-config for x86_64 does not return the ARM64 paths.
+#
+#   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+#   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+, snmpSupport ? stdenv.buildPlatform.canExecute stdenv.hostPlatform
+
+# other general options besides snmp support
+, rpkiSupport ? true
+, numMultipath ? 64
+, watchfrrSupport ? true
+, cumulusSupport ? false
+, datacenterSupport ? true
+, rtadvSupport ? true
+, irdpSupport ? true
+, routeReplacementSupport ? true
+
+# routing daemon options
+, bgpdSupport ? true
+, ripdSupport ? true
+, ripngdSupport ? true
+, ospfdSupport ? true
+, ospf6dSupport ? true
+, ldpdSupport ? true
+, nhrpdSupport ? true
+, eigrpdSupport ? true
+, babeldSupport ? true
+, isisdSupport ? true
+, pimdSupport ? true
+, pim6dSupport ? true
+, sharpdSupport ? true
+, fabricdSupport ? true
+, vrrpdSupport ? true
+, pathdSupport ? true
+, bfddSupport ? true
+, pbrdSupport ? true
+, staticdSupport ? true
+
+# BGP options
+, bgpAnnounce ? true
+, bgpBmp ? true
+, bgpVnc ? true
+
+# OSPF options
+, ospfApi ? true
 }:
+
+lib.warnIf (!(stdenv.buildPlatform.canExecute stdenv.hostPlatform))
+  "cannot enable SNMP support due to cross-compilation issues with net-snmp-config"
 
 stdenv.mkDerivation rec {
   pname = "frr";
-  version = "8.1";
+  version = "8.5.2";
 
   src = fetchFromGitHub {
     owner = "FRRouting";
     repo = pname;
     rev = "${pname}-${version}";
-    sha256 = "sha256-hJcgLiPBxOE5QEh0RhtZhM3dOxFqW5H0TUjN+aP4qRk=";
+    hash = "sha256-xJCaVh/PlV6WRv/JRHO/vzF72E6Ap8/RaqLnkYTnk14=";
   };
-
-  patches = [
-    (fetchpatch {
-      # Fix clippy build on aarch64-linux
-      # https://github.com/FRRouting/frr/issues/10267
-      url = "https://github.com/FRRouting/frr/commit/3942ee1f7bc754dd0dd9ae79f89d0f2635be334f.patch";
-      sha256 = "1i0acfy5k9fbm9cxchrcvkhyw9704srq4wm2hyjqgdimm2dq7ryf";
-    })
-  ];
 
   nativeBuildInputs = [
     autoreconfHook
@@ -57,7 +98,7 @@ stdenv.mkDerivation rec {
     flex
     perl
     pkg-config
-    python3Packages.sphinx
+    python3.pkgs.sphinx
     texinfo
   ];
 
@@ -67,45 +108,95 @@ stdenv.mkDerivation rec {
     libelf
     libunwind
     libyang
-    net-snmp
     openssl
     pam
     pcre2
     python3
     readline
+    rtrlib
   ] ++ lib.optionals stdenv.isLinux [
     libcap
+  ] ++ lib.optionals snmpSupport [
+    net-snmp
   ];
 
+  # otherwise in cross-compilation: "configure: error: no working python version found"
+  depsBuildBuild = [
+    buildPackages.python3
+  ];
+
+  # cross-compiling: clippy is compiled with the build host toolchain, split it out to ease
+  # navigation in dependency hell
+  clippy-helper = buildPackages.callPackage ./clippy-helper.nix { frrVersion = version; frrSource = src; };
+
   configureFlags = [
-    "--sysconfdir=/etc/frr"
+    "--disable-silent-rules"
+    "--disable-exampledir"
+    "--enable-configfile-mask=0640"
+    "--enable-group=frr"
+    "--enable-logfile-mask=0640"
+    "--enable-multipath=${toString numMultipath}"
+    "--enable-user=frr"
+    "--enable-vty-group=frrvty"
     "--localstatedir=/run/frr"
     "--sbindir=$(out)/libexec/frr"
-    "--disable-exampledir"
-    "--enable-user=frr"
-    "--enable-group=frr"
-    "--enable-configfile-mask=0640"
-    "--enable-logfile-mask=0640"
-    "--enable-vty-group=frrvty"
-    "--enable-snmp"
-    "--enable-multipath=64"
+    "--sysconfdir=/etc/frr"
+    "--with-clippy=${clippy-helper}/bin/clippy"
+    # general options
+    (lib.strings.enableFeature snmpSupport "snmp")
+    (lib.strings.enableFeature rpkiSupport "rpki")
+    (lib.strings.enableFeature watchfrrSupport "watchfrr")
+    (lib.strings.enableFeature rtadvSupport "rtadv")
+    (lib.strings.enableFeature irdpSupport "irdp")
+    (lib.strings.enableFeature routeReplacementSupport "rr-semantics")
+    # routing protocols
+    (lib.strings.enableFeature bgpdSupport "bgpd")
+    (lib.strings.enableFeature ripdSupport "ripd")
+    (lib.strings.enableFeature ripngdSupport "ripngd")
+    (lib.strings.enableFeature ospfdSupport "ospfd")
+    (lib.strings.enableFeature ospf6dSupport "ospf6d")
+    (lib.strings.enableFeature ldpdSupport "ldpd")
+    (lib.strings.enableFeature nhrpdSupport "nhrpd")
+    (lib.strings.enableFeature eigrpdSupport "eigrpd")
+    (lib.strings.enableFeature babeldSupport "babeld")
+    (lib.strings.enableFeature isisdSupport "isisd")
+    (lib.strings.enableFeature pimdSupport "pimd")
+    (lib.strings.enableFeature pim6dSupport "pim6d")
+    (lib.strings.enableFeature sharpdSupport "sharpd")
+    (lib.strings.enableFeature fabricdSupport "fabricd")
+    (lib.strings.enableFeature vrrpdSupport "vrrpd")
+    (lib.strings.enableFeature pathdSupport "pathd")
+    (lib.strings.enableFeature bfddSupport "bfdd")
+    (lib.strings.enableFeature pbrdSupport "pbrd")
+    (lib.strings.enableFeature staticdSupport "staticd")
+    # BGP options
+    (lib.strings.enableFeature bgpAnnounce "bgp-announce")
+    (lib.strings.enableFeature bgpBmp "bgp-bmp")
+    (lib.strings.enableFeature bgpVnc "bgp-vnc")
+    # OSPF options
+    (lib.strings.enableFeature ospfApi "ospfapi")
+    # Cumulus options
+    (lib.strings.enableFeature cumulusSupport "cumulus")
+    # Datacenter options
+    (lib.strings.enableFeature datacenterSupport "datacenter")
   ];
 
   postPatch = ''
-    substituteInPlace tools/frr-reload --replace /usr/lib/frr/ $out/libexec/frr/
+    substituteInPlace tools/frr-reload \
+      --replace /usr/lib/frr/ $out/libexec/frr/
   '';
 
   doCheck = true;
-  checkInputs = [
+
+  nativeCheckInputs = [
     nettools
-    python3Packages.pytest
+    python3.pkgs.pytest
   ];
 
   enableParallelBuilding = true;
 
-  passthru.tests = { inherit (nixosTests) frr; };
-
   meta = with lib; {
+    homepage = "https://frrouting.org/";
     description = "FRR BGP/OSPF/ISIS/RIP/RIPNG routing daemon suite";
     longDescription = ''
       FRRouting (FRR) is a free and open source Internet routing protocol suite
@@ -129,9 +220,10 @@ stdenv.mkDerivation rec {
       infrastructure, web 2.0 businesses, hyperscale services, and Fortune 500
       private clouds.
     '';
-    homepage = "https://frrouting.org/";
     license = with licenses; [ gpl2Plus lgpl21Plus ];
+    maintainers = with maintainers; [ woffs thillux ];
     platforms = platforms.unix;
-    maintainers = with maintainers; [ woffs ];
   };
+
+  passthru.tests = { inherit (nixosTests) frr; };
 }

@@ -1,74 +1,119 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, flask
-, blinker
-, setuptools
-, itsdangerous
-, flask_principal
-, passlib
-, email_validator
-, flask_wtf
-, flask_login
-, pytestCheckHook
-, flask_mail
+, pythonOlder
+
+# extras: babel
+, babel
+, flask-babel
+
+# extras: common
+, bcrypt
+, bleach
+, flask-mailman
+, qrcode
+
+# extras: fsqla
+, flask-sqlalchemy
 , sqlalchemy
-, flask_sqlalchemy
+, sqlalchemy-utils
+
+# extras: mfa
+, cryptography
+, phonenumbers
+
+# propagates
+, blinker
+, email-validator
+, flask
+, flask-login
+, flask_principal
+, flask-wtf
+, itsdangerous
+, passlib
+
+# tests
+, argon2-cffi
 , flask-mongoengine
+, mongoengine
+, mongomock
 , peewee
 , pony
+, pytestCheckHook
+, python-dateutil
 , zxcvbn
-, mongoengine
-, cryptography
-, pyqrcode
-, phonenumbers
-, bleach
-, mongomock
 }:
 
 buildPythonPackage rec {
   pname = "flask-security-too";
-  version = "4.1.3";
+  version = "5.1.2";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     pname = "Flask-Security-Too";
     inherit version;
-    sha256 = "sha256-mW2NKGeJpyR4Ri7m+KE3ElSg3E+P7qbzNTTCo3cskc8=";
+    hash = "sha256-lZzm43m30y+2qjxNddFEeg9HDlQP9afq5VtuR25zaLc=";
   };
 
   propagatedBuildInputs = [
+    blinker
+    email-validator
     flask
-    flask_login
+    flask-login
     flask_principal
-    flask_wtf
-    email_validator
+    flask-wtf
     itsdangerous
     passlib
-    blinker
-    setuptools
   ];
 
-  checkInputs = [
-    pytestCheckHook
-    flask_mail
-    sqlalchemy
-    flask_sqlalchemy
+  passthru.optional-dependencies = {
+    babel = [
+      babel
+      flask-babel
+    ];
+    common = [
+      bcrypt
+      bleach
+      flask-mailman
+      qrcode
+    ];
+    fsqla = [
+      flask-sqlalchemy
+      sqlalchemy
+      sqlalchemy-utils
+    ];
+    mfa = [
+      cryptography
+      phonenumbers
+    ];
+  };
+
+  nativeCheckInputs = [
+    argon2-cffi
     flask-mongoengine
+    mongoengine
+    mongomock
     peewee
     pony
+    pytestCheckHook
+    python-dateutil
     zxcvbn
-    mongoengine
-    cryptography
-    pyqrcode
-    phonenumbers
-    bleach
-    mongomock
+  ]
+  ++ passthru.optional-dependencies.babel
+  ++ passthru.optional-dependencies.common
+  ++ passthru.optional-dependencies.fsqla
+  ++ passthru.optional-dependencies.mfa;
+
+
+  pythonImportsCheck = [
+    "flask_security"
   ];
 
-  pythonImportsCheck = [ "flask_security" ];
-
   meta = with lib; {
-    homepage = "https://pypi.org/project/Flask-Security-Too/";
+    changelog = "https://github.com/Flask-Middleware/flask-security/blob/${version}/CHANGES.rst";
+    homepage = "https://github.com/Flask-Middleware/flask-security";
     description = "Simple security for Flask apps (fork)";
     license = licenses.mit;
     maintainers = with maintainers; [ gador ];

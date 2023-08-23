@@ -1,19 +1,24 @@
 { lib
 , buildPythonPackage
 , fetchPypi
+, setuptools
 , pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "pycountry";
-  version = "22.1.10";
+  version = "22.3.5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "b9a6d9cdbf53f81ccdf73f6f5de01b0d8493cab2213a230af3e34458de85ea32";
+    hash = "sha256-shY6JGxYWJTYCPGHg+GRN8twoMGPs2dI3AH8bxCcFkY=";
   };
 
-  checkInputs = [
+  propagatedBuildInputs = [
+    setuptools
+  ];
+
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 

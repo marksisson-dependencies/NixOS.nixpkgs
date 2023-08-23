@@ -3,16 +3,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "elan";
-  version = "1.4.0";
+  version = "2.0.1";
 
   src = fetchFromGitHub {
     owner = "leanprover";
     repo = "elan";
     rev = "v${version}";
-    sha256 = "sha256-86O2P48wcib22IRB8niqVLIukGECbBV9ZufEUZEkvnQ=";
+    sha256 = "sha256-gnE0uISKfUqUdmrHI6F7nLOFcsQALjRy584nMRrC68w=";
   };
 
-  cargoSha256 = "sha256-2kTAFyFDeFQn7x2oVHZvFzJVs4jLBgl0pSOCcj6Vzdk=";
+  cargoHash = "sha256-rjxJ4bGep5OJUWME+EV5CqEsFY1SuoU07ANL0cbD+DU=";
 
   nativeBuildInputs = [ pkg-config makeWrapper ];
 
@@ -28,6 +28,7 @@ rustPlatform.buildRustPackage rec {
     (runCommand "0001-dynamically-patchelf-binaries.patch" {
         CC = stdenv.cc;
         cc = "${stdenv.cc}/bin/cc";
+        ar = "${stdenv.cc}/bin/ar";
         patchelf = patchelf;
         shell = runtimeShell;
       } ''
@@ -36,6 +37,7 @@ rustPlatform.buildRustPackage rec {
        --subst-var patchelf \
        --subst-var dynamicLinker \
        --subst-var cc \
+       --subst-var ar \
        --subst-var shell
     '')
   ];

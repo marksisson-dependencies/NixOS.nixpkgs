@@ -4,10 +4,11 @@
 , avxSupport ? stdenv.hostPlatform.avxSupport
 , avx2Support ? stdenv.hostPlatform.avx2Support
 , avx512Support ? stdenv.hostPlatform.avx512Support
+, config
 # Enable NIVIA GPU support
 # Note, that this needs to be built on a system with a GPU
 # present for the tests to succeed.
-, enableCuda ? false
+, enableCuda ? config.cudaSupport
 # type of GPU architecture
 , nvidiaArch ? "sm_60"
 , cudatoolkit
@@ -18,13 +19,13 @@ assert blas.isILP64 == scalapack.isILP64;
 
 stdenv.mkDerivation rec {
   pname = "elpa";
-  version = "2021.11.002";
+  version = "2023.05.001";
 
   passthru = { inherit (blas) isILP64; };
 
   src = fetchurl {
     url = "https://elpa.mpcdf.mpg.de/software/tarball-archive/Releases/${version}/elpa-${version}.tar.gz";
-    sha256 = "sha256-V28cru14g7gTlmQP2g9QQYOGbPbL1Lxx0Tg7oiCPH5c=";
+    sha256 = "sha256-7GS+XWUigQ1gGjuOajFyDjw+tK8zpDTYpkVw125kYrY=";
   };
 
   patches = [
@@ -48,6 +49,8 @@ stdenv.mkDerivation rec {
   preConfigure = ''
     export FC="mpifort"
     export CC="mpicc"
+    export CXX="mpicxx"
+    export CPP="cpp"
 
     # These need to be set for configure to succeed
     export FCFLAGS="${lib.optionalString stdenv.hostPlatform.isx86_64 "-msse3 "
@@ -67,6 +70,7 @@ stdenv.mkDerivation rec {
     ++ lib.optional (!avx2Support) "--disable-avx2"
     ++ lib.optional (!avx512Support) "--disable-avx512"
     ++ lib.optional (!stdenv.hostPlatform.isx86_64) "--disable-sse"
+    ++ lib.optional (!stdenv.hostPlatform.isx86_64) "--disable-sse-assembly"
     ++ lib.optional stdenv.hostPlatform.isx86_64 "--enable-sse-assembly"
     ++ lib.optionals enableCuda [  "--enable-nvidia-gpu" "--with-NVIDIA-GPU-compute-capability=${nvidiaArch}" ];
 

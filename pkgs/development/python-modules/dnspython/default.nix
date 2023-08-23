@@ -1,38 +1,79 @@
 { lib
 , stdenv
+, aioquic
 , buildPythonPackage
-, fetchPypi
-, pythonOlder
-, setuptools-scm
-, pytestCheckHook
 , cacert
+, cryptography
+, curio
+, fetchPypi
+, h2
+, httpx
+, idna
+, poetry-core
+, pytestCheckHook
+, pythonOlder
+, requests
+, requests-toolbelt
+, sniffio
+, trio
 }:
 
 buildPythonPackage rec {
   pname = "dnspython";
-  version = "2.2.0";
-  disabled = pythonOlder "3.6";
+  version = "2.4.1";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    extension = "tar.gz";
-    sha256 = "1mi6l2n766y1gic3x1swp2jk2nr7wbkb191qinwhddnh6bh534z7";
+    hash = "sha256-wzlxx5r1vpaLuJfpXCRI4RpkXuhNk7Jlzgt6q+Xf3Kg=";
   };
 
-  checkInputs = [
-    pytestCheckHook
-  ] ++ lib.optional stdenv.isDarwin [
-    cacert
+  nativeBuildInputs = [
+    poetry-core
   ];
+
+  passthru.optional-dependencies = {
+    DOH = [
+      httpx
+      h2
+      requests
+      requests-toolbelt
+    ];
+    IDNA = [
+      idna
+    ];
+    DNSSEC = [
+      cryptography
+    ];
+    trio = [
+      trio
+    ];
+    curio = [
+      curio
+      sniffio
+    ];
+    DOQ = [
+      aioquic
+    ];
+  };
+
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
+
+  checkInputs = [
+    cacert
+  ] ++ passthru.optional-dependencies.DNSSEC;
 
   disabledTests = [
     # dns.exception.SyntaxError: protocol not found
     "test_misc_good_WKS_text"
     # fails if IPv6 isn't available
     "test_resolver_override"
-
-  # Tests that run inconsistently on darwin systems
   ] ++ lib.optionals stdenv.isDarwin [
+    # Tests that run inconsistently on darwin systems
     # 9 tests fail with: BlockingIOError: [Errno 35] Resource temporarily unavailable
     "testQueryUDP"
     # 6 tests fail with: dns.resolver.LifetimeTimeout: The resolution lifetime expired after ...
@@ -40,15 +81,14 @@ buildPythonPackage rec {
     "testResolveTCP"
   ];
 
-  nativeBuildInputs = [
-    setuptools-scm
+  pythonImportsCheck = [
+    "dns"
   ];
-
-  pythonImportsCheck = [ "dns" ];
 
   meta = with lib; {
     description = "A DNS toolkit for Python";
     homepage = "https://www.dnspython.org";
+    changelog = "https://github.com/rthalley/dnspython/blob/v${version}/doc/whatsnew.rst";
     license = with licenses; [ isc ];
     maintainers = with maintainers; [ gador ];
   };

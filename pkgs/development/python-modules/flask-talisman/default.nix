@@ -8,11 +8,11 @@
 
 buildPythonPackage rec {
   pname = "flask-talisman";
-  version = "0.8.1";
+  version = "1.1.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "11gjgqkpj2yqydb0pfhjyx56iy4l9szgz33vg5d7bw8vqp02wl2x";
+    hash = "sha256-xfSG9fVEIHKfhLPDhQzWP5bosDOpYpvuZsUk6jY3l/8=";
   };
 
   buildInputs = [

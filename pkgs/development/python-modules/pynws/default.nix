@@ -13,14 +13,14 @@
 
 buildPythonPackage rec {
   pname = "pynws";
-  version = "1.3.2";
+  version = "1.5.1";
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "MatthewFlamm";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0d2x3vlm444aar4wbdg48xzpgwng5m7i2d7h1z0pb6c514747sd1";
+    hash = "sha256-Mq8kYS4p53gdSGF83AkSPecVizoEBbeKvyk7nCsRYdM=";
   };
 
   propagatedBuildInputs = [
@@ -28,7 +28,7 @@ buildPythonPackage rec {
     metar
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     freezegun
     pytest-aiohttp
     pytest-asyncio
