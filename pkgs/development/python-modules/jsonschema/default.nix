@@ -2,49 +2,86 @@
 , attrs
 , buildPythonPackage
 , fetchPypi
-, importlib-metadata
+, hatch-fancy-pypi-readme
+, hatch-vcs
+, hatchling
 , importlib-resources
-, pyperf
-, pyrsistent
+, jsonschema-specifications
+, pkgutil-resolve-name
 , pytestCheckHook
 , pythonOlder
-, setuptools-scm
-, twisted
-, typing-extensions
+, referencing
+, rpds-py
+
+# optionals
+, fqdn
+, idna
+, isoduration
+, jsonpointer
+, rfc3339-validator
+, rfc3986-validator
+, rfc3987
+, uri-template
+, webcolors
 }:
 
 buildPythonPackage rec {
   pname = "jsonschema";
-  version = "4.4.0";
+  version = "4.18.4";
   format = "pyproject";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "636694eb41b3535ed608fe04129f26542b59ed99808b4f688aa32dcf55317a83";
+    hash = "sha256-+zZCc1OZ+pWMDSqtcFeQFVRZbGM0n09rKDxJPPaSol0=";
   };
 
-  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+  postPatch = ''
+    patchShebangs json/bin/jsonschema_suite
+  '';
 
   nativeBuildInputs = [
-    setuptools-scm
+    hatch-fancy-pypi-readme
+    hatch-vcs
+    hatchling
   ];
 
   propagatedBuildInputs = [
     attrs
-    pyrsistent
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    importlib-metadata
-    typing-extensions
+    jsonschema-specifications
+    referencing
+    rpds-py
   ] ++ lib.optionals (pythonOlder "3.9") [
     importlib-resources
+    pkgutil-resolve-name
   ];
 
-  checkInputs = [
-    pyperf
+  passthru.optional-dependencies = {
+    format = [
+      fqdn
+      idna
+      isoduration
+      jsonpointer
+      rfc3339-validator
+      rfc3987
+      uri-template
+      webcolors
+    ];
+    format-nongpl = [
+      fqdn
+      idna
+      isoduration
+      jsonpointer
+      rfc3339-validator
+      rfc3986-validator
+      uri-template
+      webcolors
+    ];
+  };
+
+  nativeCheckInputs = [
     pytestCheckHook
-    twisted
   ];
 
   pythonImportsCheck = [
@@ -52,8 +89,8 @@ buildPythonPackage rec {
   ];
 
   meta = with lib; {
-    description = "An implementation of JSON Schema validation for Python";
-    homepage = "https://github.com/Julian/jsonschema";
+    description = "An implementation of JSON Schema validation";
+    homepage = "https://github.com/python-jsonschema/jsonschema";
     license = licenses.mit;
     maintainers = with maintainers; [ domenkozar ];
   };

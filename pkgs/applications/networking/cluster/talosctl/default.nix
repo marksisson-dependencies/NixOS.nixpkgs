@@ -1,42 +1,21 @@
-{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
-let
-  # look for GO_LDFLAGS getting set in the Makefile
-  version = "1.0.3";
-  sha256 = "sha256-unGr+T2uYg7/4pAXf8vp9Hpi6IrCsLCqGbyBC7QXGX8=";
-  vendorSha256 = "sha256-9NYr5Ok9oQ1ajYFiTeU9ztmX/55UROBjNawLGjm4HYU=";
-  pkgsVersion = "v1.0.0-8-g76f8c5b";
-  extrasVersion = "v1.0.0-2-gc5d3ab0";
-in
+{ lib, stdenv, buildGoModule, fetchFromGitHub, installShellFiles }:
+
 buildGoModule rec {
   pname = "talosctl";
-  inherit version vendorSha256;
-  # nixpkgs-update: no auto update
+  version = "1.4.7";
 
   src = fetchFromGitHub {
     owner = "siderolabs";
     repo = "talos";
     rev = "v${version}";
-    inherit sha256;
+    hash = "sha256-K5YuT8OTxkkv5k6bW6kFDB3NMmXM1yFGBxId0snShe4=";
   };
 
-  ldflags =
-    let
-      versionPkg = "github.com/talos-systems/talos/pkg/version"; # VERSION_PKG
-      imagesPkgs = "github.com/talos-systems/talos/pkg/images"; # IMAGES_PKGS
-      mgmtHelpersPkg = "github.com/talos-systems/talos/cmd/talosctl/pkg/mgmt/helpers"; #MGMT_HELPERS_PKG
-    in
-    [
-      "-X ${versionPkg}.Name=Client"
-      "-X ${versionPkg}.SHA=${src.rev}" # should be the hash, but as we build from tags, this needs to do
-      "-X ${versionPkg}.Tag=${src.rev}"
-      "-X ${versionPkg}.PkgsVersion=${pkgsVersion}" # PKGS
-      "-X ${versionPkg}.ExtrasVersion=${extrasVersion}" # EXTRAS
-      "-X ${imagesPkgs}.Username=siderolabs" # USERNAME
-      "-X ${imagesPkgs}.Registry=ghcr.io" # REGISTRY
-      "-X ${mgmtHelpersPkg}.ArtifactsPath=_out" # ARTIFACTS
-      "-s"
-      "-w"
-    ];
+  vendorHash = "sha256-RJhsGjpSHbRXhOr2OkjY7x/Tgw+o7eJ9Ebd+NpW5KFs=";
+
+  ldflags = [ "-s" "-w" ];
+
+  GOWORK = "off";
 
   subPackages = [ "cmd/talosctl" ];
 
@@ -49,7 +28,7 @@ buildGoModule rec {
       --zsh <($out/bin/talosctl completion zsh)
   '';
 
-  doCheck = false;
+  doCheck = false; # no tests
 
   meta = with lib; {
     description = "A CLI for out-of-band management of Kubernetes nodes created by Talos";

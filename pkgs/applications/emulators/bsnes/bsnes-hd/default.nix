@@ -1,13 +1,17 @@
 { lib, stdenv, fetchFromGitHub
 , pkg-config
+, wrapGAppsHook
 , libX11, libXv
 , udev
 , SDL2
-, gtk2, gtksourceview
+, gtk3, gtksourceview3
 , alsa-lib, libao, openal, libpulseaudio
-, libicns, Cocoa, OpenAL
+, libicns, makeWrapper, darwin
 }:
 
+let
+  inherit (darwin.apple_sdk_11_0.frameworks) Cocoa OpenAL;
+in
 stdenv.mkDerivation {
   pname = "bsnes-hd";
   version = "10.6-beta";
@@ -35,15 +39,30 @@ stdenv.mkDerivation {
   ];
 
   nativeBuildInputs = [ pkg-config ]
-    ++ lib.optionals stdenv.isDarwin [ libicns ];
+    ++ lib.optionals stdenv.isLinux [ wrapGAppsHook ]
+    ++ lib.optionals stdenv.isDarwin [ libicns makeWrapper ];
 
   buildInputs = [ SDL2 libao ]
-    ++ lib.optionals stdenv.isLinux [ libX11 libXv udev gtk2 gtksourceview alsa-lib openal libpulseaudio ]
+    ++ lib.optionals stdenv.isLinux [ libX11 libXv udev gtk3 gtksourceview3 alsa-lib openal libpulseaudio ]
     ++ lib.optionals stdenv.isDarwin [ Cocoa OpenAL ];
 
   enableParallelBuilding = true;
 
-  makeFlags = [ "-C" "bsnes" "prefix=$(out)" ];
+  makeFlags = [ "-C" "bsnes" "prefix=$(out)" ]
+    ++ lib.optionals stdenv.isLinux [ "hiro=gtk3" ]
+    ++ lib.optionals stdenv.isDarwin [ "hiro=cocoa" ];
+
+  postInstall = lib.optionalString stdenv.isDarwin ''
+    mkdir -p $out/bin
+    makeWrapper $out/{Applications/bsnes.app/Contents/MacOS,bin}/bsnes
+  '';
+
+  # https://github.com/bsnes-emu/bsnes/issues/107
+  preFixup = lib.optionalString stdenv.isLinux ''
+    gappsWrapperArgs+=(
+      --prefix GDK_BACKEND : x11
+    )
+  '';
 
   meta = with lib; {
     description = "A fork of bsnes that adds HD video features";
@@ -51,5 +70,6 @@ stdenv.mkDerivation {
     license = licenses.gpl3Only;
     maintainers = with maintainers; [ stevebob ];
     platforms = platforms.unix;
+    mainProgram = "bsnes";
   };
 }

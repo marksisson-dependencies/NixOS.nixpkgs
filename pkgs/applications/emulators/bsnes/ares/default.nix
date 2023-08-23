@@ -1,84 +1,92 @@
 { lib
 , stdenv
 , fetchFromGitHub
-, pkg-config
-, alsa-lib
-, gtksourceview3
-, libXv
-, openal
-, libpulseaudio
-, libao
-, udev
 , SDL2
+, alsa-lib
+, gtk3
+, gtksourceview3
+, libGL
+, libGLU
+, libX11
+, libXv
+, libao
+, libicns
+, libpulseaudio
+, openal
+, pkg-config
+, udev
+, which
+, wrapGAppsHook
+, darwin
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "ares";
-  version = "126";
+  version = "133";
 
   src = fetchFromGitHub {
     owner = "ares-emulator";
     repo = "ares";
-    rev = "v${version}";
-    sha256 = "1rj4vmz8lvpmfc6wni7222kagnw9f6jda9rcb6qky2kpizlp2d24";
-  };
-
-  parallel-rdp = fetchFromGitHub {
-    owner = "Themaister";
-    repo = "parallel-rdp-standalone";
-    rev = "0dcebe11ee79288441e40e145c8f340d81f52316";
-    sha256 = "1avp4wyfkhk5yfjqx5w3jbqghn2mq5la7k9248kjmnp9n9lip6w9";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-KCpHiIdid5h5CU2uyMOo+p5h50h3Ki5/4mUpdTAPKQA=";
   };
 
   patches = [
-    ./fix-ruby.patch
+    ./001-dont-rebuild-on-install.patch
+    ./002-fix-ruby.diff
+    ./003-darwin-specific.patch
   ];
-
-  enableParallelBuilding = true;
-  dontConfigure = true;
 
   nativeBuildInputs = [
     pkg-config
+    which
+    wrapGAppsHook
+  ] ++ lib.optionals stdenv.isDarwin [
+    libicns
   ];
 
   buildInputs = [
-    alsa-lib
-    gtksourceview3
-    libXv
-    openal
-    libpulseaudio
-    libao
-    udev
     SDL2
+    libao
+  ] ++ lib.optionals stdenv.isLinux [
+    alsa-lib
+    gtk3
+    gtksourceview3
+    libGL
+    libGLU
+    libX11
+    libXv
+    libpulseaudio
+    openal
+    udev
+  ] ++ lib.optionals stdenv.isDarwin [
+    darwin.apple_sdk_11_0.frameworks.Cocoa
+    darwin.apple_sdk_11_0.frameworks.OpenAL
   ];
 
-  buildPhase = ''
-    runHook preBuild
+  enableParallelBuilding = true;
 
-    rm -rf ares/n64/vulkan/parallel-rdp
-    ln -sf ${parallel-rdp} ares/n64/vulkan/parallel-rdp
-    make -C desktop-ui -j $NIX_BUILD_CORES openmp=true vulkan=true local=false hiro=gtk3
+  makeFlags = lib.optionals stdenv.isLinux [
+    "hiro=gtk3"
+  ] ++ lib.optionals stdenv.isDarwin [
+    "hiro=cocoa"
+    "lto=false"
+    "vulkan=false"
+  ] ++ [
+    "local=false"
+    "openmp=true"
+    "prefix=$(out)"
+  ];
 
-    runHook postBuild
-  '';
+  env.NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-mmacosx-version-min=10.14";
 
-  installPhase = ''
-    runHook preInstall
-
-    mkdir -p $out/{bin,share/{applications,ares,pixmaps}}
-    cp desktop-ui/out/ares $out/bin
-    cp desktop-ui/resource/ares.desktop $out/share/applications
-    cp desktop-ui/resource/{ares{.ico,.png},font.png} $out/share/pixmaps
-    cp -r ares/{Shaders,System} $out/share/ares
-
-    runHook postInstall
-  '';
-
-  meta = with lib; {
-    homepage = "https://ares.dev";
+  meta = {
+    homepage = "https://ares-emu.net";
     description = "Open-source multi-system emulator with a focus on accuracy and preservation";
-    license = licenses.isc;
-    maintainers = with maintainers; [ Madouura ];
-    platforms = platforms.all;
+    license = lib.licenses.isc;
+    maintainers = with lib.maintainers; [ Madouura AndersonTorres ];
+    platforms = lib.platforms.unix;
+    broken = stdenv.isDarwin;
   };
-}
+})
+# TODO: select between Qt and GTK3

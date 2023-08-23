@@ -8,19 +8,21 @@
 
 buildPythonPackage rec {
   pname = "feedparser";
-  version = "6.0.8";
+  version = "6.0.10";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-XOBBCgWrJIyMfPyjoOoiA5aO6f9EhgZzea9IJ6WflmE=";
+    hash = "sha256-J9pIX0Y3znFjzeqxOoAxK5O30MG3db70pHYpoxELylE=";
   };
 
   propagatedBuildInputs = [
     sgmllib3k
   ];
+
+  __darwinAllowLocalNetworking = true;
 
   checkPhase = ''
     # Tests are failing

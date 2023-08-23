@@ -21,13 +21,13 @@ stdenv.mkDerivation rec {
     })
   ];
 
-  CPPFLAGS = "-I${SDL.dev}/include -I${SDL.dev}/include/SDL -I${SDL_mixer}/include";
+  CPPFLAGS = "-I${lib.getDev SDL}/include -I${lib.getDev SDL}/include/SDL -I${SDL_mixer}/include";
 
   nativeBuildInputs = [ autoreconfHook ];
   buildInputs = [ SDL SDL_mixer ];
 
   meta = {
-    homepage = "http://ri-li.sourceforge.net";
+    homepage = "https://ri-li.sourceforge.net";
     license = lib.licenses.gpl2Plus;
     description = "A children's train game";
     longDescription = ''

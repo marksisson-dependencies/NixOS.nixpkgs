@@ -1,40 +1,68 @@
 { branch ? "mainline"
-, libsForQt5
+, qt6Packages
 , fetchFromGitHub
+, fetchgit
+, fetchurl
+, fetchzip
+, runCommand
+, gnutar
 }:
 
 let
-  # Fetched from https://api.yuzu-emu.org/gamedb, last updated 2022-03-23.
-  # Please make sure to update this when updating yuzu!
-  compat-list = ./compatibility-list.json;
-in {
-  mainline = libsForQt5.callPackage ./generic.nix rec {
-    pname = "yuzu-mainline";
-    version = "992";
+  sources = import ./sources.nix;
 
-    src = fetchFromGitHub {
-      owner = "yuzu-emu";
-      repo = "yuzu-mainline";
-      rev = "mainline-0-${version}";
-      sha256 = "1x3fwwdw86jvygbzy9k99j6avfsd867ywm2x25izw10jznpsaixs";
-      fetchSubmodules = true;
-    };
-
-    inherit branch compat-list;
+  compat-list = fetchurl {
+    name = "yuzu-compat-list";
+    url = "https://raw.githubusercontent.com/flathub/org.yuzu_emu.yuzu/${sources.compatList.rev}/compatibility_list.json";
+    hash = sources.compatList.hash;
   };
 
-  early-access = libsForQt5.callPackage ./generic.nix rec {
-    pname = "yuzu-ea";
-    version = "2690";
+  mainlineSrc = fetchFromGitHub {
+    owner = "yuzu-emu";
+    repo = "yuzu-mainline";
+    rev = "mainline-0-${sources.mainline.version}";
+    hash = sources.mainline.hash;
+    fetchSubmodules = true;
+  };
 
-    src = fetchFromGitHub {
-      owner = "pineappleEA";
-      repo = "pineapple-src";
-      rev = "EA-${version}";
-      sha256 = "0zm06clbdh9cccq9932q9v976q7sjknynkdvvp04h1wcskmrxi3c";
-      fetchSubmodules = true;
-    };
+  # The mirror repo for early access builds is missing submodule info,
+  # but the Windows distributions include a source tarball, which in turn
+  # includes the full git metadata. So, grab that and rehydrate it.
+  # This has the unfortunate side effect of requiring two FODs, one
+  # for the Windows download and one for the full repo with submodules.
+  eaZip = fetchzip {
+    name = "yuzu-ea-windows-dist";
+    url = "https://github.com/pineappleEA/pineapple-src/releases/download/EA-${sources.ea.version}/Windows-Yuzu-EA-${sources.ea.version}.zip";
+    hash = sources.ea.distHash;
+  };
 
-    inherit branch compat-list;
+  eaGitSrc = runCommand "yuzu-ea-dist-unpacked" {
+    src = eaZip;
+    nativeBuildInputs = [ gnutar ];
+  }
+  ''
+    mkdir $out
+    tar xf $src/*.tar.xz --directory=$out --strip-components=1
+  '';
+
+  eaSrcRehydrated = fetchgit {
+    url = eaGitSrc;
+    fetchSubmodules = true;
+    hash = sources.ea.fullHash;
+  };
+
+in {
+  mainline = qt6Packages.callPackage ./generic.nix {
+    branch = "mainline";
+    version = sources.mainline.version;
+    src = mainlineSrc;
+    inherit compat-list;
+  };
+
+  early-access = qt6Packages.callPackage ./generic.nix {
+    branch = "early-access";
+    version = sources.ea.version;
+    src = eaSrcRehydrated;
+    inherit compat-list;
   };
 }.${branch}

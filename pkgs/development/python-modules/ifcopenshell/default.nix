@@ -3,7 +3,7 @@
 , fetchFromGitHub
 , gcc10
 , cmake
-, boost17x
+, boost179
 , icu
 , swig
 , pcre
@@ -28,7 +28,7 @@ buildPythonPackage rec {
   nativeBuildInputs = [ gcc10 cmake ];
 
   buildInputs = [
-    boost17x
+    boost179
     icu
     pcre
     libxml2
@@ -51,6 +51,7 @@ buildPythonPackage rec {
   ];
 
   meta = with lib; {
+    broken = stdenv.isDarwin;
     description = "Open source IFC library and geometry engine";
     homepage    = "http://ifcopenshell.org/";
     license     = licenses.lgpl3;

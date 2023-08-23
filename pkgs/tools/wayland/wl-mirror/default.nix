@@ -8,11 +8,13 @@
 , wayland-scanner
 , wlr-protocols
 , libGL
+, bash
 , installExampleScripts ? true
 , makeWrapper
 , pipectl
 , slurp
 , rofi
+, scdoc
 }:
 
 let
@@ -26,14 +28,19 @@ in
 
 stdenv.mkDerivation rec {
   pname = "wl-mirror";
-  version = "0.11.2";
+  version = "0.13.2";
 
   src = fetchFromGitHub {
     owner = "Ferdi265";
     repo = "wl-mirror";
     rev = "v${version}";
-    hash = "sha256-D5uUKaepcSW9v2x6uBeLGXAyuLorlt4Lb6lZD/prfp8=";
+    hash = "sha256-dmdRe4GZ1W2gD7ZF1MudBqfZIm9HyBjISa+xB54BLz4=";
   };
+
+  strictDeps = true;
+  depsBuildBuild = [ pkg-config ];
+  nativeBuildInputs = [ cmake pkg-config wayland-scanner scdoc makeWrapper ];
+  buildInputs = [ libGL wayland wayland-protocols wlr-protocols bash ];
 
   postPatch = ''
     echo 'v${version}' > version.txt
@@ -44,14 +51,12 @@ stdenv.mkDerivation rec {
 
   cmakeFlags = [
     "-DINSTALL_EXAMPLE_SCRIPTS=${if installExampleScripts then "ON" else "OFF"}"
+    "-DINSTALL_DOCUMENTATION=ON"
   ];
 
   postInstall = lib.optionalString installExampleScripts ''
     wrapProgram $out/bin/wl-present --prefix PATH ":" ${wl-present-binpath}
   '';
-
-  nativeBuildInputs = [ cmake pkg-config wayland-scanner makeWrapper ];
-  buildInputs = [ libGL wayland wayland-protocols wlr-protocols ];
 
   meta = with lib; {
     homepage = "https://github.com/Ferdi265/wl-mirror";

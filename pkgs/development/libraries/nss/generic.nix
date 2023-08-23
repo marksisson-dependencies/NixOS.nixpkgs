@@ -1,4 +1,4 @@
-{ version, sha256 }:
+{ version, hash }:
 { lib
 , stdenv
 , fetchurl
@@ -15,14 +15,11 @@
 , # allow FIPS mode. Note that this makes the output non-reproducible.
   # https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Tech_Notes/nss_tech_note6
   enableFIPS ? false
+, nixosTests
+, nss_latest
 }:
 
 let
-  nssPEM = fetchurl {
-    url = "http://dev.gentoo.org/~polynomial-c/mozilla/nss-3.15.4-pem-support-20140109.patch.xz";
-    sha256 = "10ibz6y0hknac15zr6dw4gv9nb5r5z9ym6gq18j3xqx7v7n3vpdw";
-  };
-
   underscoreVersion = lib.replaceStrings [ "." ] [ "_" ] version;
 in
 stdenv.mkDerivation rec {
@@ -31,7 +28,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "mirror://mozilla/security/nss/releases/NSS_${underscoreVersion}_RTM/src/${pname}-${version}.tar.gz";
-    inherit sha256;
+    inherit hash;
   };
 
   depsBuildBuild = [ buildPackages.stdenv.cc ];
@@ -43,14 +40,19 @@ stdenv.mkDerivation rec {
 
   propagatedBuildInputs = [ nspr ];
 
-  prePatch = ''
-    # strip the trailing whitespace from the patch line and the renamed CKO_NETSCAPE_ enum to CKO_NSS_
-    xz -d < ${nssPEM} | sed \
-       -e 's/-DIRS = builtins $/-DIRS = . builtins/g' \
-       -e 's/CKO_NETSCAPE_/CKO_NSS_/g' \
-       -e 's/CKT_NETSCAPE_/CKT_NSS_/g' \
-       | patch -p1
+  patches = [
+    # Based on http://patch-tracker.debian.org/patch/series/dl/nss/2:3.15.4-1/85_security_load.patch
+    ./85_security_load_3.85+.patch
+    ./fix-cross-compilation.patch
+  ] ++ lib.optionals (lib.versionOlder version "3.91") [
+    # https://bugzilla.mozilla.org/show_bug.cgi?id=1836925
+    # https://phabricator.services.mozilla.com/D180068
+    ./remove-c25519-support.patch
+  ];
 
+  patchFlags = [ "-p0" ];
+
+  postPatch = ''
     patchShebangs nss
 
     for f in nss/coreconf/config.gypi nss/build.sh nss/coreconf/config.gypi; do
@@ -58,18 +60,7 @@ stdenv.mkDerivation rec {
     done
 
     substituteInPlace nss/coreconf/config.gypi --replace "/usr/bin/grep" "${buildPackages.coreutils}/bin/env grep"
-  '';
-
-  patches = [
-    # Based on http://patch-tracker.debian.org/patch/series/dl/nss/2:3.15.4-1/85_security_load.patch
-    ./85_security_load.patch
-    ./ckpem.patch
-    ./fix-cross-compilation.patch
-  ];
-
-  patchFlags = [ "-p0" ];
-
-  postPatch = lib.optionalString stdenv.hostPlatform.isDarwin ''
+  '' + lib.optionalString stdenv.hostPlatform.isDarwin ''
     substituteInPlace nss/coreconf/Darwin.mk --replace '@executable_path/$(notdir $@)' "$out/lib/\$(notdir \$@)"
     substituteInPlace nss/coreconf/config.gypi --replace "'DYLIB_INSTALL_NAME_BASE': '@executable_path'" "'DYLIB_INSTALL_NAME_BASE': '$out/lib'"
   '';
@@ -106,6 +97,7 @@ stdenv.mkDerivation rec {
         -Dhost_arch=${host} \
         -Duse_system_zlib=1 \
         --enable-libpkix \
+        -j $NIX_BUILD_CORES \
         ${lib.optionalString enableFIPS "--enable-fips"} \
         ${lib.optionalString stdenv.isDarwin "--clang"} \
         ${lib.optionalString (stdenv.hostPlatform != stdenv.buildPlatform) "--disable-tests"}
@@ -113,7 +105,14 @@ stdenv.mkDerivation rec {
       runHook postBuild
     '';
 
-  NIX_CFLAGS_COMPILE = "-Wno-error -DNIX_NSS_LIBDIR=\"${placeholder "out"}/lib/\" " + lib.optionalString stdenv.hostPlatform.is64bit "-DNSS_USE_64=1";
+  env.NIX_CFLAGS_COMPILE = toString ([
+    "-Wno-error"
+    "-DNIX_NSS_LIBDIR=\"${placeholder "out"}/lib/\""
+  ] ++ lib.optionals stdenv.hostPlatform.is64bit [
+    "-DNSS_USE_64=1"
+  ] ++ lib.optionals stdenv.hostPlatform.isILP32 [
+    "-DNS_PTR_LE_32=1" # See RNG_RandomUpdate() in drdbg.c
+  ]);
 
   installPhase = ''
     runHook preInstall
@@ -181,6 +180,12 @@ stdenv.mkDerivation rec {
     '';
 
   passthru.updateScript = ./update.sh;
+
+  passthru.tests = lib.optionalAttrs (lib.versionOlder version nss_latest.version) {
+    inherit (nixosTests) firefox-esr-102;
+  } // lib.optionalAttrs (lib.versionAtLeast version nss_latest.version) {
+    inherit (nixosTests) firefox firefox-esr-115;
+  };
 
   meta = with lib; {
     homepage = "https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS";

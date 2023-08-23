@@ -5,35 +5,34 @@
 , importlib-metadata
 , pytestCheckHook
 
-# large-rebuild downstream dependencies
+  # large-rebuild downstream dependencies and applications
 , flask
 , black
-
-# applications
 , magic-wormhole
 , mitmproxy
+, typer
 }:
 
 buildPythonPackage rec {
   pname = "click";
-  version = "8.1.2";
+  version = "8.1.6";
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-R5cH/hTZ7JoHV2GLehAKCuTE4jb6xbf4DKaAKBQaGnI=";
+    hash = "sha256-SO6EmVGRlSegRb/jv3uqipWcQjE04aW5jAXCC6daHL0=";
   };
 
   propagatedBuildInputs = lib.optionals (pythonOlder "3.8") [
     importlib-metadata
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
   passthru.tests = {
-    inherit black flask magic-wormhole mitmproxy;
+    inherit black flask magic-wormhole mitmproxy typer;
   };
 
   meta = with lib; {
@@ -44,6 +43,6 @@ buildPythonPackage rec {
       composable way, with as little code as necessary.
     '';
     license = licenses.bsd3;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = with maintainers; [ nickcao ];
   };
 }

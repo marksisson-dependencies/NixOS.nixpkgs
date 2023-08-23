@@ -1,50 +1,91 @@
 { lib
 , buildPythonPackage
 , fetchPypi
+, hatchling
 , jsonschema
 , pythonOlder
 , requests
 , pytestCheckHook
-, pyjson5
-, Babel
-, jupyter_server
+, json5
+, babel
+, jupyter-server
+, tomli
 , openapi-core
-, pytest-tornasync
+, pytest-jupyter
+, requests-mock
 , ruamel-yaml
 , strict-rfc3339
+, importlib-metadata
 }:
 
 buildPythonPackage rec {
   pname = "jupyterlab_server";
-  version = "2.12.0";
-  disabled = pythonOlder "3.6";
+  version = "2.24.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-AOD0tMOZ9Vk4Mj6hDPktkVKI/hJ1PjXRBp9soItyq78=";
+    hash = "sha256-Tm+Z4KVXm7vDLkScTbsDlWHU8aeCfVczJz7VZzjyHwc=";
   };
 
-  postPatch = ''
-    sed -i "/^addopts/d" pyproject.toml
-  '';
-
-  propagatedBuildInputs = [ requests jsonschema pyjson5 Babel jupyter_server ];
-
-  checkInputs = [
-    openapi-core
-    pytestCheckHook
-    pytest-tornasync
-    ruamel-yaml
+  nativeBuildInputs = [
+    hatchling
   ];
 
-  pytestFlagsArray = [ "--pyargs" "jupyterlab_server" ];
+  propagatedBuildInputs = [
+    requests
+    jsonschema
+    json5
+    babel
+    jupyter-server
+    tomli
+  ] ++ lib.optionals (pythonOlder "3.10") [
+    importlib-metadata
+  ];
+
+  nativeCheckInputs = [
+    openapi-core
+    pytestCheckHook
+    pytest-jupyter
+    requests-mock
+    ruamel-yaml
+    strict-rfc3339
+  ];
+
+  postPatch = ''
+    sed -i "/timeout/d" pyproject.toml
+  '';
+
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
+
+  pytestFlagsArray = [
+    # DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12.
+    # Use setuptools or check PEP 632 for potential alternatives.
+    "-W ignore::DeprecationWarning"
+  ];
+
+  disabledTestPaths = [
+    "tests/test_settings_api.py"
+    "tests/test_themes_api.py"
+    "tests/test_translation_api.py"
+    "tests/test_workspaces_api.py"
+  ];
+
+  disabledTests = [
+    "test_get_listing"
+  ];
 
   __darwinAllowLocalNetworking = true;
 
   meta = with lib; {
-    description = "JupyterLab Server";
-    homepage = "https://jupyter.org";
+    description = "A set of server components for JupyterLab and JupyterLab like applications";
+    homepage = "https://jupyterlab-server.readthedocs.io/";
+    changelog = "https://github.com/jupyterlab/jupyterlab_server/blob/v${version}/CHANGELOG.md";
     license = licenses.bsdOriginal;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = lib.teams.jupyter.members;
   };
 }

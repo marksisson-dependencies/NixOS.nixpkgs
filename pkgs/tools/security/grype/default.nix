@@ -2,17 +2,18 @@
 , buildGoModule
 , fetchFromGitHub
 , installShellFiles
+, openssl
 }:
 
 buildGoModule rec {
   pname = "grype";
-  version = "0.35.0";
+  version = "0.65.2";
 
   src = fetchFromGitHub {
     owner = "anchore";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-DZ3/t6+iVmPCH4LBbtEqIdPdzmQu7fsNlJnHZ54alVw=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-ST+fJfkViQubCWVMY2BbOgE7tOpXjCX1ATLBmLmvMiY=";
     # populate values that require us to use git. By doing this in postFetch we
     # can delete .git afterwards and maintain better reproducibility of the src.
     leaveDotGit = true;
@@ -25,18 +26,28 @@ buildGoModule rec {
     '';
   };
 
-  vendorSha256 = "sha256-RHsDwbQO+2OLmpqCSC9goHv9ut64Kp+cw18jdLvhmK8=";
+  proxyVendor = true;
+
+  vendorHash = "sha256-HaqJ1Pc0A29D0HielGhP6uxkVccB8JyUrm0Q5nW8teU=";
 
   nativeBuildInputs = [
     installShellFiles
   ];
 
+  nativeCheckInputs = [
+    openssl
+  ];
+
+  subPackages = [ "cmd/grype" ];
+
+  excludedPackages = "test/integration";
+
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/anchore/grype/internal/version.version=${version}"
-    "-X github.com/anchore/grype/internal/version.gitDescription=v${version}"
-    "-X github.com/anchore/grype/internal/version.gitTreeState=clean"
+    "-X=github.com/anchore/grype/internal/version.version=${version}"
+    "-X=github.com/anchore/grype/internal/version.gitDescription=v${version}"
+    "-X=github.com/anchore/grype/internal/version.gitTreeState=clean"
   ];
 
   preBuild = ''
@@ -48,8 +59,34 @@ buildGoModule rec {
     ldflags+=" -X github.com/anchore/grype/internal/version.buildDate=$(cat SOURCE_DATE_EPOCH)"
   '';
 
-  # Tests require a running Docker instance
-  doCheck = false;
+  preCheck = ''
+    # test all dirs (except excluded)
+    unset subPackages
+    # test goldenfiles expect no version
+    unset ldflags
+
+    # patch utility script
+    patchShebangs grype/db/test-fixtures/tls/generate-x509-cert-pair.sh
+
+    # remove tests that depend on docker
+    substituteInPlace test/cli/cmd_test.go \
+      --replace "TestCmd" "SkipCmd"
+    substituteInPlace grype/pkg/provider_test.go \
+      --replace "TestSyftLocationExcludes" "SkipSyftLocationExcludes"
+    # remove tests that depend on git
+    substituteInPlace test/cli/db_validations_test.go \
+      --replace "TestDBValidations" "SkipDBValidations"
+    substituteInPlace test/cli/registry_auth_test.go \
+      --replace "TestRegistryAuth" "SkipRegistryAuth"
+    substituteInPlace test/cli/sbom_input_test.go \
+      --replace "TestSBOMInput_FromStdin" "SkipSBOMInput_FromStdin" \
+      --replace "TestSBOMInput_AsArgument" "SkipSBOMInput_AsArgument"
+    substituteInPlace test/cli/subprocess_test.go \
+      --replace "TestSubprocessStdin" "SkipSubprocessStdin"
+
+    # segfault
+    rm grype/db/v5/namespace/cpe/namespace_test.go
+  '';
 
   postInstall = ''
     installShellCompletion --cmd grype \
@@ -67,6 +104,6 @@ buildGoModule rec {
       container image or filesystem to find known vulnerabilities.
     '';
     license = with licenses; [ asl20 ];
-    maintainers = with maintainers; [ fab jk ];
+    maintainers = with maintainers; [ fab jk kashw2 ];
   };
 }

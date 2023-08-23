@@ -1,77 +1,98 @@
 { lib
 , stdenv
-, aiofiles
-, beautifulsoup4
 , buildPythonPackage
-, doCheck ? true
 , fetchFromGitHub
-, gunicorn
+, fetchpatch
+
+# build-system
+, setuptools
+, wheel
+
+# propagates
+, aiofiles
+, html5tagger
 , httptools
 , multidict
-, pytest-asyncio
-, pytest-benchmark
-, pytest-sugar
-, pytestCheckHook
-, pythonOlder
-, pythonAtLeast
 , sanic-routing
-, sanic-testing
+, tracerite
+, typing-extensions
 , ujson
-, uvicorn
 , uvloop
 , websockets
+
+# optionals
+, aioquic
+
+# tests
+, doCheck ? !stdenv.isDarwin # on Darwin, tests fail but pkg still works
+
+, beautifulsoup4
+, gunicorn
+, pytest-asyncio
+, pytestCheckHook
+, pythonOlder
+, sanic-testing
+, uvicorn
 }:
 
 buildPythonPackage rec {
   pname = "sanic";
-  version = "21.12.1";
-  format = "setuptools";
+  version = "23.6.0";
+  format = "pyproject";
 
-  disabled = pythonOlder "3.7" ||
-    pythonAtLeast "3.10";  # see GHSA-7p79-6x2v-5h88
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "sanic-org";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "0jyl23q7b7fyqzan97qflkqcvmfpzbxbzv0qgygxasrzh80zx67g";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-Ffw92mlYNV+ikb6299uw24EI1XPpl3Ju2st1Yt/YHKw=";
   };
 
-  postPatch = ''
-    # Loosen dependency requirements.
-    substituteInPlace setup.py \
-      --replace "pytest==6.2.5" "pytest" \
-      --replace "gunicorn==20.0.4" "gunicorn" \
-      --replace "multidict>=5.0,<6.0" "multidict"
+  patches = [
+    # https://github.com/sanic-org/sanic/pull/2801
+    (fetchpatch {
+      name = "fix-test-one-cpu.patch";
+      url = "https://github.com/sanic-org/sanic/commit/a1df2a6de1c9c88a85d166e7e2636d26f7925852.patch";
+      hash = "sha256-vljGuoP/Q9HrP+/AOoI1iUpbDQ4/1Pn7AURP1dncI00=";
+    })
+  ];
 
-    sed '/pytest-sanic/d' setup.py
-
-    # Patch a request headers test to allow brotli encoding
-    # (we build httpx with brotli support, upstream doesn't).
-    substituteInPlace tests/test_headers.py \
-      --replace "deflate\r\n" "deflate, br\r\n"
-  '';
+  nativeBuildInputs = [
+    setuptools
+    wheel
+  ];
 
   propagatedBuildInputs = [
     aiofiles
     httptools
+    html5tagger
     multidict
     sanic-routing
+    tracerite
+    typing-extensions
     ujson
     uvloop
     websockets
   ];
 
-  checkInputs = [
+  passthru.optional-dependencies = {
+    ext = [
+      # TODO: sanic-ext
+    ];
+    http3 = [
+      aioquic
+    ];
+  };
+
+  nativeCheckInputs = [
     beautifulsoup4
     gunicorn
     pytest-asyncio
-    pytest-benchmark
-    pytest-sugar
     pytestCheckHook
     sanic-testing
     uvicorn
-  ];
+  ] ++ passthru.optional-dependencies.http3;
 
   inherit doCheck;
 
@@ -82,6 +103,9 @@ buildPythonPackage rec {
 
     # needed for relative paths for some packages
     cd tests
+  '' + lib.optionalString stdenv.isDarwin ''
+    # OSError: [Errno 24] Too many open files
+    ulimit -n 1024
   '';
 
   # uvloop usage is buggy
@@ -89,45 +113,41 @@ buildPythonPackage rec {
 
   pytestFlagsArray = [
     "--asyncio-mode=auto"
+    "-vvv"
   ];
 
   disabledTests = [
-    # Lack of uvloop setup through fixtures
-    "test_create_asyncio_server"
-    "test_listeners_triggered_async"
-    "test_tls_options"
-    # Tests are flaky
-    "test_keep_alive_client_timeout"
-    "test_check_timeouts_request_timeout"
-    "test_check_timeouts_response_timeout"
-    "test_reloader_live"
-    "test_zero_downtime"
-    # Not working from 21.9.1
-    "test_create_server_main"
-    "test_create_server_main_convenience"
-    "test_debug"
-    "test_auto_reload"
-    "test_no_exceptions_when_cancel_pending_request"
-    "test_ipv6_address_is_not_wrapped"
-    # Failure of the redirect tests seems to be related to httpx>0.20.0
-    "test_redirect"
-    "test_chained_redirect"
-    "test_unix_connection"
-    # These appear to be very sensitive to output of commands
-    "test_access_logs"
-    "test_auto_reload"
-    "test_host_port"
-    "test_no_exceptions_when_cancel_pending_request"
+    # Require networking
+    "test_full_message"
+    # Server mode mismatch (debug vs production)
     "test_num_workers"
+    # Racy tests
+    "test_keep_alive_client_timeout"
+    "test_keep_alive_server_timeout"
+    "test_zero_downtime"
+    # sanic.exceptions.SanicException: Cannot setup Sanic Simple Server without a path to a directory
+    "test_load_app_simple"
+    # create defunct python processes
+    "test_reloader_live"
+    "test_reloader_live_with_dir"
+    "test_reload_listeners"
+    # crash the python interpreter
+    "test_host_port_localhost"
+    "test_host_port"
     "test_server_run"
-    "test_version"
-    # Sensitive comparison of raw HTTP header fails
-    "test_raw_headers"
-    # noisy_exceptions sometimes missing from sanic stdout
-    "test_noisy_exceptions"
+    # NoneType object is not subscriptable
+    "test_serve_app_implicit"
+    # AssertionError: assert [] == ['Restarting a process', 'Begin restart termination', 'Starting a process']
+    "test_default_reload_shutdown_order"
+    # App not found.
+    "test_input_is_dir"
   ];
 
   disabledTestPaths = [
+    # We are not interested in benchmarks
+    "benchmark/"
+    # We are also not interested in typing
+    "typing/test_typing.py"
     # unable to create async loop
     "test_app.py"
     "test_asgi.py"
@@ -139,14 +159,13 @@ buildPythonPackage rec {
   # for the same local port
   __darwinAllowLocalNetworking = true;
 
-  pythonImportsCheck = [
-    "sanic"
-  ];
+  pythonImportsCheck = [ "sanic" ];
 
   meta = with lib; {
     description = "Web server and web framework";
     homepage = "https://github.com/sanic-org/sanic/";
+    changelog = "https://github.com/sanic-org/sanic/releases/tag/v${version}";
     license = licenses.mit;
-    maintainers = with maintainers; [ costrouc AluisioASG ];
+    maintainers = with maintainers; [ AluisioASG ];
   };
 }

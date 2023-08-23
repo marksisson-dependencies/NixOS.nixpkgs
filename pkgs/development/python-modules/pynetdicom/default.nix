@@ -20,14 +20,14 @@ buildPythonPackage rec {
     owner = "pydicom";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-/JWQUtFBW4uqCbs/nUxj1pRBfTCXV4wcqTkqvzpdFrM=";
+    hash = "sha256-/JWQUtFBW4uqCbs/nUxj1pRBfTCXV4wcqTkqvzpdFrM=";
   };
 
   propagatedBuildInputs = [
     pydicom
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pyfakefs
     pytestCheckHook
     sqlalchemy
@@ -41,6 +41,7 @@ buildPythonPackage rec {
     "TestEchoSCP"
     "TestEchoSCPCLI"
     "TestEventHandlingAcceptor"
+    "TestEventHandlingRequestor"
     "TestFindSCP"
     "TestFindSCPCLI"
     "TestGetSCP"

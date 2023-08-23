@@ -5,40 +5,36 @@
 , rustPlatform
 , installShellFiles
 , libiconv
-, libobjc
-, Security
-, CoreServices
-, Metal
-, Foundation
-, QuartzCore
+, darwin
 , librusty_v8 ? callPackage ./librusty_v8.nix { }
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "deno";
-  version = "1.21.0";
+  version = "1.36.0";
 
   src = fetchFromGitHub {
     owner = "denoland";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-Sv9Keb+6vc6Lr+H/gAi9/4bmBO18gv9bqAjBIpOrtnk=";
+    hash = "sha256-PV0Q/OtO4AkY3NMwIQIwU0DCkFqXifJFuHb+Q3rIQLI=";
   };
-  cargoSha256 = "sha256-EykIg8rU2VBag+3834SwMYkz9ZR6brOo/0NXXvrGqsU=";
+
+  cargoHash = "sha256-w0Wr/mwn4Hdfxr7eBdZtpj3MbsMHDwAK2F7XaYEaMCk=";
 
   postPatch = ''
     # upstream uses lld on aarch64-darwin for faster builds
     # within nix lld looks for CoreFoundation rather than CoreFoundation.tbd and fails
-    substituteInPlace .cargo/config --replace '"-C", "link-arg=-fuse-ld=lld"' ""
+    substituteInPlace .cargo/config.toml --replace '"-C", "link-arg=-fuse-ld=lld"' ""
   '';
 
-  # Install completions post-install
   nativeBuildInputs = [ installShellFiles ];
+  buildInputs = lib.optionals stdenv.isDarwin (
+    [ libiconv darwin.libobjc ] ++
+    (with darwin.apple_sdk.frameworks; [ Security CoreServices Metal Foundation QuartzCore ])
+  );
 
   buildAndTestSubdir = "cli";
-
-  buildInputs = lib.optionals stdenv.isDarwin
-    [ libiconv libobjc Security CoreServices Metal Foundation QuartzCore ];
 
   # The v8 package will try to download a `librusty_v8.a` release at build time to our read-only filesystem
   # To avoid this we pre-download the file and export it via RUSTY_V8_ARCHIVE
@@ -68,6 +64,7 @@ rustPlatform.buildRustPackage rec {
   '';
 
   passthru.updateScript = ./update/update.ts;
+  passthru.tests = callPackage ./tests { };
 
   meta = with lib; {
     homepage = "https://deno.land/";

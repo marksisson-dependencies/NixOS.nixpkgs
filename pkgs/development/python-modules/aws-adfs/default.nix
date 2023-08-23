@@ -19,7 +19,7 @@
 
 buildPythonPackage rec {
   pname = "aws-adfs";
-  version = "2.0.1";
+  version = "2.2.1";
   format = "pyproject";
 
   disabled = pythonOlder "3.6";
@@ -27,8 +27,8 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "venth";
     repo = pname;
-    rev = version;
-    hash = "sha256-0BURXbEOZvb8kszuajLtR+V7HjJycCBAQrm3WqpVB1w=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-REJYuOGq22onMj4WcfA7i4/cG99UGZA9D99ESIKY1A8=";
   };
 
   nativeBuildInputs = [
@@ -48,11 +48,10 @@ buildPythonPackage rec {
   ];
 
   patches = [
-    # Switch to poetry-core, https://github.com/venth/aws-adfs/pull/230
+    # Apply new fido2 api (See: venth/aws-adfs#243)
     (fetchpatch {
-      name = "switch-to-poetry-core.patch";
-      url = "https://github.com/venth/aws-adfs/commit/da095ccf64629d36a6045ffec2684038378ee690.patch";
-      sha256 = "sha256-xg4c7iIonkUmNN74q/UeGSuYP3to7q4cLW6+TMW9nh4=";
+      url = "https://github.com/venth/aws-adfs/commit/09836d89256f3537270d760d8aa30ab9284725a8.diff";
+      hash = "sha256-pAAJvOa43BXtyWvV8hsLe2xqd5oI+vzndckRTRol61s=";
     })
   ];
 
@@ -62,7 +61,7 @@ buildPythonPackage rec {
       --replace 'botocore = ">=1.12.6"' 'botocore = "*"'
   '';
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     toml
   ];

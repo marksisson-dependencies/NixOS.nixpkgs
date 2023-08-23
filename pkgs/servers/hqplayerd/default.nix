@@ -1,33 +1,38 @@
-{ stdenv
-, alsa-lib
+{ stdenv, lib
 , addOpenGLRunpath
+, alsa-lib
 , autoPatchelfHook
 , cairo
 , fetchurl
 , flac
-, gcc11
-, gnome
+, gcc12
 , gssdp
+, gupnp
+, gupnp-av
 , lame
-, lib
 , libgmpris
-, llvmPackages_10
+, libusb-compat-0_1
+, llvmPackages_14
+, meson
 , mpg123
+, ninja
 , rpmextract
 , wavpack
 
-, gupnp
-, gupnp-av
-, meson
-, ninja
-}:
+, callPackage
+, rygel ? null
+}@inputs:
+let
+  # FIXME: Replace with gnome.rygel once hqplayerd releases a new version.
+  rygel-hqplayerd = inputs.rygel or (callPackage ./rygel.nix { });
+in
 stdenv.mkDerivation rec {
   pname = "hqplayerd";
-  version = "4.30.3-87";
+  version = "4.34.0-100sse42";
 
   src = fetchurl {
-    url = "https://www.signalyst.eu/bins/${pname}/fc35/${pname}-${version}.fc35.x86_64.rpm";
-    hash = "sha256-fEze4aScWDwHDTXU0GatdopQf6FWcywWCGhR/7zXK7A=";
+    url = "https://www.signalyst.eu/bins/${pname}/fc36/${pname}-${version}.fc36.x86_64.rpm";
+    hash = "sha256-MCRZ0XKi6pztVTuPQpPEn6wHsOwtSxR0Px9r12jnC9U=";
   };
 
   unpackPhase = ''
@@ -40,14 +45,15 @@ stdenv.mkDerivation rec {
     alsa-lib
     cairo
     flac
-    gcc11.cc.lib
-    gnome.rygel
+    gcc12.cc.lib
+    rygel-hqplayerd
     gssdp
     gupnp
     gupnp-av
     lame
     libgmpris
-    llvmPackages_10.openmp
+    libusb-compat-0_1
+    llvmPackages_14.openmp
     mpg123
     wavpack
   ];
@@ -58,34 +64,29 @@ stdenv.mkDerivation rec {
   installPhase = ''
     runHook preInstall
 
-    # main executable
-    mkdir -p $out/bin
-    cp ./usr/bin/hqplayerd $out/bin
+    # executables
+    mkdir -p $out
+    cp -rv ./usr/bin $out/bin
 
-    # main configuration
-    mkdir -p $out/etc/hqplayer
-    cp ./etc/hqplayer/hqplayerd.xml $out/etc/hqplayer/
+    # libs
+    mkdir -p $out
+    cp -rv ./opt/hqplayerd/lib $out
 
-    # udev rules
-    mkdir -p $out/etc/udev/rules.d
-    cp ./etc/udev/rules.d/50-taudio2.rules $out/etc/udev/rules.d/
-
-    # kernel module cfgs
-    mkdir -p $out/etc/modules-load.d
-    cp ./etc/modules-load.d/taudio2.conf $out/etc/modules-load.d/
+    # configuration
+    mkdir -p $out/etc
+    cp -rv ./etc/hqplayer $out/etc/
 
     # systemd service file
-    mkdir -p $out/lib/systemd/system
-    cp ./usr/lib/systemd/system/hqplayerd.service $out/lib/systemd/system/
+    mkdir -p $out/lib/systemd
+    cp -rv ./usr/lib/systemd/system $out/lib/systemd/
 
     # documentation
-    mkdir -p $out/share/doc/hqplayerd
-    cp ./usr/share/doc/hqplayerd/* $out/share/doc/hqplayerd/
+    mkdir -p $out/share/doc
+    cp -rv ./usr/share/doc/hqplayerd $out/share/doc/
 
     # misc service support files
-    mkdir -p $out/var/lib/hqplayer
-    cp -r ./var/lib/hqplayer/web $out/var/lib/hqplayer
-
+    mkdir -p $out/var/lib
+    cp -rv ./var/lib/hqplayer $out/var/lib/
     runHook postInstall
   '';
 
@@ -103,9 +104,14 @@ stdenv.mkDerivation rec {
     $out/bin/hqplayerd --version
   '';
 
+  passthru = {
+    rygel = rygel-hqplayerd;
+  };
+
   meta = with lib; {
     homepage = "https://www.signalyst.com/custom.html";
     description = "High-end upsampling multichannel software embedded HD-audio player";
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     license = licenses.unfree;
     platforms = [ "x86_64-linux" ];
     maintainers = with maintainers; [ lovesegfault ];

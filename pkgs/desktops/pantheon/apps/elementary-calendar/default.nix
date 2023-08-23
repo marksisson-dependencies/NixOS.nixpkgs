@@ -2,8 +2,6 @@
 , stdenv
 , fetchFromGitHub
 , nix-update-script
-, appstream-glib
-, desktop-file-utils
 , meson
 , ninja
 , pkg-config
@@ -14,29 +12,28 @@
 , evolution-data-server
 , folks
 , geoclue2
-, geocode-glib
+, geocode-glib_2
 , granite
 , gtk3
-, libchamplain
+, libchamplain_libsoup3
 , libgee
 , libhandy
 , libical
+, libportal-gtk3
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-calendar";
-  version = "6.1.0";
+  version = "7.0.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "calendar";
     rev = version;
-    sha256 = "sha256-LaVJ7QLc0UdSLgLIuHP4Anc7kPUelZW9PnIWuqKGtEQ=";
+    sha256 = "sha256-qZvSzhLGr4Gg9DSJ638IQRLlPiZkbJUCJ7tZ8ZFZZ1E=";
   };
 
   nativeBuildInputs = [
-    appstream-glib
-    desktop-file-utils
     meson
     ninja
     pkg-config
@@ -50,13 +47,14 @@ stdenv.mkDerivation rec {
     evolution-data-server
     folks
     geoclue2
-    geocode-glib
+    geocode-glib_2
     granite
     gtk3
-    libchamplain
+    libchamplain_libsoup3
     libgee
     libhandy
     libical
+    libportal-gtk3
   ];
 
   postPatch = ''
@@ -65,9 +63,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

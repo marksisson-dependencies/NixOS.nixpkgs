@@ -1,33 +1,45 @@
 { lib, stdenv, fetchFromGitHub
-, autoreconfHook, pkg-config
-, cunit, file, ncurses
+, cmake
+, cunit, ncurses
 , libev, nghttp3, quictls
 , withJemalloc ? false, jemalloc
+, curlHTTP3
 }:
 
 stdenv.mkDerivation rec {
   pname = "ngtcp2";
-  version = "unstable-2022-04-11";
+  version = "0.17.0";
 
   src = fetchFromGitHub {
     owner = "ngtcp2";
     repo = pname;
-    rev = "825899c051ea2a1f06a0c4617f41782f37009a18";
-    sha256 = "sha256-VoSy0tyIXWNTmcVdsaiM9ijXLq41AOaPBajvsEIrfjo=";
+    rev = "v${version}";
+    hash = "sha256-vY3RooC8ttezru6vAqbG1MU5uZhD8fLnlEYVYS3pFRk=";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkg-config file ];
+  outputs = [ "out" "dev" "doc" ];
+
+  nativeBuildInputs = [ cmake ];
+  nativeCheckInputs = [ cunit ncurses ];
   buildInputs = [ libev nghttp3 quictls ] ++ lib.optional withJemalloc jemalloc;
-  checkInputs = [ cunit ncurses ];
+
+  cmakeFlags = [
+    "-DENABLE_STATIC_LIB=OFF"
+  ];
 
   preConfigure = ''
-    substituteInPlace ./configure --replace /usr/bin/file ${file}/bin/file
+    # https://github.com/ngtcp2/ngtcp2/issues/858
+    # Fix ngtcp2_crypto_openssl remnants.
+    substituteInPlace crypto/includes/CMakeLists.txt \
+      --replace 'ngtcp2/ngtcp2_crypto_openssl.h' 'ngtcp2/ngtcp2_crypto_quictls.h'
   '';
-
-  outputs = [ "out" "dev" ];
 
   doCheck = true;
   enableParallelBuilding = true;
+
+  passthru.tests = {
+    inherit curlHTTP3;
+  };
 
   meta = with lib; {
     homepage = "https://github.com/ngtcp2/ngtcp2";

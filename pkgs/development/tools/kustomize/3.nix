@@ -22,7 +22,7 @@ buildGoModule rec {
   doCheck = true;
 
   # avoid finding test and development commands
-  sourceRoot = "source/kustomize";
+  sourceRoot = "${src.name}/kustomize";
 
   vendorSha256 = "sha256-xLeetcmzvpILLLMhMx7oahWLxguFjG3qbYpeeWpFUlw=";
 
@@ -36,5 +36,6 @@ buildGoModule rec {
     homepage = "https://github.com/kubernetes-sigs/kustomize";
     license = licenses.asl20;
     maintainers = with maintainers; [ carlosdagos vdemeester zaninime Chili-Man saschagrunert ];
+    mainProgram = "kustomize";
   };
 }

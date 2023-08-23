@@ -1,22 +1,22 @@
-{ lib, stdenv, fetchurl, mkfontscale
-, libfaketime, fonttosfnt
+{ lib, stdenv, fetchurl, xorg
+, libfaketime
 }:
 
 stdenv.mkDerivation rec {
   pname = "unifont";
-  version = "14.0.03";
+  version = "15.0.04";
 
   ttf = fetchurl {
     url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.ttf";
-    sha256 = "1qyc7nqyhjnarwgpkah52qv7hr0yfzak7084ilrj7z0nii4f5y57";
+    hash = "sha256-kkSbEvWBrvcnBgHDdKJjpSYF6BJDEwmYSxVQbPkQ6so=";
   };
 
   pcf = fetchurl {
     url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.pcf.gz";
-    sha256 = "1sgvxpr4ydjnbk70j0lpgxz5x851lmrmxjb5x8lsz0i2hm32jdbc";
+    hash = "sha256-rdzJuOkXYojgm5VfpshtJuCJYM0/iS+HnWMXEDsLQPg=";
   };
 
-  nativeBuildInputs = [ libfaketime fonttosfnt mkfontscale ];
+  nativeBuildInputs = [ libfaketime xorg.fonttosfnt xorg.mkfontscale ];
 
   dontUnpack = true;
 

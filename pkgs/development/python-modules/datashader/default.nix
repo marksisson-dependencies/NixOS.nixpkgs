@@ -15,6 +15,7 @@
 , pyct
 , scipy
 , pytestCheckHook
+, pythonOlder
 , nbsmoke
 , fastparquet
 , nbconvert
@@ -24,12 +25,14 @@
 
 buildPythonPackage rec {
   pname = "datashader";
-  version = "0.13.0";
+  version = "0.15.2";
   format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-6JscHm1QjDmXOLLa83qhAvY/xwvlPM6duQ1lSxnCVV8=";
+    hash = "sha256-lTlSk3kofWnBDpq04LKQDhoWAE1v8G3g2EqmLEgzsbs=";
   };
 
   propagatedBuildInputs = [
@@ -46,9 +49,9 @@ buildPythonPackage rec {
     param
     pyct
     scipy
-  ] ++ dask.extras-require.complete;
+  ] ++ dask.optional-dependencies.complete;
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-xdist
     nbsmoke
@@ -95,6 +98,6 @@ buildPythonPackage rec {
     description = "Data visualization toolchain based on aggregating into a grid";
     homepage = "https://datashader.org";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ costrouc ];
+    maintainers = with maintainers; [ ];
   };
 }

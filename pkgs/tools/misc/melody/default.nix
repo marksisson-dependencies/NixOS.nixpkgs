@@ -1,21 +1,21 @@
-{ lib, stdenv, fetchCrate, rustPlatform }:
+{ lib, rustPlatform, fetchCrate }:
 
 rustPlatform.buildRustPackage rec {
   pname = "melody";
-  version = "0.13.10";
+  version = "0.19.0";
 
   src = fetchCrate {
     pname = "melody_cli";
     inherit version;
-    sha256 = "05slrh5dqbpsvimdr0rlhj04kf1qzwij3zlardvbmvhvfccf4188";
+    sha256 = "sha256-sJVZ4dRP6mAx9g7iqwI3L2cMa5x4qQuzKWPXvOOq6q8=";
   };
 
-  cargoSha256 = "0qh1byysbc6pl3cvx2vdpl8crx5id59hhrwqzk5g7091spm8wf79";
+  cargoHash = "sha256-8UWz+gYUxf2UNWZCnhQlGiSX6kPsHPlYcdl7wD3Rchs=";
 
   meta = with lib; {
     description = "Language that compiles to regular expressions";
     homepage = "https://github.com/yoav-lavi/melody";
     license = licenses.mit;
-    maintainers = with maintainers; [ jyooru ];
+    maintainers = with maintainers; [ joelkoen ];
   };
 }

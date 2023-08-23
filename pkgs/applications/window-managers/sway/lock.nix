@@ -1,19 +1,21 @@
-{ lib, stdenv, fetchFromGitHub
+{ lib, stdenv, fetchFromGitHub, fetchpatch
 , meson, ninja, pkg-config, scdoc, wayland-scanner
 , wayland, wayland-protocols, libxkbcommon, cairo, gdk-pixbuf, pam
 }:
 
 stdenv.mkDerivation rec {
   pname = "swaylock";
-  version = "1.6";
+  version = "1.7.2";
 
   src = fetchFromGitHub {
     owner = "swaywm";
     repo = "swaylock";
-    rev = version;
-    sha256 = "sha256-VVGgidmSQWKxZNx9Cd6z52apxpxVfmX3Ut/G9kzfDcY=";
+    rev = "v${version}";
+    hash = "sha256-ZsOLDqmkyhel8QAezdVZ51utruJrBZWqaZ7NzimXWQ4=";
   };
 
+  strictDeps = true;
+  depsBuildBuild = [ pkg-config ];
   nativeBuildInputs = [ meson ninja pkg-config scdoc wayland-scanner ];
   buildInputs = [ wayland wayland-protocols libxkbcommon cairo gdk-pixbuf pam ];
 
@@ -29,6 +31,7 @@ stdenv.mkDerivation rec {
       you need to set "security.pam.services.swaylock = {};" manually.
     '';
     inherit (src.meta) homepage;
+    mainProgram = "swaylock";
     license = licenses.mit;
     platforms = platforms.linux;
     maintainers = with maintainers; [ primeos ];

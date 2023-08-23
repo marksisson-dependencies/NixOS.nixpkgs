@@ -1,18 +1,18 @@
 { lib, stdenv, fetchFromGitHub, ocaml, findlib, camlpdf, ncurses }:
 
-if !lib.versionAtLeast ocaml.version "4.10"
+if lib.versionOlder ocaml.version "4.10"
 then throw "cpdf is not available for OCaml ${ocaml.version}"
 else
 
 stdenv.mkDerivation rec {
   pname = "ocaml${ocaml.version}-cpdf";
-  version = "2.5";
+  version = "2.6";
 
   src = fetchFromGitHub {
     owner = "johnwhitington";
     repo = "cpdf-source";
     rev = "v${version}";
-    sha256 = "sha256:1qmx229nij7g6qmiacmyy4mcgx3k9509p4slahivshqm79d6wiwl";
+    hash = "sha256-5gEv/lmca3FR16m4uxbCJ3y/XtTSBvoIojeKszc24ss=";
   };
 
   nativeBuildInputs = [ ocaml findlib ];
@@ -31,10 +31,11 @@ stdenv.mkDerivation rec {
   '';
 
   meta = with lib; {
-    homepage = "https://www.coherentpdf.com/";
-    platforms = ocaml.meta.platforms or [];
     description = "PDF Command Line Tools";
+    homepage = "https://www.coherentpdf.com/";
     license = licenses.unfree;
     maintainers = [ maintainers.vbgl ];
+    mainProgram = "cpdf";
+    inherit (ocaml.meta) platforms;
   };
 }

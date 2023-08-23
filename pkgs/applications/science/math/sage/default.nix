@@ -11,8 +11,8 @@
 let
   inherit (pkgs) symlinkJoin callPackage nodePackages;
 
-  python3 = pkgs.python3.override {
-    packageOverrides = self: super: {
+  python3 = pkgs.python3 // {
+    pkgs = pkgs.python3.pkgs.overrideScope (self: super: {
       # `sagelib`, i.e. all of sage except some wrappers and runtime dependencies
       sagelib = self.callPackage ./sagelib.nix {
         inherit flint arb;
@@ -29,7 +29,7 @@ let
       sage-setup = self.callPackage ./python-modules/sage-setup.nix {
         inherit sage-src;
       };
-    };
+    });
   };
 
   jupyter-kernel-definition = {
@@ -46,6 +46,12 @@ let
     # just one 16x16 logo is available
     logo32 = "${sage-src}/src/doc/common/themes/sage/static/sageicon.png";
     logo64 = "${sage-src}/src/doc/common/themes/sage/static/sageicon.png";
+  };
+
+  jupyter-kernel-specs = pkgs.jupyter-kernel.create {
+    definitions = pkgs.jupyter-kernel.default // {
+      sagemath = jupyter-kernel-definition;
+    };
   };
 
   three = callPackage ./threejs-sage.nix { };
@@ -72,8 +78,7 @@ let
 
   # The documentation for sage, building it takes a lot of ram.
   sagedoc = callPackage ./sagedoc.nix {
-    inherit sage-with-env;
-    inherit python3 maxima;
+    inherit sage-with-env jupyter-kernel-specs;
   };
 
   # sagelib with added wrappers and a dependency on sage-tests to make sure thet tests were run.
@@ -108,6 +113,7 @@ let
     tkinter # optional, as a matplotlib backend (use with `%matplotlib tk`)
     scipy
     ipywidgets
+    notebook # for "sage -n"
     rpy2
     sphinx
     pillow
@@ -122,7 +128,7 @@ let
 
   singular = pkgs.singular.override { inherit flint; };
 
-  maxima = pkgs.maxima.override {
+  maxima = pkgs.maxima-ecl.override {
     lisp-compiler = pkgs.ecl.override {
       # "echo syntax error | ecl > /dev/full 2>&1" segfaults in
       # ECL. We apply a patch to fix it (write_error.patch), but it
@@ -167,6 +173,6 @@ let
 in
 # A wrapper around sage that makes sure sage finds its docs (if they were build).
 callPackage ./sage.nix {
-  inherit sage-tests sage-with-env sagedoc jupyter-kernel-definition;
+  inherit sage-tests sage-with-env sagedoc jupyter-kernel-definition jupyter-kernel-specs;
   inherit withDoc requireSageTests;
 }

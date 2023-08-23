@@ -3,19 +3,30 @@
 , fetchurl
 , fetchpatch
 , getopt
-, tzdata
 , ksh
+, tzdata
 , pkgsMusl # for passthru.tests
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "bmake";
-  version = "20220208";
+  version = "20230723";
 
   src = fetchurl {
-    url = "http://www.crufty.net/ftp/pub/sjg/${pname}-${version}.tar.gz";
-    hash = "sha256-ewDB4UYrLh5Upk2ND88n/HfursPxOSDv+NlST/BZ1to=";
+    url = "http://www.crufty.net/ftp/pub/sjg/bmake-${finalAttrs.version}.tar.gz";
+    hash = "sha256-xCoNlRuiP3ZlMxMJ+74h7cARNqI8uUFoULQxW+X7WQQ=";
   };
+
+  patches = [
+    # make bootstrap script aware of the prefix in /nix/store
+    ./bootstrap-fix.patch
+    # preserve PATH from build env in unit tests
+    ./fix-unexport-env-test.patch
+    # Always enable ksh test since it checks in a impure location /bin/ksh
+    ./unconditional-ksh-test.patch
+    # decouple tests from build phase
+    ./dont-test-while-installing.diff
+  ];
 
   # Make tests work with musl
   # * Disable deptgt-delete_on_error test (alpine does this too)
@@ -30,27 +41,6 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ getopt ];
 
-  patches = [
-    # make bootstrap script aware of the prefix in /nix/store
-    ./bootstrap-fix.patch
-    # preserve PATH from build env in unit tests
-    ./fix-unexport-env-test.patch
-    # Always enable ksh test since it checks in a impure location /bin/ksh
-    ./unconditional-ksh-test.patch
-    # decouple tests from build phase
-    (fetchpatch {
-      name = "separate-tests.patch";
-      url = "https://raw.githubusercontent.com/alpinelinux/aports/2a36f7b79df44136c4d2b8e9512f908af65adfee/community/bmake/separate-tests.patch";
-      sha256 = "00s76jwyr83c6rkvq67b1lxs8jhm0gj2rjgy77xazqr5400slj9a";
-    })
-    # add a shebang to bmake's install(1) replacement
-    (fetchpatch {
-      name = "install-sh.patch";
-      url = "https://raw.githubusercontent.com/alpinelinux/aports/34cd8c45397c63c041cf3cbe1ba5232fd9331196/community/bmake/install-sh.patch";
-      sha256 = "0z8icd6akb96r4cksqnhynkn591vbxlmrrs4w6wil3r6ggk6mwa6";
-    })
-  ];
-
   # The generated makefile is a small wrapper for calling ./boot-strap with a
   # given op. On a case-insensitive filesystem this generated makefile clobbers
   # a distinct, shipped, Makefile and causes infinite recursion during tests
@@ -58,12 +48,6 @@ stdenv.mkDerivation rec {
   configureFlags = [
     "--without-makefile"
   ];
-
-  # Disabled tests:
-  # varmod-localtime: musl doesn't support TZDIR and this test relies on impure,
-  # implicit paths
-  # opt-chdir: ofborg complains about it somehow
-  BROKEN_TESTS = "varmod-localtime opt-chdir";
 
   buildPhase = ''
     runHook preBuild
@@ -83,10 +67,21 @@ stdenv.mkDerivation rec {
 
   doCheck = true;
 
-  checkInputs = [
+  nativeCheckInputs = [
     tzdata
   ] ++ lib.optionals (stdenv.hostPlatform.libc != "musl") [
     ksh
+  ];
+
+  # Disabled tests:
+  # opt-chdir: ofborg complains about it somehow
+  # opt-keep-going-indirect: not yet known
+  # varmod-localtime: musl doesn't support TZDIR and this test relies on impure,
+  # implicit paths
+  env.BROKEN_TESTS = builtins.concatStringsSep " " [
+    "opt-chdir"
+    "opt-keep-going-indirect"
+    "varmod-localtime"
   ];
 
   checkPhase = ''
@@ -99,15 +94,15 @@ stdenv.mkDerivation rec {
 
   setupHook = ./setup-hook.sh;
 
-  meta = with lib; {
+  passthru.tests.bmakeMusl = pkgsMusl.bmake;
+
+  meta = {
     homepage = "http://www.crufty.net/help/sjg/bmake.html";
     description = "Portable version of NetBSD 'make'";
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ thoughtpolice AndersonTorres ];
-    platforms = platforms.unix;
-    broken = stdenv.isAarch64; # ofborg complains
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ thoughtpolice AndersonTorres ];
+    platforms = lib.platforms.unix;
+    broken = stdenv.isAarch64; # failure on gnulib-tests
   };
-
-  passthru.tests.bmakeMusl = pkgsMusl.bmake;
-}
+})
 # TODO: report the quirks and patches to bmake devteam (especially the Musl one)
