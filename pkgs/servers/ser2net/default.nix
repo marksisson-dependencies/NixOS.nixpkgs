@@ -10,19 +10,17 @@
 
 stdenv.mkDerivation rec {
   pname = "ser2net";
-  version = "4.3.5";
+  version = "4.4.0";
 
   src = fetchFromGitHub {
     owner = "cminyard";
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-B0O3Vcb+aM1qSQNrTFV9dY7j4CGOYFkGKfyMgt7PwIM=";
+    hash = "sha256-g+im3WH8ddE4jxKKbb/klkqlmPegKRv1r10HjFIHnQw=";
   };
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = pname;
-    };
+    updateScript = nix-update-script { };
   };
 
   nativeBuildInputs = [ pkg-config autoreconfHook ];

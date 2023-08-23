@@ -18,12 +18,17 @@ import ./make-test-python.nix ({ pkgs, lib, ... }: {
       # container available within the VM, because we don't have network access.
       virtualisation.additionalPaths = let
         emptyContainer = import ../lib/eval-config.nix {
-          inherit (config.nixpkgs.localSystem) system;
           modules = lib.singleton {
+            nixpkgs = { inherit (config.nixpkgs) localSystem; };
+
             containers.foo.config = {
               system.stateVersion = "18.03";
             };
           };
+
+          # The system is inherited from the host above.
+          # Set it to null, to remove the "legacy" entrypoint's non-hermetic default.
+          system = null;
         };
       in with pkgs; [
         stdenv stdenvNoCC emptyContainer.config.containers.foo.path

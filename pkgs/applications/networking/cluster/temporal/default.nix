@@ -2,29 +2,36 @@
 
 buildGoModule rec {
   pname = "temporal";
-  version = "1.16.2";
+  version = "1.21.2";
 
   src = fetchFromGitHub {
     owner = "temporalio";
     repo = "temporal";
     rev = "v${version}";
-    sha256 = "sha256-MPfyjRpjfnuVbj+Pd7yIlaEJCiX1IEy/Lwwkv23kugw=";
+    hash = "sha256-4iosKxGjH2O2y2wkAs/tuCH+SXTj6FhrPqS9qgL+vTQ=";
   };
 
-  vendorSha256 = "sha256-82W1nHhHvvU6poh5szuH9lDkq6YHgyfsJSubxotV270=";
+  vendorHash = "sha256-rgUdoFR7Qcp1h7v63DAWwx6NWSwWrJ6C6/b2tx2kCCw=";
+
+  excludedPackages = [ "./build" ];
 
   CGO_ENABLED = 0;
 
   ldflags = [ "-s" "-w" ];
 
-  checkFlags = [ "-short" ];
+  # There too many integration tests.
+  doCheck = false;
 
   installPhase = ''
     runHook preInstall
 
+    mkdir -p $out/share
+    cp -r ./schema $out/share/
+
     install -Dm755 "$GOPATH/bin/server" -T $out/bin/temporal-server
     install -Dm755 "$GOPATH/bin/cassandra" -T $out/bin/temporal-cassandra-tool
     install -Dm755 "$GOPATH/bin/sql" -T $out/bin/temporal-sql-tool
+    install -Dm755 "$GOPATH/bin/tdbg" -T $out/bin/tdbg
 
     runHook postInstall
   '';

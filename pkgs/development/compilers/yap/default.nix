@@ -17,14 +17,15 @@ stdenv.mkDerivation rec {
   # gcc-10. Otherwise build fails as:
   #   ld: libYap.a(pl-dtoa.o):/build/yap-6.3.3/H/pl-yap.h:230: multiple definition of `ATOM_';
   #     libYap.a(pl-buffer.o):/build/yap-6.3.3/H/pl-yap.h:230: first defined here
-  NIX_CFLAGS_COMPILE = "-fpermissive -fcommon";
+  env.NIX_CFLAGS_COMPILE = "-fpermissive -fcommon";
 
   meta = {
+    # the linux 32 bit build fails.
+    broken = (stdenv.isLinux && stdenv.isAarch64) || !stdenv.is64bit;
     homepage = "http://www.dcc.fc.up.pt/~vsc/Yap/";
     description = "A ISO-compatible high-performance Prolog compiler";
     license = lib.licenses.artistic2;
 
     platforms = lib.platforms.linux;
-    broken = !stdenv.is64bit;   # the linux 32 bit build fails.
   };
 }

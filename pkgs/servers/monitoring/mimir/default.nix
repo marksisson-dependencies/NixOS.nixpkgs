@@ -1,18 +1,30 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, nixosTests, nix-update-script }:
 buildGoModule rec {
   pname = "mimir";
-  version = "2.0.0";
+  version = "2.9.0";
 
   src = fetchFromGitHub {
     rev = "${pname}-${version}";
     owner = "grafana";
     repo = pname;
-    sha256 = "T1lljhC/TS3eoIc9AFo9Oy9/COM/XnfcwtkU618YCdM=";
+    sha256 = "sha256-6URhofT5zJZX2eFx7fNPrFOWF7Po3ChlmVHGTpvG24c=";
   };
 
   vendorSha256 = null;
 
-  subPackages = [ "cmd/mimir" ];
+  subPackages = [
+    "cmd/mimir"
+    "cmd/mimirtool"
+  ];
+
+  passthru = {
+    updateScript = nix-update-script {
+      extraArgs = [ "--version-regex" "mimir-([0-9.]+)" ];
+    };
+    tests = {
+      inherit (nixosTests) mimir;
+    };
+  };
 
   ldflags = let t = "github.com/grafana/mimir/pkg/util/version";
   in [
@@ -30,6 +42,5 @@ buildGoModule rec {
     homepage = "https://github.com/grafana/mimir";
     license = licenses.agpl3Only;
     maintainers = with maintainers; [ happysalada bryanhonof ];
-    platforms = platforms.unix;
   };
 }

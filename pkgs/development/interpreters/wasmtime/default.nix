@@ -1,41 +1,55 @@
-{ rustPlatform, fetchFromGitHub, lib, stdenv, v8 }:
+{ rustPlatform, fetchFromGitHub, Security, lib, stdenv }:
 
 rustPlatform.buildRustPackage rec {
   pname = "wasmtime";
-  version = "0.37.0";
+  version = "12.0.0";
 
   src = fetchFromGitHub {
     owner = "bytecodealliance";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-ZUr1v94If8ER4lTHLwuP+F3xfXU7IW4ZEztBA2TPvVg=";
+    hash = "sha256-6bbz8FH87MahD3R7G3cmsJD0461L4OoCbFejyXsuER0=";
     fetchSubmodules = true;
   };
 
-  cargoSha256 = "sha256-X+KDeWavFTBaxbSPlIiyuiBC7wg1/5C/NXp+VEY8Mk8=";
+  cargoHash = "sha256-QbKYnKdJK9zImZDl057l8/Za4A+N82WrqQCzrOsc6fE=";
 
-  # This environment variable is required so that when wasmtime tries
-  # to run tests by using the rusty_v8 crate, it does not try to
-  # download a static v8 build from the Internet, what would break
-  # build hermetism.
-  RUSTY_V8_ARCHIVE = lib.optionalString stdenv.isLinux "${v8}/lib/libv8.a";
+  cargoBuildFlags = [ "--package" "wasmtime-cli" "--package" "wasmtime-c-api" ];
 
-  doCheck = true;
-  checkFlags = [
-    "--skip=cli_tests::run_cwasm"
-    "--skip=commands::compile::test::test_successful_compile"
-    "--skip=commands::compile::test::test_aarch64_flags_compile"
-    "--skip=commands::compile::test::test_unsupported_flags_compile"
-    "--skip=commands::compile::test::test_x64_flags_compile"
-    "--skip=commands::compile::test::test_x64_presets_compile"
-    "--skip=traps::parse_dwarf_info"
-  ];
+  outputs = [ "out" "dev" ];
+
+  buildInputs = lib.optional stdenv.isDarwin Security;
+
+  # SIMD tests are only executed on platforms that support all
+  # required processor features (e.g. SSE3, SSSE3 and SSE4.1 on x86_64):
+  # https://github.com/bytecodealliance/wasmtime/blob/v9.0.0/cranelift/codegen/src/isa/x64/mod.rs#L220
+  doCheck = with stdenv.buildPlatform; (isx86_64 -> sse3Support && ssse3Support && sse4_1Support);
+  cargoTestFlags = ["--package" "wasmtime-runtime"];
+
+  postInstall = ''
+    # move libs from out to dev
+    install -d -m 0755 $dev/lib
+    install -m 0644 ''${!outputLib}/lib/* $dev/lib
+    rm -r ''${!outputLib}/lib
+
+    install -d -m0755 $dev/include/wasmtime
+    install -m0644 $src/crates/c-api/include/*.h $dev/include
+    install -m0644 $src/crates/c-api/include/wasmtime/*.h $dev/include/wasmtime
+    install -m0644 $src/crates/c-api/wasm-c-api/include/* $dev/include
+  '' + lib.optionalString stdenv.isDarwin ''
+    install_name_tool -id \
+      $dev/lib/libwasmtime.dylib \
+      $dev/lib/libwasmtime.dylib
+  '';
 
   meta = with lib; {
-    description = "Standalone JIT-style runtime for WebAssembly, using Cranelift";
-    homepage = "https://github.com/bytecodealliance/wasmtime";
+    description =
+      "Standalone JIT-style runtime for WebAssembly, using Cranelift";
+    homepage = "https://wasmtime.dev/";
     license = licenses.asl20;
-    maintainers = [ maintainers.matthewbauer ];
+    mainProgram = "wasmtime";
+    maintainers = with maintainers; [ ereslibre matthewbauer ];
     platforms = platforms.unix;
+    changelog = "https://github.com/bytecodealliance/wasmtime/blob/v${version}/RELEASES.md";
   };
 }

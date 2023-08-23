@@ -5,20 +5,20 @@
 , lz4
 , keyring
 , pbkdf2
-, pycryptodome
+, pycryptodomex
 , pyaes
 }:
 
 buildPythonPackage rec {
   pname = "browser-cookie3";
-  version = "0.14.1";
+  version = "0.19.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-2cMWFyHK+7M99Z9O7PiKue37c5XVBe/n88AF5ax7A2s=";
+    hash = "sha256-MDGtFLlrR+8eTIVF8vRj4QrYRO+DTc0Ova42HjHGEZo=";
   };
 
   propagatedBuildInputs = [
@@ -26,7 +26,7 @@ buildPythonPackage rec {
     keyring
     pbkdf2
     pyaes
-    pycryptodome
+    pycryptodomex
   ];
 
   # No tests implemented
@@ -39,6 +39,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Loads cookies from your browser into a cookiejar object";
     homepage = "https://github.com/borisbabic/browser_cookie3";
+    changelog = "https://github.com/borisbabic/browser_cookie3/blob/master/CHANGELOG.md";
     license = licenses.gpl3Only;
     maintainers = with maintainers; [ borisbabic ];
   };

@@ -15,14 +15,14 @@
 
 buildPythonPackage rec {
   pname = "python-keystoneclient";
-  version = "4.5.0";
+  version = "5.1.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-bX8FxpLn2yaSd4KEx3mubOqLIVmRS0QXpfoL/qHinNw=";
+    hash = "sha256-ugm9/q+iohlkUKMnzT9G8qip3Z0huDj4y5sXqZdAxqE=";
   };
 
   propagatedBuildInputs = [
@@ -32,7 +32,7 @@ buildPythonPackage rec {
     pbr
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     openssl
     requests-mock
     stestr

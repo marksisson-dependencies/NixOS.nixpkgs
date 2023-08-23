@@ -7,14 +7,14 @@
 
 buildPythonPackage rec {
   pname = "pyvesync";
-  version = "2.0.3";
+  version = "2.1.9";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-/hPDCqTeqEzxfqv8B5wdDzmzzNuXYqOVHX32N/J6nmU=";
+    hash = "sha256-88aCnPzC4RfmEsL05pgFoOCfz42R1eqaJGTmXoWu0gA=";
   };
 
   propagatedBuildInputs = [
@@ -31,6 +31,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python library to manage Etekcity Devices and Levoit Air Purifier";
     homepage = "https://github.com/webdjoe/pyvesync";
+    changelog = "https://github.com/webdjoe/pyvesync/releases/tag/${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

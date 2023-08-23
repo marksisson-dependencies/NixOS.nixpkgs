@@ -3,6 +3,7 @@
 , fetchFromGitHub
 , cmake
 , pkg-config
+, python3
 , glslang
 , libffi
 , libX11
@@ -21,22 +22,19 @@
 
 stdenv.mkDerivation rec {
   pname = "vulkan-tools";
-  version = "1.3.211.0";
+  version = "1.3.254";
 
-  # It's not strictly necessary to have matching versions here, however
-  # since we're using the SDK version we may as well be consistent with
-  # the rest of nixpkgs.
-  src = (assert version == vulkan-headers.version;
-    fetchFromGitHub {
-      owner = "KhronosGroup";
-      repo = "Vulkan-Tools";
-      rev = "sdk-${version}";
-      sha256 = "sha256-iXsWTKNllPZy1Kpo3JHzEEus3Hu9LofvMB3c4Gn6/DM=";
-    });
+  src = fetchFromGitHub {
+    owner = "KhronosGroup";
+    repo = "Vulkan-Tools";
+    rev = "v${version}";
+    hash = "sha256-MyYngyoIGpGu1jFN1GDm9BcFye1JRz1cN6SaZue1ZGQ=";
+  };
 
   nativeBuildInputs = [
     cmake
     pkg-config
+    python3
   ];
 
   buildInputs = [
@@ -103,6 +101,7 @@ stdenv.mkDerivation rec {
       use of the Vulkan API.
     '';
     homepage    = "https://github.com/KhronosGroup/Vulkan-Tools";
+    hydraPlatforms = [ "x86_64-linux" "i686-linux" ];
     platforms   = platforms.unix;
     license     = licenses.asl20;
     maintainers = [ maintainers.ralith ];

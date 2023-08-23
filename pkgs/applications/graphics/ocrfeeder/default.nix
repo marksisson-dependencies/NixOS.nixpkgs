@@ -31,11 +31,11 @@ stdenv.mkDerivation rec {
     intltool
     itstool
     libxml2
+    gobject-introspection
   ];
 
   buildInputs = [
     gtk3
-    gobject-introspection
     goocanvas2
     gtkspell3
     isocodes
@@ -47,6 +47,11 @@ stdenv.mkDerivation rec {
       odfpy
       pygobject3
     ]))
+  ];
+  patches = [
+    # Compiles, but doesn't launch without this, see:
+    # https://gitlab.gnome.org/GNOME/ocrfeeder/-/issues/83
+    ./fix-launch.diff
   ];
 
   enginesPath = lib.makeBinPath ([
@@ -64,7 +69,5 @@ stdenv.mkDerivation rec {
     maintainers = with maintainers; [ doronbehar ];
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    # Compiles, but doesn't launch, see: https://gitlab.gnome.org/GNOME/ocrfeeder/-/issues/83
-    broken = true;
   };
 }

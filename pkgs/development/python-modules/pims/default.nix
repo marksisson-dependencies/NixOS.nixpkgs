@@ -5,13 +5,13 @@
 , numpy
 , pytestCheckHook
 , pythonOlder
-, scikitimage
+, scikit-image
 , slicerator
 }:
 
 buildPythonPackage rec {
   pname = "pims";
-  version = "0.6.0";
+  version = "0.6.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
@@ -19,8 +19,8 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "soft-matter";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-F4UWbD9fOfvaZwYcY1l7XOzVKZyqqTGTqVJoNPo1Ozg=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-QdllA1QTSJ8vWaSJ0XoUanX53sb4RaOmdXBCFEsoWMU=";
   };
 
   propagatedBuildInputs = [
@@ -29,9 +29,9 @@ buildPythonPackage rec {
     numpy
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
-    scikitimage
+    scikit-image
   ];
 
   pythonImportsCheck = [
@@ -40,7 +40,7 @@ buildPythonPackage rec {
 
   pytestFlagsArray = [
     "-W"
-    "ignore::DeprecationWarning"
+    "ignore::Warning"
   ];
 
   disabledTests = [
@@ -48,10 +48,16 @@ buildPythonPackage rec {
     "TestVideo_ImageIO"
   ];
 
+  disabledTestPaths = [
+    # AssertionError: Tuples differ: (377, 505, 4) != (384, 512, 4)
+    "pims/tests/test_display.py"
+  ];
+
   meta = with lib; {
-    description = "Python Image Sequence: Load video and sequential images in many formats with a simple, consistent interface";
+    description = "Module to load video and sequential images in various formats";
     homepage = "https://github.com/soft-matter/pims";
+    changelog = "https://github.com/soft-matter/pims/releases/tag/v${version}";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ costrouc ];
+    maintainers = with maintainers; [ ];
   };
 }

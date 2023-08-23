@@ -1,15 +1,17 @@
 { lib
 , stdenv
 , fetchFromGitLab
-, fetchpatch
 , rustPlatform
 , substituteAll
+, cargo
 , desktop-file-utils
+, git
 , itstool
 , meson
 , ninja
 , pkg-config
 , python3
+, rustc
 , wrapGAppsHook4
 , borgbackup
 , gtk4
@@ -19,31 +21,26 @@
 
 stdenv.mkDerivation rec {
   pname = "pika-backup";
-  version = "0.4.0";
+  version = "0.6.1";
 
   src = fetchFromGitLab {
     domain = "gitlab.gnome.org";
     owner = "World";
     repo = "pika-backup";
     rev = "v${version}";
-    hash = "sha256-vQ0hlwsrY0WOUc/ppleE+kKRGHPt/ScEChXrkukln3U=";
+    hash = "sha256-7sgAp9/CKKxPr8rWbOot+FPAwaC8EPLa9pjVcC4TjW8=";
   };
 
   cargoDeps = rustPlatform.fetchCargoTarball {
     inherit src;
     name = "${pname}-${version}";
-    hash = "sha256-IKUh5gkXTpmMToDaec+CpCIQqJjwJM2ZrmGQhZeTDsg=";
+    hash = "sha256-Va7qLC6WvsLmG9JVmdT1FdIlWP4W/EFmsy7JOagQ+X8=";
   };
 
   patches = [
     (substituteAll {
       src = ./borg-path.patch;
       borg = "${borgbackup}/bin/borg";
-    })
-    (fetchpatch {
-      name = "use-gtk4-update-icon-cache.patch";
-      url = "https://gitlab.gnome.org/World/pika-backup/-/merge_requests/64.patch";
-      hash = "sha256-AttGQGWealvTIvPwBl5M6FiC4Al/UD4/XckUAxM38SE=";
     })
   ];
 
@@ -53,17 +50,17 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [
     desktop-file-utils
+    git
     itstool
     meson
     ninja
     pkg-config
     python3
     wrapGAppsHook4
-  ] ++ (with rustPlatform; [
-    cargoSetupHook
-    rust.cargo
-    rust.rustc
-  ]);
+    rustPlatform.cargoSetupHook
+    cargo
+    rustc
+  ];
 
   buildInputs = [
     gtk4

@@ -38,21 +38,21 @@ let
 in
 buildPythonPackage rec {
   pname = "pymdown-extensions";
-  version = "9.4";
+  version = "9.9.2";
   format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "facelessuser";
     repo = "pymdown-extensions";
-    rev = version;
-    sha256 = "sha256-9oYLDerz6ZcE4QyLO4mFPuHws8oZoXX8LcSV209MFec=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-ld3NuBTjDJUN4ZK+eTwmmfzcB8XCtg8xaLMECo95+Cg=";
   };
 
   nativeBuildInputs = [ hatchling ];
 
   propagatedBuildInputs = [ markdown pygments ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pyyaml
   ];

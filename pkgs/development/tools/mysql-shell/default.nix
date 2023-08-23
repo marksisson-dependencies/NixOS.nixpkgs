@@ -4,6 +4,11 @@
 , cmake
 , fetchurl
 , git
+, cctools
+, developer_cmds
+, DarwinTools
+, makeWrapper
+, CoreServices
 , bison
 , openssl
 , protobuf
@@ -22,36 +27,27 @@
 , re2
 , ncurses
 , libfido2
-, v8
 , python3
 , cyrus_sasl
 , openldap
-, numactl
-, cctools
-, CoreServices
-, developer_cmds
-, DarwinTools
+, antlr
 }:
 
 let
-  pythonDeps = [ python3.pkgs.certifi python3.pkgs.paramiko ];
-  site = ''
-
-    import sys; sys.path.extend([${lib.concatStringsSep ", " (map (x: ''"${x}/${python3.sitePackages}"'') pythonDeps)}])
-  '';
+  pythonDeps = with python3.pkgs; [ certifi paramiko pyyaml ];
 in
-stdenv.mkDerivation rec{
+stdenv.mkDerivation rec {
   pname = "mysql-shell";
-  version = "8.0.29";
+  version = "8.0.34";
 
   srcs = [
     (fetchurl {
       url = "https://cdn.mysql.com//Downloads/MySQL-Shell/mysql-shell-${version}-src.tar.gz";
-      sha256 = "sha256-ijwyamQgMoUEcMNpIJjJxH/dRuRFpdcXGmQqpD+WrmA=";
+      hash = "sha256-QY1PmhGw3PhqZ79+H/Xbb9uOvmrBlFQRS7idnV5OXF0=";
     })
     (fetchurl {
       url = "https://dev.mysql.com/get/Downloads/MySQL-${lib.versions.majorMinor version}/mysql-${version}.tar.gz";
-      sha256 = "sha256-USFw+m94ppTW8Y0ZfpmdJxbuaNxUHXZE3ZIqNmNAcmY=";
+      hash = "sha256-5l0Do8QmGLX7+ZBCrtMyCUAumyeqYsfIdD/9R4jY2x0=";
     })
   ];
 
@@ -62,12 +58,11 @@ stdenv.mkDerivation rec{
     substituteInPlace ../mysql-${version}/cmake/os/Darwin.cmake --replace /usr/bin/libtool libtool
 
     substituteInPlace cmake/libutils.cmake --replace /usr/bin/libtool libtool
-
-    # For python dependencies
-    echo '${site}' >> python/packages/mysqlsh/__init__.py
   '';
 
-  nativeBuildInputs = [ pkg-config cmake git bison ] ++ lib.optionals (!stdenv.isDarwin) [ rpcsvc-proto ];
+  nativeBuildInputs = [ pkg-config cmake git bison makeWrapper ]
+    ++ lib.optionals (!stdenv.isDarwin) [ rpcsvc-proto ]
+    ++ lib.optionals stdenv.isDarwin [ cctools developer_cmds DarwinTools ];
 
   buildInputs = [
     boost
@@ -87,22 +82,20 @@ stdenv.mkDerivation rec{
     libfido2
     cyrus_sasl
     openldap
-    v8
     python3
-  ] ++ pythonDeps ++ lib.optionals stdenv.isLinux [
-    numactl
-    libtirpc
-  ] ++ lib.optionals stdenv.isDarwin [ cctools CoreServices developer_cmds DarwinTools ];
+    antlr.runtime.cpp
+  ] ++ pythonDeps
+  ++ lib.optionals stdenv.isLinux [ libtirpc ]
+  ++ lib.optionals stdenv.isDarwin [ CoreServices ];
 
   preConfigure = ''
     # Build MySQL
+    echo "Building mysqlclient mysqlxclient"
+
     cmake -DWITH_BOOST=system -DWITH_SYSTEM_LIBS=ON -DWITH_ROUTER=OFF -DWITH_UNIT_TESTS=OFF \
       -DFORCE_UNSUPPORTED_COMPILER=1 -S ../mysql-${version} -B ../mysql-${version}/build
 
     cmake --build ../mysql-${version}/build --parallel ''${NIX_BUILD_CORES:-1} --target mysqlclient mysqlxclient
-
-    # Get libv8_monolith
-    mkdir -p ../v8/lib && ln -s ${v8}/lib/libv8.a ../v8/lib/libv8_monolith.a
   '';
 
   cmakeFlags = [
@@ -113,13 +106,13 @@ stdenv.mkDerivation rec{
     "-DWITH_LZ4=system"
     "-DWITH_ZLIB=system"
     "-DWITH_PROTOBUF=${protobuf}"
-    "-DHAVE_V8=1"
-    "-DV8_INCLUDE_DIR=${v8}/include"
-    "-DV8_LIB_DIR=../v8/lib"
+    "-DHAVE_V8=0" # V8 10.x required.
     "-DHAVE_PYTHON=1"
   ];
 
-  CXXFLAGS = [ "-DV8_COMPRESS_POINTERS=1" "-DV8_31BIT_SMIS_ON_64BIT_ARCH=1" ];
+  postFixup = ''
+    wrapProgram $out/bin/mysqlsh --set PYTHONPATH "${lib.makeSearchPath python3.sitePackages pythonDeps}"
+  '';
 
   meta = with lib; {
     homepage = "https://dev.mysql.com/doc/mysql-shell/${lib.versions.majorMinor version}/en/";

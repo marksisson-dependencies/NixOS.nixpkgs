@@ -1,29 +1,57 @@
-{ lib, stdenv, python, buildPythonPackage, pythonOlder, fetchPypi, isPy3k, incremental, ipaddress, twisted
-, automat, zope_interface, idna, pyopenssl, service-identity, pytestCheckHook, mock, lsof
-, GeoIP }:
+{ lib
+, stdenv
+, automat
+, buildPythonPackage
+, cryptography
+, fetchPypi
+, geoip
+, idna
+, incremental
+, lsof
+, mock
+, pyopenssl
+, pytestCheckHook
+, python
+, pythonOlder
+, service-identity
+, twisted
+, zope_interface
+}:
 
 buildPythonPackage rec {
   pname = "txtorcon";
-  version = "22.0.0";
+  version = "23.5.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-iaG2XjKks2nWfmwWY4f7xGjMXQUidEjSOaXn6XGKoFM=";
+    hash = "sha256-k/2Aqd1QX2mNCGT+k9uLapwRRLX+uRUwggtw7YmCZRw=";
   };
 
   propagatedBuildInputs = [
-    incremental twisted automat zope_interface
-  ] ++ twisted.optional-dependencies.tls
-  ++ lib.optionals (!isPy3k) [ ipaddress ];
+    cryptography
+    incremental
+    twisted
+    automat
+    zope_interface
+  ] ++ twisted.optional-dependencies.tls;
 
-  checkInputs = [ pytestCheckHook mock lsof GeoIP ];
+  nativeCheckInputs = [
+    pytestCheckHook
+    mock
+    lsof
+    geoip
+  ];
 
   doCheck = !(stdenv.isDarwin && stdenv.isAarch64);
 
-  meta = {
+  meta = with lib; {
     description = "Twisted-based Tor controller client, with state-tracking and configuration abstractions";
     homepage = "https://github.com/meejah/txtorcon";
-    maintainers = with lib.maintainers; [ jluttine exarkun ];
-    license = lib.licenses.mit;
+    changelog = "https://github.com/meejah/txtorcon/releases/tag/v${version}";
+    maintainers = with maintainers; [ jluttine exarkun ];
+    license = licenses.mit;
   };
 }

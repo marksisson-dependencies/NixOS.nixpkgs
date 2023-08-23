@@ -1,4 +1,5 @@
-{ lib
+{ stdenv
+, lib
 , buildPythonPackage
 , fetchFromGitHub
 , capstone
@@ -9,7 +10,7 @@
 
 buildPythonPackage rec {
   pname = "ropper";
-  version = "1.13.7";
+  version = "1.13.8";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
@@ -18,7 +19,7 @@ buildPythonPackage rec {
     owner = "sashs";
     repo = "Ropper";
     rev = "v${version}";
-    hash = "sha256-3tWWIYqh/G/b7Z6BMua5bRvtSh4SibT6pv/NArhmqPE=";
+    hash = "sha256-agbqP5O9QEP5UKkaWI5HxAlMsCBPKNSLnAAo2WFDXS8=";
   };
 
   propagatedBuildInputs = [
@@ -26,7 +27,7 @@ buildPythonPackage rec {
     filebytes
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
@@ -39,5 +40,6 @@ buildPythonPackage rec {
     homepage = "https://scoding.de/ropper/";
     license = licenses.bsd3;
     maintainers = with maintainers; [ bennofs ];
+    broken = stdenv.isDarwin;
   };
 }

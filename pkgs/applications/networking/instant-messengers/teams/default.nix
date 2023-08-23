@@ -23,22 +23,36 @@
 
 let
   pname = "teams";
-  version = "1.5.00.10453";
+  versions = {
+    linux = "1.5.00.23861";
+    darwin = "1.6.00.4464";
+  };
+  hashes = {
+    linux = "sha256-h0YnCeJX//l4TegJVZtavV3HrxjYUF2Fa5KmaYmZW8E=";
+    darwin = "sha256-DvXMrXotKWUqFCb7rZj8wU7mmZJKuTLGyx8qOB/aQtg=";
+  };
   meta = with lib; {
     description = "Microsoft Teams";
     homepage = "https://teams.microsoft.com";
     downloadPage = "https://teams.microsoft.com/downloads";
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     license = licenses.unfree;
     maintainers = with maintainers; [ liff tricktron ];
     platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+    mainProgram = "teams";
   };
 
   linux = stdenv.mkDerivation rec {
-    inherit pname version meta;
+    inherit pname meta;
+    version = versions.linux;
 
     src = fetchurl {
-      url = "https://packages.microsoft.com/repos/ms-teams/pool/main/t/teams/teams_${version}_amd64.deb";
-      hash = "sha256-fLVw2axSMetuaoRzjg+x4DRYY8WP5TQbL7LbfF6LFfA=";
+      urls = [
+        "https://packages.microsoft.com/repos/ms-teams/pool/main/t/teams/teams_${versions.linux}_amd64.deb"
+        # NOTE: the archive.org timestamp must also be updated if the version changes.
+        "https://web.archive.org/web/20221130115842if_/https://packages.microsoft.com/repos/ms-teams/pool/main/t/teams/teams_${versions.linux}_amd64.deb"
+      ];
+      hash = hashes.linux;
     };
 
     nativeBuildInputs = [ dpkg autoPatchelfHook wrapGAppsHook nodePackages.asar ];
@@ -57,7 +71,12 @@ let
     ];
 
     preFixup = ''
-      gappsWrapperArgs+=(--prefix PATH : "${coreutils}/bin:${gawk}/bin")
+      gappsWrapperArgs+=(
+        --prefix PATH : "${coreutils}/bin:${gawk}/bin"
+
+        # fix for https://docs.microsoft.com/en-us/answers/questions/298724/open-teams-meeting-link-on-linux-doens39t-work.html?childToView=309406#comment-309406
+        --append-flags '--disable-namespace-sandbox --disable-setuid-sandbox'
+      )
     '';
 
 
@@ -83,6 +102,10 @@ let
 
       mv share/teams $out/opt/
       mv share $out/share
+
+      mkdir -p $out/share/icons/hicolor/512x512/apps
+      mv $out/share/pixmaps/teams.png $out/share/icons/hicolor/512x512/apps
+      rmdir $out/share/pixmaps
 
       substituteInPlace $out/share/applications/teams.desktop \
         --replace /usr/bin/ ""
@@ -118,29 +141,21 @@ let
         echo "Adding runtime dependencies to RPATH of Node module $mod"
         patchelf --set-rpath "$runtime_rpath:$mod_rpath" "$mod"
       done;
-
-      # fix for https://docs.microsoft.com/en-us/answers/questions/298724/open-teams-meeting-link-on-linux-doens39t-work.html?childToView=309406#comment-309406
-      wrapped=$out/bin/.teams-old
-      mv "$out/bin/teams" "$wrapped"
-      cat > "$out/bin/teams" << EOF
-      #! ${runtimeShell}
-      exec $wrapped "\$@" --disable-namespace-sandbox --disable-setuid-sandbox
-      EOF
-      chmod +x "$out/bin/teams"
     '';
   };
 
   appName = "Teams.app";
 
   darwin = stdenv.mkDerivation {
-    inherit pname version meta;
+    inherit pname meta;
+    version = versions.darwin;
 
     src = fetchurl {
-      url = "https://statics.teams.cdn.office.net/production-osx/${version}/Teams_osx.pkg";
-      hash = "sha256-vLUEvOSBUyAJIWHOAIkTqTW/W6TkgmeyRzQbquZP810=";
+      url = "https://statics.teams.cdn.office.net/production-osx/${versions.darwin}/Teams_osx.pkg";
+      hash = hashes.darwin;
     };
 
-    buildInputs = [ xar cpio makeWrapper ];
+    nativeBuildInputs = [ xar cpio makeWrapper ];
 
     unpackPhase = ''
       xar -xf $src

@@ -1,10 +1,10 @@
-{ lib
+{ stdenv
+, lib
 , aiodns
 , aiohttp
 , boto3
 , buildPythonPackage
 , codecov
-, databases
 , fetchFromGitHub
 , flake8
 , flask-sockets
@@ -20,7 +20,7 @@
 
 buildPythonPackage rec {
   pname = "slack-sdk";
-  version = "3.17.0";
+  version = "3.21.3";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
@@ -29,7 +29,7 @@ buildPythonPackage rec {
     owner = "slackapi";
     repo = "python-slack-sdk";
     rev = "refs/tags/v${version}";
-    sha256 = "sha256-XyxvJsALAEuAJWORhIs4bGB4vYnCbFHecerA4gTr6ak=";
+    hash = "sha256-begpT/DaDqOi8HZE10FCuIIv18KSU/i5G/Z5DXKUT7Y=";
   };
 
   propagatedBuildInputs = [
@@ -41,9 +41,8 @@ buildPythonPackage rec {
     websockets
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     codecov
-    databases
     flake8
     flask-sockets
     moto
@@ -66,6 +65,7 @@ buildPythonPackage rec {
     "test_start_raises_an_error_if_rtm_ws_url_is_not_returned"
     "test_org_installation"
     "test_interactions"
+    "test_issue_690_oauth_access"
   ];
 
   pythonImportsCheck = [
@@ -75,6 +75,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Slack Developer Kit for Python";
     homepage = "https://slack.dev/python-slack-sdk/";
+    changelog = "https://github.com/slackapi/python-slack-sdk/releases/tag/v${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

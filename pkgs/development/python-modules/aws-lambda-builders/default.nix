@@ -3,6 +3,7 @@
 , fetchFromGitHub
 , mock
 , parameterized
+, pip
 , pyelftools
 , pytestCheckHook
 , pythonOlder
@@ -11,7 +12,7 @@
 
 buildPythonPackage rec {
   pname = "aws-lambda-builders";
-  version = "1.17.0";
+  version = "1.34.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
@@ -20,16 +21,17 @@ buildPythonPackage rec {
     owner = "awslabs";
     repo = "aws-lambda-builders";
     rev = "refs/tags/v${version}";
-    hash = "sha256-EkAtRqUHwmH0LG/bkXBbZ3TMgXDtcqLfUBySPbrgWmc=";
+    hash = "sha256-MjX0im9GX0mdWkumUoJUIBjPZl/Ok5+sR6Dgq6vVGKM=";
   };
 
   propagatedBuildInputs = [
     six
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     parameterized
+    pip
     pyelftools
     pytestCheckHook
   ];
@@ -49,6 +51,10 @@ buildPythonPackage rec {
     "TestPipRunner"
     "TestPythonPipWorkflow"
     "TestRubyWorkflow"
+    "TestRustCargo"
+    # Tests which are passing locally but not on Hydra
+    "test_copy_dependencies_action_1_multiple_files"
+    "test_move_dependencies_action_1_multiple_files"
   ];
 
   pythonImportsCheck = [
@@ -58,6 +64,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Tool to compile, build and package AWS Lambda functions";
     homepage = "https://github.com/awslabs/aws-lambda-builders";
+    changelog = "https://github.com/aws/aws-lambda-builders/releases/tag/v${version}";
     longDescription = ''
       Lambda Builders is a Python library to compile, build and package
       AWS Lambda functions for several runtimes & frameworks.

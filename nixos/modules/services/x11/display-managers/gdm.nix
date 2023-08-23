@@ -67,15 +67,15 @@ in
 
     services.xserver.displayManager.gdm = {
 
-      enable = mkEnableOption "GDM, the GNOME Display Manager";
+      enable = mkEnableOption (lib.mdDoc "GDM, the GNOME Display Manager");
 
-      debug = mkEnableOption "debugging messages in GDM";
+      debug = mkEnableOption (lib.mdDoc "debugging messages in GDM");
 
       # Auto login options specific to GDM
       autoLogin.delay = mkOption {
         type = types.int;
         default = 0;
-        description = ''
+        description = lib.mdDoc ''
           Seconds of inactivity after which the autologin will be performed.
         '';
       };
@@ -83,14 +83,14 @@ in
       wayland = mkOption {
         type = types.bool;
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           Allow GDM to run on Wayland instead of Xserver.
         '';
       };
 
       autoSuspend = mkOption {
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           On the GNOME Display Manager login screen, suspend the machine after inactivity.
           (Does not affect automatic suspend while logged in, or at lock screen.)
         '';
@@ -103,9 +103,9 @@ in
         example = {
           debug.enable = true;
         };
-        description = ''
+        description = lib.mdDoc ''
           Options passed to the gdm daemon.
-          See <link xlink:href="https://help.gnome.org/admin/gdm/stable/configuration.html.en#daemonconfig">here</link> for supported options.
+          See [here](https://help.gnome.org/admin/gdm/stable/configuration.html.en#daemonconfig) for supported options.
         '';
       };
 
@@ -207,7 +207,9 @@ in
     # conflicts display-manager.service, then when nixos-rebuild
     # switch starts multi-user.target, display-manager.service is
     # stopped so plymouth-quit.service can be started.)
-    systemd.services.plymouth-quit.wantedBy = lib.mkForce [];
+    systemd.services.plymouth-quit = mkIf config.boot.plymouth.enable {
+      wantedBy = lib.mkForce [];
+    };
 
     systemd.services.display-manager.serviceConfig = {
       # Restart = "always"; - already defined in xserver.nix
@@ -323,7 +325,7 @@ in
 
         account   sufficient    pam_unix.so
 
-        password  requisite     pam_unix.so nullok sha512
+        password  requisite     pam_unix.so nullok yescrypt
 
         session   optional      pam_keyinit.so revoke
         session   include       login

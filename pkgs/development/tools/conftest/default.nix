@@ -1,16 +1,20 @@
-{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, installShellFiles
+}:
 
 buildGoModule rec {
   pname = "conftest";
-  version = "0.32.0";
+  version = "0.44.1";
 
   src = fetchFromGitHub {
     owner = "open-policy-agent";
     repo = "conftest";
-    rev = "v${version}";
-    sha256 = "sha256-fPg3376QtbjrUJWZxjRqEFL2cWy1xb7vUX1Lfp5WFmY=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-a/5g5USbK8Bat+V3vecuHVlh3e0omqWYrKe2rFTxxnM=";
   };
-  vendorSha256 = "sha256-/RfIjCI2RMktUSVEoyJqMwdmlW6lGvXanX7RBxiaTyE=";
+  vendorHash = "sha256-Q0bV6ePjQiIzYXB7sEiAYZ9kIbErPsoAXQqdMt8Xd10=";
 
   ldflags = [
     "-s"
@@ -18,10 +22,12 @@ buildGoModule rec {
     "-X github.com/open-policy-agent/conftest/internal/commands.version=${version}"
   ];
 
-  nativeBuildInputs = [ installShellFiles ];
+  nativeBuildInputs = [
+    installShellFiles
+  ];
 
   preCheck = ''
-    export HOME="$TMPDIR"
+    export HOME="$(mktemp -d)"
   '';
 
   postInstall = ''
@@ -33,7 +39,7 @@ buildGoModule rec {
 
   doInstallCheck = true;
   installCheckPhase = ''
-    export HOME="$TMPDIR"
+    export HOME="$(mktemp -d)"
     $out/bin/conftest --version | grep ${version} > /dev/null
   '';
 
@@ -41,6 +47,7 @@ buildGoModule rec {
     description = "Write tests against structured configuration data";
     downloadPage = "https://github.com/open-policy-agent/conftest";
     homepage = "https://www.conftest.dev";
+    changelog = "https://github.com/open-policy-agent/conftest/releases/tag/v${version}";
     license = licenses.asl20;
     longDescription = ''
       Conftest helps you write tests against structured configuration data.

@@ -3,21 +3,26 @@
 , fetchFromGitHub
 , pythonOlder
 , pyvex
+, setuptools
 }:
 
 buildPythonPackage rec {
   pname = "ailment";
-  version = "9.2.5";
+  version = "9.2.65";
   format = "pyproject";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "angr";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-eETl1AMDdY55okPUVDv7L2zZMtDfA4dRi11z37xAM58=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-Bli+zrxMbRY2dzAx25ap3DhROIFTlk+TGpAfrHiMxPc=";
   };
+
+  nativeBuildInputs = [
+    setuptools
+  ];
 
   propagatedBuildInputs = [
     pyvex

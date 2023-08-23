@@ -6,8 +6,10 @@
 , ninja
 , pkg-config
 , wrapGAppsHook4
-, libepoxy
+, feedbackd
 , gtk4
+, libepoxy
+, xorg
 , zbar
 , tiffSupport ? true
 , libraw
@@ -27,13 +29,13 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "megapixels";
-  version = "1.4.3";
+  version = "1.6.1";
 
   src = fetchFromGitLab {
     owner = "postmarketOS";
     repo = "megapixels";
     rev = version;
-    hash = "sha256-UHJ3Fayf+lS3nRuuhHHLN6mbHfHIPssWkghPMPF5ECg=";
+    hash = "sha256-ZkTDHDL5nhpR8PKqia12pbrEZLnRXEm8DwBYdYrP5Qo=";
   };
 
   nativeBuildInputs = [
@@ -45,8 +47,10 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    libepoxy
+    feedbackd
     gtk4
+    libepoxy
+    xorg.libXrandr
     zbar
   ];
 

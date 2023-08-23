@@ -15,16 +15,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "zellij";
-  version = "0.29.1";
+  version = "0.37.2";
 
   src = fetchFromGitHub {
     owner = "zellij-org";
     repo = "zellij";
     rev = "v${version}";
-    sha256 = "sha256-KuelmMQdCazwTlolH5xvvNXZfzHQDUV6rrlk037GFb8=";
+    sha256 = "sha256-YceH3qW0B+h7UvI84PIlfwJXWi4jyxSXIYDsZFrpc1c=";
   };
 
-  cargoSha256 = "sha256-He8rMY8n15ZSF/GcbuYTx2JfZgqQnsZLfqP+lUYxnzw=";
+  cargoSha256 = "sha256-uD8z8oQ/z2zk5/MSohgcg5N5984hJhKyPz8dQQUnWL8=";
 
   nativeBuildInputs = [
     mandown
@@ -59,8 +59,9 @@ rustPlatform.buildRustPackage rec {
   meta = with lib; {
     description = "A terminal workspace with batteries included";
     homepage = "https://zellij.dev/";
-    changelog = "https://github.com/zellij-org/zellij/blob/v${version}/Changelog.md";
+    changelog = "https://github.com/zellij-org/zellij/blob/v${version}/CHANGELOG.md";
     license = with licenses; [ mit ];
-    maintainers = with maintainers; [ therealansh _0x4A6F abbe ];
+    maintainers = with maintainers; [ therealansh _0x4A6F abbe thehedgeh0g ];
+    mainProgram = "zellij";
   };
 }

@@ -1,4 +1,5 @@
-{ lib
+{ stdenv
+, lib
 , buildPythonPackage
 , fetchFromGitHub
 , pygobject3
@@ -9,22 +10,22 @@
 
 buildPythonPackage rec {
   pname = "gbulb";
-  version = "0.6.3";
+  version = "0.6.4";
 
   src = fetchFromGitHub {
     owner = "beeware";
     repo = "gbulb";
-    rev = "v${version}";
-    sha256 = "sha256-QNpZf1zfe6r6MtmYMWSrXPsXm5iX36oMx4GnXiTYPaQ=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-AdZSvxix0cpoFQSrslGl+hB/s6Nh0EsWMQmXZAJVJOg=";
   };
 
   propagatedBuildInputs = [
     pygobject3
+    gtk3
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
-    gtk3
     gobject-introspection
   ];
 
@@ -35,6 +36,7 @@ buildPythonPackage rec {
   pythonImportsCheck = [ "gbulb" ];
 
   meta = with lib; {
+    broken = stdenv.isDarwin;
     description = "GLib implementation of PEP 3156";
     homepage = "https://github.com/beeware/gbulb";
     license = licenses.asl20;

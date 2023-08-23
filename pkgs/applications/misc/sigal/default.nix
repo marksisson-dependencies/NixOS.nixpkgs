@@ -1,5 +1,7 @@
-{ lib
+{ stdenv
+, lib
 , python3
+, fetchPypi
 , ffmpeg
 }:
 
@@ -8,10 +10,12 @@ python3.pkgs.buildPythonApplication rec {
   version = "2.3";
   format = "setuptools";
 
-  src = python3.pkgs.fetchPypi {
+  src = fetchPypi {
     inherit version pname;
     hash = "sha256-4Zsb/OBtU/jV0gThEYe8bcrb+6hW+hnzQS19q1H409Q=";
   };
+
+  patches = [ ./copytree-permissions.patch ];
 
   propagatedBuildInputs = with python3.pkgs; [
     # install_requires
@@ -27,13 +31,19 @@ python3.pkgs.buildPythonApplication rec {
     feedgenerator
     zopfli
     cryptography
+
+    setuptools # needs pkg_resources
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     ffmpeg
   ] ++ (with python3.pkgs; [
     pytestCheckHook
   ]);
+
+  disabledTests = lib.optionals stdenv.isDarwin [
+    "test_nonmedia_files"
+  ];
 
   makeWrapperArgs = [
     "--prefix PATH : ${lib.makeBinPath [ ffmpeg ]}"

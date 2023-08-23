@@ -15,6 +15,11 @@ stdenv.mkDerivation rec {
     ./stdint.patch
   ];
 
+  # Workaround build failure on -fno-common toolchains:
+  #   ld: include/dieharder/parse.h:21: multiple definition of `splitbuf';
+  #     include/dieharder/parse.h:21: first defined here
+  env.NIX_CFLAGS_COMPILE = "-fcommon";
+
   buildInputs = [ gsl ];
 
   passthru = {

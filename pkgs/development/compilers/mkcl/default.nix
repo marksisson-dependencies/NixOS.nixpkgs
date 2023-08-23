@@ -55,10 +55,11 @@ stdenv.mkDerivation rec {
   enableParallelBuilding = true;
 
   meta = with lib; {
+    broken = (stdenv.isLinux && stdenv.isAarch64);
     description = "ANSI Common Lisp Implementation";
     homepage = "https://common-lisp.net/project/mkcl/";
     license = licenses.lgpl2Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ tohl ];
+    maintainers = lib.teams.lisp.members;
   };
 }
