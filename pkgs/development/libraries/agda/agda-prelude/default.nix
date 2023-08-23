@@ -1,23 +1,28 @@
-{ stdenv, agda, fetchgit }:
+{ lib, mkDerivation, fetchFromGitHub }:
 
-agda.mkDerivation (self: rec {
-  version = "0dca24a81d417db2ae8fc871eccb7776f7eae952";
-  name = "agda-prelude-${version}";
+mkDerivation rec {
+  version = "unstable-2022-01-14";
+  pname = "agda-prelude";
 
-  src = fetchgit {
-    url = "https://github.com/UlfNorell/agda-prelude.git";
-    rev = version;
-    sha256 = "0gwfgvj96i1mx5v01bi46h567d1q1fbgvzv6z8zv91l2jhybwff5";
+  src = fetchFromGitHub {
+    owner = "UlfNorell";
+    repo = "agda-prelude";
+    rev = "3d143d6d0a3f75966602480665623e87233ff93e";
+    hash = "sha256-ILhXDq788vrceMp5mCiQUMrJxeLPtS4yGtvMHMYxzg8=";
   };
 
-  topSourceDirectories = [ "src" ];
-  everythingFile = "src/Prelude.agda";
+  preConfigure = ''
+    cd test
+    make everything
+    mv Everything.agda ..
+    cd ..
+  '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/UlfNorell/agda-prelude";
     description = "Programming library for Agda";
-    license = stdenv.lib.licenses.mit;
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = with maintainers; [ fuuzetsu mudri ];
+    license = lib.licenses.mit;
+    platforms = lib.platforms.unix;
+    maintainers = with maintainers; [ mudri alexarice turion ];
   };
-})
+}

@@ -1,77 +1,84 @@
-{ stdenv, fetchFromGitHub, mono, fsharp, dotnetPackages, z3, ocamlPackages, openssl, makeWrapper }:
+{ lib, stdenv, writeScript, fetchFromGitHub, z3, ocamlPackages, makeWrapper, installShellFiles, removeReferencesTo }:
 
 stdenv.mkDerivation rec {
-  name = "fstar-${version}";
-  version = "0.9.2.0";
+  pname = "fstar";
+  version = "2023.04.25";
 
   src = fetchFromGitHub {
     owner = "FStarLang";
     repo = "FStar";
     rev = "v${version}";
-    sha256 = "0vrxmxfaslngvbvkzpm1gfl1s34hdsprv8msasxf9sjqc3hlir3l";
+    hash = "sha256-LF8eXi/es337QJ2fs5u9pLqegJkh1kDLjK8p4CcSGGc=";
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  strictDeps = true;
+
+  nativeBuildInputs = [
+    z3
+    makeWrapper
+    installShellFiles
+    removeReferencesTo
+  ] ++ (with ocamlPackages; [
+    ocaml
+    dune_3
+    findlib
+    ocamlbuild
+    menhir
+  ]);
 
   buildInputs = with ocamlPackages; [
-    mono fsharp z3 dotnetPackages.FsLexYacc ocaml findlib ocaml_batteries openssl
+    batteries
+    zarith
+    stdint
+    yojson
+    fileutils
+    menhirLib
+    pprint
+    sedlex
+    ppxlib
+    ppx_deriving
+    ppx_deriving_yojson
+    process
   ];
 
-  preBuild = ''
-    substituteInPlace src/Makefile --replace "\$(RUNTIME) VS/.nuget/NuGet.exe" "true"
+  makeFlags = [ "PREFIX=$(out)" ];
 
-    source setenv.sh
+  enableParallelBuilding = true;
+
+  postPatch = ''
+    patchShebangs ulib/install-ulib.sh
   '';
 
-  makeFlags = [
-    "FSYACC=${dotnetPackages.FsLexYacc}/bin/fsyacc"
-    "FSLEX=${dotnetPackages.FsLexYacc}/bin/fslex"
-    "NUGET=true"
-    "PREFIX=$(out)"
-  ];
-
-  buildFlags = "-C src";
-
-  # Now that the .NET fstar.exe is built, use it to build the native OCaml binary
-  postBuild = ''
-    patchShebangs bin/fstar.exe
-
-    # Workaround for fsharp/fsharp#419
-    cp ${fsharp}/lib/mono/4.5/FSharp.Core.dll bin/
-
-    # Use the built .NET binary to extract the sources of itself from F* to OCaml
-    make ''${enableParallelBuilding:+-j''${NIX_BUILD_CORES} -l''${NIX_BUILD_CORES}} \
-        $makeFlags "''${makeFlagsArray[@]}" \
-        ocaml -C src
-
-    # Build the extracted OCaml sources
-    make ''${enableParallelBuilding:+-j''${NIX_BUILD_CORES} -l''${NIX_BUILD_CORES}} \
-        $makeFlags "''${makeFlagsArray[@]}" \
-        -C src/ocaml-output
+  preInstall = ''
+    mkdir -p $out/lib/ocaml/${ocamlPackages.ocaml.version}/site-lib/fstarlib
   '';
-
-  # https://github.com/FStarLang/FStar/issues/676
-  doCheck = false;
-
-  preCheck = "ulimit -s unlimited";
-
-  # Basic test suite:
-  #checkFlags = "VERBOSE=y -C examples";
-
-  # Complete, but heavyweight test suite:
-  checkTarget = "regressions";
-  checkFlags = "VERBOSE=y -C src";
-
-  installFlags = "-C src/ocaml-output";
-
   postInstall = ''
+    # Remove build artifacts
+    find $out -name _build -type d | xargs -I{} rm -rf "{}"
+    remove-references-to -t '${ocamlPackages.ocaml}' $out/bin/fstar.exe
+
     wrapProgram $out/bin/fstar.exe --prefix PATH ":" "${z3}/bin"
+    installShellCompletion --bash .completion/bash/fstar.exe.bash
+    installShellCompletion --fish .completion/fish/fstar.exe.fish
+    installShellCompletion --zsh --name _fstar.exe .completion/zsh/__fstar.exe
   '';
 
-  meta = with stdenv.lib; {
+  passthru.updateScript = writeScript "update-fstar" ''
+      #!/usr/bin/env nix-shell
+      #!nix-shell -i bash -p git gnugrep common-updater-scripts
+      set -eu -o pipefail
+
+      version="$(git ls-remote --tags git@github.com:FStarLang/FStar.git | grep -Po 'v\K\d{4}\.\d{2}\.\d{2}' | sort | tail -n1)"
+      update-source-version fstar "$version"
+  '';
+
+  meta = with lib; {
     description = "ML-like functional programming language aimed at program verification";
     homepage = "https://www.fstar-lang.org";
+    changelog = "https://github.com/FStarLang/FStar/raw/v${version}/CHANGES.md";
     license = licenses.asl20;
+    maintainers = with maintainers; [ gebner pnmadelaine ];
+    mainProgram = "fstar.exe";
     platforms = with platforms; darwin ++ linux;
   };
 }

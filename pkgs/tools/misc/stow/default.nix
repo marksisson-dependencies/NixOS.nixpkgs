@@ -1,21 +1,22 @@
-{ stdenv, fetchurl, perl, perlPackages }:
+{ lib, stdenv, fetchurl, perl, perlPackages }:
 
 let
-  version = "2.2.2";
+  pname = "stow";
+  version = "2.3.1";
 in
 stdenv.mkDerivation {
-  name = "stow-${version}";
+  name = "${pname}-${version}";
 
   src = fetchurl {
     url = "mirror://gnu/stow/stow-${version}.tar.bz2";
-    sha256 = "1zd6g9cm3whvy5f87j81j4npl7q6kxl25f7z7p9ahiqfjqs200m0";
+    sha256 = "0bs2b90wjkk1camcasy8kn403kazq6c7fj5m5msfl3navbgwz9i6";
   };
 
   buildInputs = with perlPackages; [ perl IOStringy TestOutput ];
 
   doCheck = true;
 
-  meta = {
+  meta = with lib; {
     description = "A tool for managing the installation of multiple software packages in the same run-time directory tree";
 
     longDescription = ''
@@ -28,10 +29,9 @@ stdenv.mkDerivation {
       as .../share, .../man, and so on.
     '';
 
-    license = stdenv.lib.licenses.gpl3Plus;
-    homepage = http://www.gnu.org/software/stow/;
-
-    maintainers = with stdenv.lib.maintainers; [ the-kenny jgeerds ];
-    platforms = stdenv.lib.platforms.all;
+    license = licenses.gpl3Plus;
+    homepage = "https://www.gnu.org/software/stow/";
+    maintainers = with maintainers; [ sarcasticadmin ];
+    platforms = platforms.all;
   };
 }

@@ -1,47 +1,96 @@
-{ stdenv, fetchurl, lib, makeWrapper, gvfs, atomEnv, libXScrnSaver, libxkbfile }:
+{ lib, stdenv, pkgs, fetchurl, wrapGAppsHook, glib, gtk3, atomEnv }:
 
-stdenv.mkDerivation rec {
-  name = "atom-${version}";
-  version = "1.12.6";
+let
+  versions = {
+    atom = {
+      version = "1.60.0";
+      sha256 = "sha256-XHwCWQYrnUkR0lN7/Or/Uxb53hEWmIQKkNfNSX34kaY=";
+    };
 
-  src = fetchurl {
-    url = "https://github.com/atom/atom/releases/download/v${version}/atom-amd64.deb";
-    sha256 = "0b85bjfxdd18i2v8py5jx4284m58zxad38c2vvqhgx7cxm9hn8k6";
-    name = "${name}.deb";
+    atom-beta = {
+      version = "1.61.0";
+      beta = 0;
+      sha256 = "sha256-viY/is7Nh3tlIkHhUBWtgMAjD6HDiC0pyJpUjsP5pRY=";
+      broken = true;
+    };
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  common = pname: {version, sha256, beta ? null, broken ? false}:
+      let fullVersion = version + lib.optionalString (beta != null) "-beta${toString beta}";
+      name = "${pname}-${fullVersion}";
+  in stdenv.mkDerivation {
+    inherit name;
+    version = fullVersion;
 
-  buildCommand = ''
-    mkdir -p $out/usr/
-    ar p $src data.tar.gz | tar -C $out -xz ./usr
-    substituteInPlace $out/usr/share/applications/atom.desktop \
-      --replace /usr/share/atom $out/bin
-    mv $out/usr/* $out/
-    rm -r $out/share/lintian
-    rm -r $out/usr/
-    wrapProgram $out/bin/atom \
-      --prefix "PATH" : "${gvfs}/bin" \
-      --prefix LD_PRELOAD : ${stdenv.lib.makeLibraryPath [ libXScrnSaver ]}/libXss.so.1 \
-      --prefix LD_PRELOAD : ${stdenv.lib.makeLibraryPath [ libxkbfile ]}/libxkbfile.so.1
+    src = fetchurl {
+      url = "https://github.com/atom/atom/releases/download/v${fullVersion}/atom-amd64.deb";
+      name = "${name}.deb";
+      inherit sha256;
+    };
 
-    fixupPhase
+    nativeBuildInputs = [
+      wrapGAppsHook  # Fix error: GLib-GIO-ERROR **: No GSettings schemas are installed on the system
+    ];
 
-    patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-      --set-rpath "${atomEnv.libPath}:$out/share/atom" \
-      $out/share/atom/atom
-    patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-      --set-rpath "${atomEnv.libPath}" \
-      $out/share/atom/resources/app/apm/bin/node
-    patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-      $out/share/atom/resources/app.asar.unpacked/node_modules/symbols-view/vendor/ctags-linux
-  '';
+    buildInputs = [
+      gtk3  # Fix error: GLib-GIO-ERROR **: Settings schema 'org.gtk.Settings.FileChooser' is not installed
+    ];
 
-  meta = with stdenv.lib; {
-    description = "A hackable text editor for the 21st Century";
-    homepage = https://atom.io/;
-    license = licenses.mit;
-    maintainers = [ maintainers.offline maintainers.nequissimus ];
-    platforms = [ "x86_64-linux" ];
+    dontBuild = true;
+    dontConfigure = true;
+
+    unpackPhase = ''
+      ar p $src data.tar.xz | tar xJ ./usr/
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+      mv usr/bin usr/share $out
+      rm -rf $out/share/lintian
+
+      runHook postInstall
+    '';
+
+    preFixup = ''
+      gappsWrapperArgs+=(
+        # needed for gio executable to be able to delete files
+        --prefix "PATH" : "${glib.bin}/bin"
+      )
+    '';
+
+    postFixup = ''
+      share=$out/share/${pname}
+
+      patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
+        --set-rpath "${atomEnv.libPath}:$share" \
+        $share/atom
+      patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
+        --set-rpath "${atomEnv.libPath}" \
+        $share/resources/app/apm/bin/node
+      patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
+        $share/resources/app.asar.unpacked/node_modules/symbols-view/vendor/ctags-linux
+
+      dugite=$share/resources/app.asar.unpacked/node_modules/dugite
+      rm -f $dugite/git/bin/git
+      ln -s ${pkgs.git}/bin/git $dugite/git/bin/git
+      rm -f $dugite/git/libexec/git-core/git
+      ln -s ${pkgs.git}/bin/git $dugite/git/libexec/git-core/git
+
+      find $share -name "*.node" -exec patchelf --set-rpath "${atomEnv.libPath}:$share" {} \;
+
+      sed -i -e "s|Exec=.*$|Exec=$out/bin/${pname}|" $out/share/applications/${pname}.desktop
+    '';
+
+    meta = with lib; {
+      description = "A hackable text editor for the 21st Century";
+      homepage = "https://atom.io/";
+      sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+      license = licenses.mit;
+      maintainers = with maintainers; [ offline ysndr ];
+      platforms = platforms.x86_64;
+      inherit broken;
+    };
   };
-}
+in lib.mapAttrs common versions

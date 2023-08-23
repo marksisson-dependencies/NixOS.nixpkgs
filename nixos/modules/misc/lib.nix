@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ lib, ... }:
 
 {
   options = {
@@ -7,7 +7,7 @@
 
       type = lib.types.attrsOf lib.types.attrs;
 
-      description = ''
+      description = lib.mdDoc ''
         This option allows modules to define helper functions, constants, etc.
       '';
     };

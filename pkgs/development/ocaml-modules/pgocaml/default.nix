@@ -1,22 +1,34 @@
-{ stdenv, fetchurl, ocaml, findlib, ocamlbuild, camlp4, calendar, csv, ocaml_pcre }:
+{ lib, fetchFromGitHub, fetchpatch, buildDunePackage, ocaml
+, calendar, camlp-streams, csv, hex, ppx_deriving, ppx_sexp_conv, re, rresult, sexplib
+}:
 
-stdenv.mkDerivation {
-  name = "ocaml-pgocaml-2.2";
-  src = fetchurl {
-    url = http://forge.ocamlcore.org/frs/download.php/1506/pgocaml-2.2.tgz;
-    sha256 = "0x0dhlz2rqxpwfdqi384f9fn0ng2irifadmxfm2b4gcz7y1cl9rh";
+let with-camlp-streams = lib.optional (lib.versionAtLeast ocaml.version "5.0"); in
+
+buildDunePackage rec {
+  pname = "pgocaml";
+  version = "4.3.0";
+  src = fetchFromGitHub {
+    owner = "darioteixeira";
+    repo = "pgocaml";
+    rev = version;
+    hash = "sha256-W1fbRnU1l61qqxfVY2qiBnVpGD81xrBO8k0tWr+RXMY=";
   };
 
-  buildInputs = [ ocaml findlib ocamlbuild camlp4 ];
-  propagatedBuildInputs = [ calendar csv ocaml_pcre ];
+  # Compatibility with OCaml ≥ 5.0
+  patches = with-camlp-streams (fetchpatch {
+    url = "https://github.com/darioteixeira/pgocaml/commit/906a289dc57da4971e312c31eedd26d81e902ed5.patch";
+    hash = "sha256-/v9Jheg98GhrcD2gcsQpPvq7YiIrvJj22SKvrBRlR9Y=";
+  });
 
-  createFindlibDestdir = true;
+  minimalOCamlVersion = "4.08";
 
-  meta = with stdenv.lib; {
+  propagatedBuildInputs = [ calendar csv hex ppx_deriving ppx_sexp_conv re rresult sexplib ]
+  ++ with-camlp-streams camlp-streams;
+
+  meta = with lib; {
     description = "An interface to PostgreSQL databases for OCaml applications";
-    homepage = http://pgocaml.forge.ocamlcore.org/;
+    inherit (src.meta) homepage;
     license = licenses.lgpl2;
-    platforms = ocaml.meta.platforms or [];
     maintainers = with maintainers; [ vbgl ];
   };
 }

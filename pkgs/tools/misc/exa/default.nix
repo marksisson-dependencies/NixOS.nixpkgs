@@ -1,29 +1,50 @@
-{ stdenv, fetchFromGitHub, rustPlatform, openssl, cmake, zlib }:
+{ lib
+, gitSupport ? true
+, stdenv
+, fetchFromGitHub
+, rustPlatform
+, cmake
+, pandoc
+, pkg-config
+, zlib
+, Security
+, libiconv
+, installShellFiles
+}:
 
-with rustPlatform;
-
-buildRustPackage rec {
-  name = "exa-${version}";
-  version = "2016-04-20";
-
-  # NOTE: There is an impurity caused by `exa` depending on
-  # https://github.com/rust-datetime/zoneinfo-compiled.git
-  depsSha256 = "0qsqkgc1wxigvskhaamgfp5pyc2kprsikhcfccysgs07w44nxkd0";
+rustPlatform.buildRustPackage {
+  pname = "exa";
+  version = "unstable-2023-03-01";
 
   src = fetchFromGitHub {
     owner = "ogham";
     repo = "exa";
-    rev = "110a1c716bfc4a7f74f74b3c4f0a881c773fcd06";
-    sha256 = "136yxi85m50vwmqinr1wnd0h29n5yjykqqqk9ibbcmmhx8sqhjzf";
+    rev = "c697d066702ab81ce0684fedb4c638e0fc0473e8";
+    hash = "sha256-sSEnZLL0n7Aw72fPNJmyRxSLXCMC5uWwfTy2fpsuo6c=";
   };
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ openssl zlib ];
+  cargoHash = "sha256-/sxiQMWix4GR12IzuvXbx56mZhbcFpd+NJ49S2N+jzw=";
 
-  # Some tests fail, but Travis ensures a proper build
-  doCheck = false;
+  nativeBuildInputs = [ cmake pkg-config installShellFiles pandoc ];
+  buildInputs = [ zlib ]
+    ++ lib.optionals stdenv.isDarwin [ libiconv Security ];
 
-  meta = with stdenv.lib; {
+  buildNoDefaultFeatures = true;
+  buildFeatures = lib.optional gitSupport "git";
+
+  outputs = [ "out" "man" ];
+
+  postInstall = ''
+    pandoc --standalone -f markdown -t man man/exa.1.md > man/exa.1
+    pandoc --standalone -f markdown -t man man/exa_colors.5.md > man/exa_colors.5
+    installManPage man/exa.1 man/exa_colors.5
+    installShellCompletion \
+      --bash completions/bash/exa \
+      --fish completions/fish/exa.fish \
+      --zsh completions/zsh/_exa
+  '';
+
+  meta = with lib; {
     description = "Replacement for 'ls' written in Rust";
     longDescription = ''
       exa is a modern replacement for ls. It uses colours for information by
@@ -33,9 +54,10 @@ buildRustPackage rec {
       for a directory, or recursing into directories with a tree view. exa is
       written in Rust, so it’s small, fast, and portable.
     '';
-    homepage = http://bsago.me/exa;
+    changelog = "https://github.com/ogham/exa/releases";
+    homepage = "https://the.exa.website";
     license = licenses.mit;
-    maintainer = [ maintainers.ehegnes ];
-    broken = true;
+    maintainers = with maintainers; [ ehegnes lilyball globin fortuneteller2k ];
+    mainProgram = "exa";
   };
 }

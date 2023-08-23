@@ -1,20 +1,18 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
-let
-  name = "log4cplus-1.2.0";
-in
-stdenv.mkDerivation {
-  inherit name;
+stdenv.mkDerivation rec {
+  pname = "log4cplus";
+  version = "2.1.0";
 
   src = fetchurl {
-    url = "mirror://sourceforge/log4cplus/${name}.tar.bz2";
-    sha256 = "1fb3g9l12sps3mv4xjiql2kcvj439mww3skz735y7113cnlcf338";
+    url = "mirror://sourceforge/log4cplus/log4cplus-${version}.tar.bz2";
+    sha256 = "sha256-oElFrKX7wEh1A8hSvvuc3vvDrj/mFLCKkFMz9t91Q4c=";
   };
 
   meta = {
     homepage = "http://log4cplus.sourceforge.net/";
     description = "A port the log4j library from Java to C++";
-    license = stdenv.lib.licenses.asl20;
-    platforms = stdenv.lib.platforms.unix;
+    license = lib.licenses.asl20;
+    platforms = lib.platforms.unix;
   };
 }

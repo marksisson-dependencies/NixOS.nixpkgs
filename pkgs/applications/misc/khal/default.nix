@@ -1,45 +1,91 @@
-{ stdenv, fetchurl, pkgs, python3Packages }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, glibcLocales
+, installShellFiles
+, python3
+}:
 
-with python3Packages;
+python3.pkgs.buildPythonApplication rec {
+  pname = "khal";
+  version = "0.11.2";
 
-buildPythonApplication rec {
-  # Reenable tests for 0.9.0, they are broken at the moment: #15981
-  version = "0.8.4";
-  name = "khal-${version}";
-
-  src = fetchurl {
-    url = "mirror://pypi/k/khal/khal-${version}.tar.gz";
-    sha256 = "03vy4dp9n43w51mwqjjy08dr5nj7wxqnb085visz3j43vzm42p1f";
+  src = fetchFromGitHub {
+    owner = "pimutils";
+    repo = pname;
+    rev = "v${version}";
+    hash = "sha256-yI33pB/t+UISvSbLUzmsZqBxLF6r8R3j9iPNeosKcYw=";
   };
+
+  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+
+  nativeBuildInputs = [
+    glibcLocales
+    installShellFiles
+  ] ++ (with python3.pkgs; [
+    setuptools-scm
+    sphinx
+    sphinxcontrib_newsfeed
+  ]);
+
+  propagatedBuildInputs = with python3.pkgs;[
+    atomicwrites
+    click
+    click-log
+    configobj
+    freezegun
+    icalendar
+    lxml
+    pkginfo
+    vdirsyncer
+    python-dateutil
+    pytz
+    pyxdg
+    requests-toolbelt
+    tzlocal
+    urwid
+  ];
+
+  nativeCheckInputs = with python3.pkgs;[
+    freezegun
+    hypothesis
+    packaging
+    pytestCheckHook
+    vdirsyncer
+  ];
+
+  postInstall = ''
+    # shell completions
+    installShellCompletion --cmd khal \
+      --bash <(_KHAL_COMPLETE=bash_source $out/bin/khal) \
+      --zsh <(_KHAL_COMPLETE=zsh_source $out/bin/khal) \
+      --fish <(_KHAL_COMPLETE=fish_source $out/bin/khal)
+
+    # man page
+    PATH="${python3.withPackages (ps: with ps; [ sphinx sphinxcontrib_newsfeed ])}/bin:$PATH" \
+    make -C doc man
+    installManPage doc/build/man/khal.1
+
+    # .desktop file
+    install -Dm755 misc/khal.desktop -t $out/share/applications
+  '';
+
+  doCheck = !stdenv.isAarch64;
 
   LC_ALL = "en_US.UTF-8";
 
-  propagatedBuildInputs = [
-    atomicwrites
-    click
-    configobj
-    dateutil
-    icalendar
-    lxml
-    pkgs.vdirsyncer
-    pytz
-    pyxdg
-    requests_toolbelt
-    tzlocal
-    urwid
-    pkginfo
-    freezegun
+  disabledTests = [
+    # timing based
+    "test_etag"
+    "test_bogota"
+    "test_event_no_dst"
   ];
-  buildInputs = [ setuptools_scm pytest pkgs.glibcLocales ];
 
-  checkPhase = ''
-    # py.test
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = http://lostpackets.de/khal/;
+  meta = with lib; {
     description = "CLI calendar application";
+    homepage = "http://lostpackets.de/khal/";
     license = licenses.mit;
-    maintainers = with maintainers; [ matthiasbeyer jgeerds ];
+    maintainers = with maintainers; [ gebner ];
+    broken = stdenv.isDarwin;
   };
 }

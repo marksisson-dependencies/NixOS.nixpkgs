@@ -1,61 +1,88 @@
-{stdenv, fetchurl
-  , freeglut, ghostscriptX, imagemagick, fftw 
-  , boehmgc, mesa_glu, mesa_noglu, ncurses, readline, gsl, libsigsegv
-  , python, zlib, perl, texLive, texinfo, xz
+{ lib, stdenv, fetchFromGitHub
+, autoreconfHook, bison, glm, flex, wrapQtAppsHook, cmake
+, freeglut, ghostscriptX, imagemagick, fftw
+, boehmgc, libGLU, libGL, mesa, ncurses, readline, gsl, libsigsegv
+, python3, qtbase, qtsvg, boost
+, zlib, perl, curl
+, texLive, texinfo
+, darwin
 }:
 
-let
-  s = # Generated upstream information
-  rec {
-    baseName="asymptote";
-    version="2.38";
-    name="${baseName}-${version}";
-    hash="1dxwvq0xighqckkjkjva8s0igxfgy1j25z81pbwvlz6jzsrxpip9";
-    url="mirror://sourceforge/project/asymptote/2.38/asymptote-2.38.src.tgz";
-    sha256="1dxwvq0xighqckkjkjva8s0igxfgy1j25z81pbwvlz6jzsrxpip9";
-  };
-  buildInputs = [
-   ghostscriptX imagemagick fftw
-   boehmgc ncurses readline gsl libsigsegv
-   python zlib perl texLive texinfo xz ]
-   ++ stdenv.lib.optionals stdenv.isLinux
-     [ freeglut mesa_glu mesa_noglu mesa_noglu.osmesa ]
-   ;
-in
-stdenv.mkDerivation {
-  inherit (s) name version;
-  inherit buildInputs;
+stdenv.mkDerivation rec {
+  version = "2.85";
+  pname = "asymptote";
 
-  src = fetchurl {
-    inherit (s) url sha256;
+  src = fetchFromGitHub {
+    owner = "vectorgraphics";
+    repo = pname;
+    rev = version;
+    hash = "sha256-GyW9OEolV97WtrSdIxp4MCP3JIyA1c/DQSqg8jLC0WQ=";
   };
+
+  nativeBuildInputs = [
+    autoreconfHook
+    bison
+    flex
+    bison
+    texinfo
+    wrapQtAppsHook
+    cmake
+  ];
+
+  buildInputs = [
+    ghostscriptX imagemagick fftw
+    boehmgc ncurses readline gsl libsigsegv
+    zlib perl curl qtbase qtsvg boost
+    texLive
+    (python3.withPackages (ps: with ps; [ cson numpy pyqt5 ]))
+  ];
+
+  propagatedBuildInputs = [
+    glm
+  ] ++ lib.optionals stdenv.isLinux [
+    freeglut libGLU libGL mesa.osmesa
+  ] ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+    OpenGL GLUT Cocoa
+  ]);
+
+  dontWrapQtApps = true;
 
   preConfigure = ''
-    export HOME="$PWD"
-    patchShebangs . 
-    sed -e 's@epswrite@eps2write@g' -i runlabel.in
-    xz -d < ${texinfo.src} | tar --wildcards -x texinfo-'*'/doc/texinfo.tex
-    cp texinfo-*/doc/texinfo.tex doc/
-    rm *.tar.gz
-    configureFlags="$configureFlags --with-latex=$out/share/texmf/tex/latex --with-context=$out/share/texmf/tex/context/third"
+    HOME=$TMP
   '';
 
-  NIX_CFLAGS_COMPILE = [ "-I${boehmgc.dev}/include/gc" ];
+  configureFlags = [
+    "--with-latex=$out/share/texmf/tex/latex"
+    "--with-context=$out/share/texmf/tex/context/third"
+  ];
+
+  env.NIX_CFLAGS_COMPILE = "-I${boehmgc.dev}/include/gc";
 
   postInstall = ''
-    mv -v "$out/share/info/asymptote/"*.info $out/share/info/
+    rm "$out"/bin/xasy
+    makeQtWrapper "$out"/share/asymptote/GUI/xasy.py "$out"/bin/xasy --prefix PATH : "$out"/bin
+
+    mv $out/share/info/asymptote/*.info $out/share/info/
     sed -i -e 's|(asymptote/asymptote)|(asymptote)|' $out/share/info/asymptote.info
     rmdir $out/share/info/asymptote
-    rm $out/share/info/dir
+    rm -f $out/share/info/dir
+
+    rm -rf $out/share/texmf
+    install -Dt $out/share/emacs/site-lisp/${pname} $out/share/asymptote/*.el
   '';
 
-  enableParallelBuilding = true;
+  dontUseCmakeConfigure = true;
 
-  meta = with stdenv.lib; {
-    inherit (s) version;
+  enableParallelBuilding = true;
+  # Missing install depends:
+  #   ...-coreutils-9.1/bin/install: cannot stat 'asy-keywords.el': No such file or directory
+  #   make: *** [Makefile:272: install-asy] Error 1
+  enableParallelInstalling = false;
+
+  meta = with lib; {
     description =  "A tool for programming graphics intended to replace Metapost";
     license = licenses.gpl3Plus;
-    maintainers = [ maintainers.raskin maintainers.peti ];
+    maintainers = [ maintainers.raskin ];
     platforms = platforms.linux ++ platforms.darwin;
   };
 }

@@ -1,73 +1,121 @@
-{ stdenv, fetchgit, file, curl, pkgconfig, python, openssl, cmake, zlib
-, makeWrapper, libiconv, cacert, rustPlatform, rustc, libgit2
-, version, srcRev, srcSha, depsSha256
-, patches ? []}:
+{ lib, stdenv, pkgsBuildHost, pkgsHostHost
+, file, curl, pkg-config, python3, openssl, cmake, zlib
+, installShellFiles, makeWrapper, rustPlatform, rust, rustc
+, CoreFoundation, Security
+, auditable ? !cargo-auditable.meta.broken
+, cargo-auditable
+, pkgsBuildBuild
+}:
 
-rustPlatform.buildRustPackage rec {
-  name = "cargo-${version}";
-  inherit version;
+rustPlatform.buildRustPackage.override {
+  cargo-auditable = cargo-auditable.bootstrap;
+} ({
+  pname = "cargo";
+  inherit (rustc) version src;
 
-  src = fetchgit {
-    url = "https://github.com/rust-lang/cargo";
-    rev = srcRev;
-    sha256 = srcSha;
+  # the rust source tarball already has all the dependencies vendored, no need to fetch them again
+  cargoVendorDir = "vendor";
+  buildAndTestSubdir = "src/tools/cargo";
+
+  inherit auditable;
+
+  passthru = {
+    rustc = rustc;
+    inherit (rustc) tests;
   };
 
-  inherit depsSha256;
-  inherit patches;
-
-  passthru.rustc = rustc;
-
-  buildInputs = [ file curl pkgconfig python openssl cmake zlib makeWrapper libgit2 ]
-    ++ stdenv.lib.optionals stdenv.isDarwin [ libiconv ];
-
-  LIBGIT2_SYS_USE_PKG_CONFIG=1;
-
-  configurePhase = ''
-    ./configure --enable-optimize --prefix=$out --local-cargo=${rustPlatform.rust.cargo}/bin/cargo
+  # Upstream rustc still assumes that musl = static[1].  The fix for
+  # this is to disable crt-static by default for non-static musl
+  # targets.
+  #
+  # For every package apart from Cargo, we can fix this by just
+  # patching rustc to not have crt-static by default.  But Cargo is
+  # built with the upstream bootstrap binary for rustc, which we can't
+  # easily patch.  This means we need to find another way to make sure
+  # crt-static is not used during the build of pkgsMusl.cargo.
+  #
+  # By default, Cargo doesn't apply RUSTFLAGS when building build.rs
+  # if --target is passed, so the only good way to set -crt-static for
+  # build.rs files used in the Cargo build is to use the unstable
+  # -Zhost-config Cargo feature.  This allows us to specify flags that
+  # should be passed to rustc when building for the build platform.
+  # We also need to use -Ztarget-applies-to-host, because using
+  # -Zhost-config requires it.
+  #
+  # When doing this, we also have to specify the linker, or cargo
+  # won't pass a -C linker= argument to rustc.  This will make rustc
+  # try to use its default value of "cc", which won't be available
+  # when cross-compiling.
+  #
+  # [1]: https://github.com/rust-lang/compiler-team/issues/422
+  postPatch = lib.optionalString (with stdenv.buildPlatform; isMusl && !isStatic) ''
+    mkdir -p .cargo
+    cat <<EOF >> .cargo/config
+    [host]
+    rustflags = "-C target-feature=-crt-static"
+    linker = "${pkgsBuildHost.stdenv.cc}/bin/${pkgsBuildHost.stdenv.cc.targetPrefix}cc"
+    [unstable]
+    host-config = true
+    target-applies-to-host = true
+    EOF
   '';
 
-  buildPhase = "make";
+  # changes hash of vendor directory otherwise
+  dontUpdateAutotoolsGnuConfigScripts = true;
 
-  installPhase = ''
-    make install
-    ${postInstall}
-  '';
+  nativeBuildInputs = [
+    pkg-config cmake installShellFiles makeWrapper
+    (lib.getDev pkgsHostHost.curl)
+    zlib
+  ];
+  buildInputs = [ file curl python3 openssl zlib ]
+    ++ lib.optionals stdenv.isDarwin [ CoreFoundation Security ];
+
+  # cargo uses git-rs which is made for a version of libgit2 from recent master that
+  # is not compatible with the current version in nixpkgs.
+  #LIBGIT2_SYS_USE_PKG_CONFIG = 1;
+
+  # fixes: the cargo feature `edition` requires a nightly version of Cargo, but this is the `stable` channel
+  RUSTC_BOOTSTRAP = 1;
 
   postInstall = ''
-    rm "$out/lib/rustlib/components" \
-       "$out/lib/rustlib/install.log" \
-       "$out/lib/rustlib/rust-installer-version" \
-       "$out/lib/rustlib/uninstall.sh" \
-       "$out/lib/rustlib/manifest-cargo"
+    wrapProgram "$out/bin/cargo" --suffix PATH : "${rustc}/bin"
 
-    # NOTE: We override the `http.cainfo` option usually specified in
-    # `.cargo/config`. This is an issue when users want to specify
-    # their own certificate chain as environment variables take
-    # precedence
-    wrapProgram "$out/bin/cargo" \
-      --suffix PATH : "${rustc}/bin" \
-      --set CARGO_HTTP_CAINFO "${cacert}/etc/ssl/certs/ca-bundle.crt" \
-      --set SSL_CERT_FILE "${cacert}/etc/ssl/certs/ca-bundle.crt" \
-      ${stdenv.lib.optionalString stdenv.isDarwin ''--suffix DYLD_LIBRARY_PATH : "${rustc}/lib"''}
+    installManPage src/tools/cargo/src/etc/man/*
+
+    installShellCompletion --bash --name cargo \
+      src/tools/cargo/src/etc/cargo.bashcomp.sh
+
+    installShellCompletion --zsh src/tools/cargo/src/etc/_cargo
   '';
 
   checkPhase = ''
-    # Export SSL_CERT_FILE as without it one test fails with SSL verification error
-    export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
     # Disable cross compilation tests
     export CFG_DISABLE_CROSS_TESTS=1
     cargo test
   '';
 
-  # Disable check phase as there are failures (author_prefers_cargo test fails)
+  # Disable check phase as there are failures (4 tests fail)
   doCheck = false;
 
-  meta = with stdenv.lib; {
-    homepage = http://crates.io;
+  doInstallCheck = !stdenv.hostPlatform.isStatic &&
+    stdenv.hostPlatform.parsed.kernel.execFormat == lib.systems.parse.execFormats.elf;
+  installCheckPhase = ''
+    runHook preInstallCheck
+    readelf -a $out/bin/.cargo-wrapped | grep -F 'Shared library: [libcurl.so'
+    runHook postInstallCheck
+  '';
+
+  meta = with lib; {
+    homepage = "https://crates.io";
     description = "Downloads your Rust project's dependencies and builds your project";
-    maintainers = with maintainers; [ wizeman retrry ];
+    maintainers = teams.rust.members;
     license = [ licenses.mit licenses.asl20 ];
-    platforms = platforms.linux ++ platforms.darwin;
+    platforms = platforms.unix;
+    # https://github.com/alexcrichton/nghttp2-rs/issues/2
+    broken = stdenv.hostPlatform.isx86 && stdenv.buildPlatform != stdenv.hostPlatform;
   };
 }
+// lib.optionalAttrs (rust.toRustTarget stdenv.buildPlatform != rust.toRustTarget stdenv.hostPlatform) {
+  HOST_PKG_CONFIG_PATH="${pkgsBuildBuild.pkg-config}/bin/pkg-config";
+})

@@ -1,25 +1,30 @@
-{ fetchurl, stdenv, gmpxx, perl, gnum4 }:
+{ fetchurl, fetchpatch, lib, stdenv, gmpxx, perl, gnum4 }:
 
-let version = "1.1"; in
+let version = "1.2"; in
 
-stdenv.mkDerivation rec {
-  name = "ppl-${version}";
+stdenv.mkDerivation {
+  pname = "ppl";
+  inherit version;
 
   src = fetchurl {
     url = "http://bugseng.com/products/ppl/download/ftp/releases/${version}/ppl-${version}.tar.bz2";
-    sha256 = "1vrqhbpyca6sf984cfcwlp8wdnfzj1g7ph9958qdky9978i1nlny";
+    sha256 = "1wgxcbgmijgk11df43aiqfzv31r3bkxmgb4yl68g21194q60nird";
   };
+
+  patches = [(fetchpatch {
+    name = "clang5-support.patch";
+    url = "https://git.sagemath.org/sage.git/plain/build/pkgs/ppl/patches/clang5-support.patch?h=9.2";
+    sha256 = "1zj90hm25pkgvk4jlkfzh18ak9b98217gbidl3731fdccbw6hr87";
+  })];
 
   nativeBuildInputs = [ perl gnum4 ];
   propagatedBuildInputs = [ gmpxx ];
 
   configureFlags = [ "--disable-watchdog" ] ++
-    stdenv.lib.optionals stdenv.isDarwin [
+    lib.optionals stdenv.isDarwin [
       "CPPFLAGS=-fexceptions"
       "--disable-ppl_lcdd" "--disable-ppl_lpsol" "--disable-ppl_pips"
     ];
-
-  patches = [ ./ppl-cstddef.patch /* from Fedora */ ];
 
   # Beware!  It took ~6 hours to compile PPL and run its tests on a 1.2 GHz
   # x86_64 box.  Nevertheless, being a dependency of GCC, it probably ought
@@ -46,11 +51,11 @@ stdenv.mkDerivation rec {
       version of the simplex algorithm.
     '';
 
-    homepage = http://bugseng.com/products/ppl/;
+    homepage = "http://bugseng.com/products/ppl/";
 
-    license = stdenv.lib.licenses.gpl3Plus;
+    license = lib.licenses.gpl3Plus;
 
     maintainers = [ ];
-    platforms = stdenv.lib.platforms.unix;
+    platforms = lib.platforms.unix;
   };
 }

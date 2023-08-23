@@ -1,24 +1,35 @@
-{ stdenv, fetchurl, bison, flex, boost, gputils ? null }:
+{ lib, stdenv, fetchurl, autoconf, bison, boost, flex, texinfo, zlib, gputils ? null
+, excludePorts ? [] }:
+
+let
+  # choices: mcs51 z80 z180 r2k r3ka gbz80 tlcs90 ds390 ds400 pic14 pic16 hc08 s08 stm8
+  excludedPorts = excludePorts ++ (lib.optionals (gputils == null) [ "pic14" "pic16" ]);
+in
 
 stdenv.mkDerivation rec {
-  version = "3.5.0";
-  name = "sdcc-${version}";
+  pname = "sdcc";
+  version = "4.2.0";
 
   src = fetchurl {
     url = "mirror://sourceforge/sdcc/sdcc-src-${version}.tar.bz2";
-    sha256 = "1aazz0yynr694q0rich7r03qls0zvsjc00il14pb4i22c78phagq";
+    sha256 = "sha256-tJuuHSO81gV6gsT/5WE/nNDLz9HpQOnYTEv+nfCowFM=";
   };
 
-  # TODO: remove this comment when gputils != null is tested
-  buildInputs = [ bison flex boost gputils ];
+  enableParallelBuilding = true;
 
-  configureFlags = ''
-    ${if gputils == null then "--disable-pic14-port --disable-pic16-port" else ""}
+  buildInputs = [ boost gputils texinfo zlib ];
+
+  nativeBuildInputs = [ autoconf bison flex ];
+
+  configureFlags = map (f: "--disable-${f}-port") excludedPorts;
+
+  preConfigure = ''
+    if test -n "''${dontStrip-}"; then
+      export STRIP=none
+    fi
   '';
 
-  NIX_CFLAGS_COMPILE = "--std=c99"; # http://sourceforge.net/p/sdcc/code/9106/
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Small Device C Compiler";
     longDescription = ''
       SDCC is a retargettable, optimizing ANSI - C compiler suite that targets
@@ -28,9 +39,9 @@ stdenv.mkDerivation rec {
       Rabbit 3000A). Work is in progress on supporting the Microchip PIC16 and
       PIC18 targets. It can be retargeted for other microprocessors.
     '';
-    homepage = http://sdcc.sourceforge.net/;
-    license = licenses.gpl2;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.bjornfor ];
+    homepage = "https://sdcc.sourceforge.net/";
+    license = with licenses; if (gputils == null) then gpl2Plus else unfreeRedistributable;
+    maintainers = with maintainers; [ bjornfor yorickvp ];
+    platforms = platforms.all;
   };
 }

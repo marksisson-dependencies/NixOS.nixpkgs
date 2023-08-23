@@ -1,31 +1,57 @@
-{stdenv, fetchurl, yasm, enable10bit ? false}:
+{ stdenv, lib, fetchFromGitLab, fetchpatch, nasm
+, enableShared ? !stdenv.hostPlatform.isStatic
+ }:
 
 stdenv.mkDerivation rec {
-  version = "20160615-2245";
-  name = "x264-${version}";
+  pname = "x264";
+  version = "unstable-2021-06-13";
 
-  src = fetchurl {
-    url = "http://download.videolan.org/x264/snapshots/x264-snapshot-${version}-stable.tar.bz2";
-    sha256 = "0w5l77gm8bsmafzimzyc5s27kcw79r6nai3bpccqy0spyxhjsdc2";
+  src = fetchFromGitLab {
+    domain = "code.videolan.org";
+    owner = "videolan";
+    repo = pname;
+    rev = "5db6aa6cab1b146e07b60cc1736a01f21da01154";
+    sha256 = "0swyrkz6nvajivxvrr08py0jrfcsjvpxw78xm1k5gd9xbdrxvknh";
   };
 
-  patchPhase = ''
-    sed -i s,/bin/bash,${stdenv.shell}, configure version.sh
+  # Upstream ./configure greps for (-mcpu|-march|-mfpu) in CFLAGS, which in nix
+  # is put in the cc wrapper anyway.
+  patches = [
+    ./disable-arm-neon-default.patch
+    (fetchpatch {
+      # https://code.videolan.org/videolan/x264/-/merge_requests/114
+      name = "fix-parallelism.patch";
+      url = "https://code.videolan.org/videolan/x264/-/commit/e067ab0b530395f90b578f6d05ab0a225e2efdf9.patch";
+      hash = "sha256-16h2IUCRjYlKI2RXYq8QyXukAdfoQxyBKsK/nI6vhRI=";
+    })
+  ];
+
+  postPatch = ''
+    patchShebangs .
   '';
 
-  outputs = [ "out" "lib" ]; # leaving 52 kB of headers
+  enableParallelBuilding = true;
 
-  configureFlags = [ "--enable-shared" ]
-    ++ stdenv.lib.optional (!stdenv.isi686) "--enable-pic"
-    ++ stdenv.lib.optional (enable10bit) "--bit-depth=10";
+  outputs = [ "out" "lib" "dev" ];
 
-  buildInputs = [ yasm ];
+  preConfigure = lib.optionalString stdenv.hostPlatform.isx86 ''
+    # `AS' is set to the binutils assembler, but we need nasm
+    unset AS
+  '' + lib.optionalString stdenv.hostPlatform.isAarch ''
+    export AS=$CC
+  '';
 
-  meta = with stdenv.lib; {
+  configureFlags = lib.optional enableShared "--enable-shared"
+    ++ lib.optional (!stdenv.isi686) "--enable-pic"
+    ++ lib.optional (stdenv.buildPlatform != stdenv.hostPlatform) "--cross-prefix=${stdenv.cc.targetPrefix}";
+
+  nativeBuildInputs = lib.optional stdenv.hostPlatform.isx86 nasm;
+
+  meta = with lib; {
     description = "Library for encoding H264/AVC video streams";
-    homepage    = http://www.videolan.org/developers/x264.html;
-    license     = licenses.gpl2;
+    homepage    = "http://www.videolan.org/developers/x264.html";
+    license     = licenses.gpl2Plus;
     platforms   = platforms.unix;
-    maintainers = [ maintainers.spwhitt ];
+    maintainers = with maintainers; [ tadeokondrak ];
   };
 }

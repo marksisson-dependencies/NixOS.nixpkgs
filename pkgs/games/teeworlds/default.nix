@@ -1,55 +1,76 @@
-{ fetchurl, stdenv, makeWrapper, python, alsaLib
-, libX11, mesa_glu, SDL, lua5, zlib, bam, freetype
+{ fetchFromGitHub, lib, stdenv, cmake, pkg-config, python3, alsa-lib
+, libX11, libGLU, SDL2, lua5_3, zlib, freetype, wavpack, icoutils
+, nixosTests
+, Carbon
+, Cocoa
 }:
 
 stdenv.mkDerivation rec {
-  name = "teeworlds-0.6.3";
+  pname = "teeworlds";
+  version = "0.7.5";
 
-  src = fetchurl {
-    url = "https://downloads.teeworlds.com/teeworlds-0.6.3-src.tar.gz";
-    sha256 = "0yq7f3yan07sxrhz7mzwqv344nfmdc67p3dg173631w9fb1yf3j9";
+  src = fetchFromGitHub {
+    owner = "teeworlds";
+    repo = "teeworlds";
+    rev = version;
+    sha256 = "1l19ksmimg6b8zzjy0skyhh7z11ql7n5gvilkv7ay5x2b9ndbqwz";
+    fetchSubmodules = true;
   };
 
-  # we always want to use system libs instead of these
-  postPatch = "rm -r other/{freetype,sdl}/{include,lib32,lib64}";
-
-  buildInputs = [
-    python makeWrapper alsaLib libX11 mesa_glu SDL lua5 zlib bam freetype
+  patches = [
+    # Can't use fetchpatch or fetchpatch2 because of https://github.com/NixOS/nixpkgs/issues/32084
+    # Using fetchurl instead is also not a good idea, see https://github.com/NixOS/nixpkgs/issues/32084#issuecomment-727223713
+    ./rename-VERSION-to-VERSION.txt.patch
   ];
 
-  buildPhase = ''
-    bam -a -v release
+  postPatch = ''
+    # set compiled-in DATA_DIR so resources can be found
+    substituteInPlace src/engine/shared/storage.cpp \
+      --replace '#define DATA_DIR "data"' \
+                '#define DATA_DIR "${placeholder "out"}/share/teeworlds/data"'
+
+    # Quote nonsense is a workaround for https://github.com/NixOS/nix/issues/661
+    substituteInPlace 'other/bundle/client/Info.plist.in' \
+      --replace ${"'"}''${TARGET_CLIENT}' 'teeworlds' \
+      --replace ${"'"}''${PROJECT_VERSION}' '${version}'
   '';
 
-  installPhase = ''
-    # Copy the graphics, sounds, etc.
-    mkdir -p "$out/share/${name}"
-    cp -rv data other/icons "$out/share/${name}"
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+  ] ++ lib.optionals stdenv.isLinux [
+    icoutils
+  ];
 
-    # Copy the executables (client, server, etc.).
-    mkdir -p "$out/bin"
-    executables=""
-    for file in *
-    do
-      if [ -f "$file" ] && [ -x "$file" ]
-      then
-          executables="$file $executables"
-      fi
-    done
-    cp -v $executables "$out/bin"
+  buildInputs = [
+    python3 libGLU SDL2 lua5_3 zlib freetype wavpack
+  ] ++ lib.optionals stdenv.isLinux [
+    alsa-lib
+    libX11
+  ] ++ lib.optionals stdenv.isDarwin [
+    Carbon
+    Cocoa
+  ];
 
-    # Make sure the programs are executed from the right directory so
-    # that they can access the graphics and sounds.
-    for program in $executables
-    do
-      wrapProgram $out/bin/$program \
-        --run "cd $out/share/${name}"
-    done
+  postInstall = lib.optionalString stdenv.isLinux ''
+    # Convert and install desktop icon
+    mkdir -p $out/share/pixmaps
+    icotool --extract --index 1 --output $out/share/pixmaps/teeworlds.png $src/other/icons/teeworlds.ico
 
-    # Copy the documentation.
-    mkdir -p "$out/doc/${name}"
-    cp -v *.txt "$out/doc/${name}"
+    # Install menu item
+    install -D $src/other/teeworlds.desktop $out/share/applications/teeworlds.desktop
+  '' + lib.optionalString stdenv.isDarwin ''
+    mkdir -p "$out/Applications/teeworlds.app/Contents/MacOS"
+    mkdir -p "$out/Applications/teeworlds.app/Contents/Resources"
+
+    cp '../other/icons/teeworlds.icns' "$out/Applications/teeworlds.app/Contents/Resources/"
+    cp '../other/bundle/client/Info.plist.in' "$out/Applications/teeworlds.app/Contents/Info.plist"
+    cp '../other/bundle/client/PkgInfo' "$out/Applications/teeworlds.app/Contents/"
+    ln -s "$out/bin/teeworlds" "$out/Applications/teeworlds.app/Contents/MacOS/"
+    ln -s "$out/share/teeworlds/data" "$out/Applications/teeworlds.app/Contents/Resources/data"
   '';
+
+  passthru.tests.teeworlds = nixosTests.teeworlds;
 
   meta = {
     description = "Retro multiplayer shooter game";
@@ -61,9 +82,9 @@ stdenv.mkDerivation rec {
       Flag.  You can even design your own maps!
     '';
 
-    homepage = http://teeworlds.com/;
+    homepage = "https://teeworlds.com/";
     license = "BSD-style, see `license.txt'";
-    maintainers = with stdenv.lib.maintainers; [ astsmtl ];
-    platforms = with stdenv.lib.platforms; linux;
+    maintainers = with lib.maintainers; [ astsmtl Luflosi ];
+    platforms = lib.platforms.unix;
   };
 }

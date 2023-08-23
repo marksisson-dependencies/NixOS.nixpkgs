@@ -1,32 +1,53 @@
-{stdenv, fetchFromGitHub, buildOcaml, ocaml, opam,
- cppo, ppx_tools, ounit, ppx_deriving}:
+{ lib
+, fetchurl
+, buildDunePackage
+, ocaml
+, ounit
+, ppx_deriving
+, ppx_sexp_conv
+, ppxlib
+, version ? if lib.versionAtLeast ocaml.version "4.11" then "1.10.0" else "1.9.1"
+}:
 
-buildOcaml rec {
-  name = "ppx_import";
+let param = {
+  "1.9.1" = {
+    sha256 = "sha256-0bSY4u44Ds84XPIbcT5Vt4AG/4PkzFKMl9CDGFZyIdI=";
+  };
+  "1.10.0" = {
+    sha256 = "sha256-MA8sf0F7Ch1wJDL8E8470ukKx7KieWyjWJnJQsqBVW8=";
+  };
+}."${version}"; in
 
-  version = "1.1";
+lib.throwIfNot (lib.versionAtLeast ppxlib.version "0.24.0")
+  "ppx_import is not available with ppxlib-${ppxlib.version}"
 
-  minimumSupportedOcamlVersion = "4.02";
+buildDunePackage rec {
+  pname = "ppx_import";
+  inherit version;
 
-  src = fetchFromGitHub {
-    owner = "whitequark";
-    repo = "ppx_import";
-    rev = "v${version}";
-    sha256 = "1hfvbc81dg58q7kkpn808b3j0xazrqfrr4v71sd1yvmnk71wak6k";
+  minimalOCamlVersion = "4.05";
+  duneVersion = "3";
+
+  src = fetchurl {
+    url = "https://github.com/ocaml-ppx/ppx_import/releases/download/${version}/ppx_import-${version}.tbz";
+    inherit (param) sha256;
   };
 
-  buildInputs = [ cppo ounit ppx_deriving opam ];
+  propagatedBuildInputs = [
+    ppxlib
+  ];
+
+  checkInputs = [
+    ounit
+    ppx_deriving
+    ppx_sexp_conv
+  ];
 
   doCheck = true;
-  checkTarget = "test";
 
-  installPhase = ''
-    opam-installer --script --prefix=$out ppx_import.install | sh
-    ln -s $out/lib/ppx_import $out/lib/ocaml/${ocaml.version}/site-lib
-  '';
-
-  meta = with stdenv.lib; {
-    description = "A syntax extension that allows to pull in types or signatures from other compiled interface files";
-    license = licenses.mit;
+  meta = {
+    description = "A syntax extension for importing declarations from interface files";
+    license = lib.licenses.mit;
+    homepage = "https://github.com/ocaml-ppx/ppx_import";
   };
 }

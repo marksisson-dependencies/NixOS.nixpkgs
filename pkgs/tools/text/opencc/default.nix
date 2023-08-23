@@ -1,19 +1,19 @@
-{ stdenv, fetchurl, cmake, python }:
+{ lib, stdenv, fetchFromGitHub, cmake, python3 }:
 
-stdenv.mkDerivation {
-  name = "opencc-1.0.4";
-  src = fetchurl {
-    url = "https://github.com/BYVoid/OpenCC/archive/ver.1.0.4.tar.gz";
-    sha256 = "0553b7461ebd379d118d45d7f40f8a6e272750115bdbc49267595a05ee3481ac";
+stdenv.mkDerivation rec {
+  pname = "opencc";
+  version = "1.1.6";
+
+  src = fetchFromGitHub {
+    owner = "BYVoid";
+    repo = "OpenCC";
+    rev = "ver.${version}";
+    sha256 = "sha256-0aIYnUuG5XATruxwY6+LZbEdKkHP3X1N1ueVE7R37Qk=";
   };
 
-  buildInputs = [ cmake python ];
+  nativeBuildInputs = [ cmake python3 ];
 
-  cmakeFlags = [
-    "-DBUILD_SHARED_LIBS=OFF"
-  ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/BYVoid/OpenCC";
     license = licenses.asl20;
     description = "A project for conversion between Traditional and Simplified Chinese";
@@ -23,7 +23,7 @@ stdenv.mkDerivation {
       phrase-level conversion, variant conversion and regional idioms among Mainland China,
       Taiwan and Hong kong.
     '';
-    maintainers = [ maintainers.mingchuan ];
-    platforms = platforms.linux;
+    maintainers = with maintainers; [ sifmelcara ];
+    platforms = with platforms; linux ++ darwin;
   };
 }

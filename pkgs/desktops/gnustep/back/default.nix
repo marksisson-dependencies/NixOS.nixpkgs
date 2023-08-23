@@ -1,21 +1,25 @@
 { gsmakeDerivation
 , cairo
-, fetchurl
+, fetchzip
 , base, gui
-, x11
+, fontconfig
 , freetype
-, pkgconfig
+, pkg-config
+, libXft
+, libXmu
 }:
-let
-  version = "0.25.0";
-in
-gsmakeDerivation {
-  name = "gnustep-back-${version}";
-  src = fetchurl {
-    url = "ftp://ftp.gnustep.org/pub/gnustep/core/gnustep-back-${version}.tar.gz";
-    sha256 = "14gs1b32ahnihd7mwpjrws2b8hl11rl1wl24a7651d3z2l7f6xj2";
+
+gsmakeDerivation rec {
+  pname = "gnustep-back";
+  version = "0.29.0";
+
+  src = fetchzip {
+    url = "ftp://ftp.gnustep.org/pub/gnustep/core/${pname}-${version}.tar.gz";
+    sha256 = "sha256-4n2SC68G0dpSz9nqCL5Kz76nyoRxWcRTWDwZsnMoHSM=";
   };
-  buildInputs = [ cairo base gui freetype pkgconfig x11 ];
+
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ cairo base gui fontconfig freetype libXft libXmu ];
   meta = {
     description = "A generic backend for GNUstep";
   };

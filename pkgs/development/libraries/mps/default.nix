@@ -1,21 +1,31 @@
-{ stdenv, fetchurl, autoreconfHook, sqlite }:
+{ lib, stdenv, fetchurl, autoreconfHook, sqlite }:
 
 stdenv.mkDerivation rec {
-  name = "mps-${version}";
-  version = "1.115.0";
+  pname = "mps";
+  version = "1.117.0";
 
   src = fetchurl {
-    url    = "http://www.ravenbrook.com/project/mps/release/${version}/mps-kit-${version}.tar.gz";
-    sha256 = "156xdl16r44nn8svnrgfaklwrgpc3y0rxzqyp0jbdp55c6rlfl6l";
+    url    = "https://www.ravenbrook.com/project/mps/release/${version}/mps-kit-${version}.tar.gz";
+    sha256 = "04ix4l7lk6nxxk9sawpnxbybvqb82lks5606ym10bc1qbc2kqdcz";
   };
 
-  buildInputs = [ autoreconfHook sqlite ];
+  nativeBuildInputs = [ autoreconfHook ];
+  buildInputs = [ sqlite ];
+
+  # needed for 1.116.0 to build with gcc7
+  env.NIX_CFLAGS_COMPILE = toString [
+    "-Wno-implicit-fallthrough"
+    "-Wno-error=clobbered"
+    "-Wno-error=cast-function-type"
+  ];
+
 
   meta = {
+    broken      = true;
     description = "A flexible memory management and garbage collection library";
-    homepage    = "http://www.ravenbrook.com/project/mps";
-    license     = stdenv.lib.licenses.sleepycat;
-    platforms   = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    homepage    = "https://www.ravenbrook.com/project/mps";
+    license     = lib.licenses.sleepycat;
+    platforms   = lib.platforms.linux;
+    maintainers = [ lib.maintainers.thoughtpolice ];
   };
 }

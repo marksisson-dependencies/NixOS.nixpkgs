@@ -13,7 +13,27 @@ in
   ###### interface
 
   options = {
-    services.xserver.windowManager.dwm.enable = mkEnableOption "dwm";
+    services.xserver.windowManager.dwm = {
+      enable = mkEnableOption (lib.mdDoc "dwm");
+      package = mkOption {
+        type        = types.package;
+        default     = pkgs.dwm;
+        defaultText = literalExpression "pkgs.dwm";
+        example     = literalExpression ''
+          pkgs.dwm.overrideAttrs (oldAttrs: rec {
+            patches = [
+              (super.fetchpatch {
+                url = "https://dwm.suckless.org/patches/steam/dwm-steam-6.2.diff";
+                sha256 = "sha256-f3lffBjz7+0Khyn9c9orzReoLTqBb/9gVGshYARGdVc=";
+              })
+            ];
+          })
+        '';
+        description = lib.mdDoc ''
+          dwm package to use.
+        '';
+      };
+    };
   };
 
 
@@ -25,12 +45,12 @@ in
       { name = "dwm";
         start =
           ''
-            ${pkgs.dwm}/bin/dwm &
+            dwm &
             waitPID=$!
           '';
       };
 
-    environment.systemPackages = [ pkgs.dwm ];
+    environment.systemPackages = [ cfg.package ];
 
   };
 

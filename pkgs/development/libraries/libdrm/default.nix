@@ -1,33 +1,52 @@
-{ stdenv, fetchurl, pkgconfig, libpthreadstubs, libpciaccess, valgrind }:
+{ stdenv, lib, fetchurl, pkg-config, meson, ninja, docutils
+, libpthreadstubs, libpciaccess
+, withValgrind ? valgrind-light.meta.available, valgrind-light
+}:
 
 stdenv.mkDerivation rec {
-  name = "libdrm-2.4.74";
+  pname = "libdrm";
+  version = "2.4.115";
 
   src = fetchurl {
-    url = "http://dri.freedesktop.org/libdrm/${name}.tar.bz2";
-    sha256 = "d80dd5a76c401f4c8756dcccd999c63d7e0a3bad258d96a829055cfd86ef840b";
+    url = "https://dri.freedesktop.org/${pname}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-VUz7/gVCvds5G04+Bb+7/D4oK5Vb1WIY0hwGFkgfZes=";
   };
 
-  outputs = [ "out" "dev" ];
+  outputs = [ "out" "dev" "bin" ];
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ libpthreadstubs libpciaccess ];
-    # libdrm as of 2.4.70 does not actually do anything with udev.
+  nativeBuildInputs = [ pkg-config meson ninja docutils ];
+  buildInputs = [ libpthreadstubs libpciaccess ]
+    ++ lib.optional withValgrind valgrind-light;
 
-  patches = stdenv.lib.optional stdenv.isDarwin ./libdrm-apple.patch;
+  mesonFlags = [
+    "-Dinstall-test-programs=true"
+    "-Dcairo-tests=disabled"
+    (lib.mesonEnable "omap" stdenv.hostPlatform.isLinux)
+    (lib.mesonEnable "valgrind" withValgrind)
+  ] ++ lib.optionals stdenv.hostPlatform.isAarch [
+    "-Dtegra=enabled"
+  ] ++ lib.optionals (!stdenv.hostPlatform.isLinux) [
+    "-Detnaviv=disabled"
+  ];
 
-  preConfigure = stdenv.lib.optionalString stdenv.isDarwin
-    "echo : \\\${ac_cv_func_clock_gettime=\'yes\'} > config.cache";
+  meta = with lib; {
+    homepage = "https://gitlab.freedesktop.org/mesa/drm";
+    downloadPage = "https://dri.freedesktop.org/libdrm/";
+    description = "Direct Rendering Manager library and headers";
+    longDescription = ''
+      A userspace library for accessing the DRM (Direct Rendering Manager) on
+      Linux, BSD and other operating systems that support the ioctl interface.
+      The library provides wrapper functions for the ioctls to avoid exposing
+      the kernel interface directly, and for chipsets with drm memory manager,
+      support for tracking relocations and buffers.
+      New functionality in the kernel DRM drivers typically requires a new
+      libdrm, but a new libdrm will always work with an older kernel.
 
-  configureFlags = [ "--enable-freedreno" "--disable-valgrind" ]
-    ++ stdenv.lib.optional stdenv.isDarwin "-C";
-
-  crossAttrs.configureFlags = configureFlags ++ [ "--disable-intel" ];
-
-  meta = {
-    homepage = http://dri.freedesktop.org/libdrm/;
-    description = "Library for accessing the kernel's Direct Rendering Manager";
-    license = "bsd";
-    platforms = stdenv.lib.platforms.unix;
+      libdrm is a low-level library, typically used by graphics drivers such as
+      the Mesa drivers, the X drivers, libva and similar projects.
+    '';
+    license = licenses.mit;
+    platforms = lib.subtractLists platforms.darwin platforms.unix;
+    maintainers = with maintainers; [ primeos ];
   };
 }

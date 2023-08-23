@@ -1,30 +1,32 @@
-{ fetchhg, stdenv, readline }:
+{ lib, stdenv, fetchFromGitHub
+, readline, cmake
+}:
 
 stdenv.mkDerivation rec {
-  name = "abc-verifier-${version}";
-  version = "20160818";
+  pname   = "abc-verifier";
+  version = "unstable-2023-06-28";
 
-  src = fetchhg {
-    url    = "https://bitbucket.org/alanmi/abc";
-    rev    = "a2e5bc66a68a72ccd267949e5c9973dd18f8932a";
-    sha256 = "09yvhj53af91nc54gmy7cbp7yljfcyj68a87494r5xvdfnsj11gy";
+  src = fetchFromGitHub {
+    owner = "yosyshq";
+    repo  = "abc";
+    rev   = "bb64142b07794ee685494564471e67365a093710";
+    hash  = "sha256-Qkk61Lh84ervtehWskSB9GKh+JPB7mI1IuG32OSZMdg=";
   };
 
+  nativeBuildInputs = [ cmake ];
   buildInputs = [ readline ];
-  preBuild = ''
-    export buildFlags="CC=$CC CXX=$CXX LD=$CXX"
-  '';
-  enableParallelBuilding = true;
-  installPhase = ''
-    mkdir -p $out/bin
-    mv abc $out/bin
-  '';
 
-  meta = {
-    description = "A tool for squential logic synthesis and ormal verification";
-    homepage    = "www.eecs.berkeley.edu/~alanmi/abc/abc.htm";
-    license     = stdenv.lib.licenses.mit;
-    platforms   = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+  installPhase = "mkdir -p $out/bin && mv abc $out/bin";
+
+  # needed by yosys
+  passthru.rev = src.rev;
+
+  meta = with lib; {
+    description = "A tool for squential logic synthesis and formal verification";
+    homepage    = "https://people.eecs.berkeley.edu/~alanmi/abc";
+    license     = licenses.mit;
+    maintainers = with maintainers; [ thoughtpolice ];
+    mainProgram = "abc";
+    platforms   = platforms.unix;
   };
 }

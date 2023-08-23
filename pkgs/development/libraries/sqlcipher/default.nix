@@ -1,29 +1,68 @@
-{ stdenv, lib, fetchFromGitHub, openssl, tcl, readline ? null, ncurses ? null }:
-
-assert readline != null -> ncurses != null;
+{ lib
+, stdenv
+, fetchFromGitHub
+, openssl
+, tcl
+, installShellFiles
+, buildPackages
+, readline
+, ncurses
+, zlib
+, sqlite
+}:
 
 stdenv.mkDerivation rec {
-  name = "sqlcipher-${version}";
-  version = "3.4.0";
+  pname = "sqlcipher";
+  version = "4.5.4";
 
   src = fetchFromGitHub {
     owner = "sqlcipher";
     repo = "sqlcipher";
     rev = "v${version}";
-    sha256 = "1lwc2m21sax3pnjfqddldbpbwr3b51s91fxz7dd7hf6ly8swnsvp";
+    hash = "sha256-n9KPtTj/mHXrnFJnbWPO3H+Vol3Z2mg7XLl55ynyLwY=";
   };
 
-  buildInputs = [ readline ncurses openssl tcl ];
+  nativeBuildInputs = [
+    installShellFiles
+    tcl
+  ];
 
-  configureFlags = [ "--enable-threadsafe" "--disable-tcl" ];
+  buildInputs = [
+    readline
+    ncurses
+    openssl
+    zlib
+  ];
 
-  CFLAGS = [ "-DSQLITE_ENABLE_COLUMN_METADATA=1" "-DSQLITE_SECURE_DELETE=1" "-DSQLITE_ENABLE_UNLOCK_NOTIFY=1" "-DSQLITE_HAS_CODEC" ];
-  LDFLAGS = lib.optional (readline != null) "-lncurses";
+  depsBuildBuild = [
+    buildPackages.stdenv.cc
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = http://sqlcipher.net/;
-    description = "Full Database Encryption for SQLite";
-    platforms = platforms.unix;
+  configureFlags = [
+    "--enable-threadsafe"
+    "--with-readline-inc=-I${lib.getDev readline}/include"
+  ];
+
+  CFLAGS = [
+    # We want feature parity with sqlite
+    sqlite.NIX_CFLAGS_COMPILE
+    "-DSQLITE_HAS_CODEC"
+  ];
+
+  BUILD_CC = "$(CC_FOR_BUILD)";
+
+  TCLLIBDIR = "${placeholder "out"}/lib/tcl${lib.versions.majorMinor tcl.version}";
+
+  postInstall = ''
+    installManPage sqlcipher.1
+  '';
+
+  meta = with lib; {
+    changelog = "https://github.com/sqlcipher/sqlcipher/blob/v${version}/CHANGELOG.md";
+    description = "SQLite extension that provides 256 bit AES encryption of database files";
+    homepage = "https://www.zetetic.net/sqlcipher/";
     license = licenses.bsd3;
+    maintainers = with maintainers; [ ];
+    platforms = platforms.unix;
   };
 }

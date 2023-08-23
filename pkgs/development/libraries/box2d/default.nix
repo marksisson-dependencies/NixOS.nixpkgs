@@ -1,33 +1,37 @@
-{ stdenv, fetchurl, unzip, cmake, mesa, freeglut, libX11, xproto, inputproto
-, libXi, pkgconfig }:
+{ lib, stdenv, fetchFromGitHub, cmake, libGLU, libGL, freeglut, libX11, xorgproto
+, libXi, pkg-config }:
 
 stdenv.mkDerivation rec {
-  name = "box2d-${version}";
-  version = "2.3.0";
+  pname = "box2d";
+  version = "2.3.1";
 
-  src = fetchurl {
-    url = "https://github.com/erincatto/Box2D/archive/v${version}.tar.gz";
-    sha256 = "1dmbswh4x2n5l3c9h0k72m0z4rdpzfy1xl8m8p3rf5rwkvk3bkg2";
+  src = fetchFromGitHub {
+    owner = "erincatto";
+    repo = "box2d";
+    rev = "v${version}";
+    sha256 = "sha256-Z2J17YMzQNZqABIa5eyJDT7BWfXveymzs+DWsrklPIs=";
   };
 
-  sourceRoot = "Box2D-${version}/Box2D";
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ libGLU libGL freeglut libX11 xorgproto libXi ];
 
-  buildInputs = [
-    unzip cmake mesa freeglut libX11 xproto inputproto libXi pkgconfig
+  cmakeFlags = [
+    "-DBOX2D_INSTALL=ON"
+    "-DBOX2D_BUILD_SHARED=ON"
+    "-DBOX2D_BUILD_EXAMPLES=OFF"
   ];
 
-  cmakeFlags = [ "-DBOX2D_INSTALL=ON" "-DBOX2D_BUILD_SHARED=ON" ];
-
   prePatch = ''
+    cd Box2D
     substituteInPlace Box2D/Common/b2Settings.h \
       --replace 'b2_maxPolygonVertices	8' 'b2_maxPolygonVertices	15'
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "2D physics engine";
-    homepage = http://box2d.org/;
+    homepage = "https://box2d.org/";
     maintainers = [ maintainers.raskin ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
     license = licenses.zlib;
   };
 }

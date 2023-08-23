@@ -1,35 +1,54 @@
-{ stdenv, fetchurl, maxima, wxGTK, makeWrapper }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, wrapGAppsHook
+, cmake
+, gettext
+, maxima
+, wxGTK
+, gnome
+, glib
+}:
 
-let
-  name    = "wxmaxima";
-  version = "15.04.0";
-in
-stdenv.mkDerivation {
-  name = "${name}-${version}";
+stdenv.mkDerivation rec {
+  pname = "wxmaxima";
+  version = "23.02.1";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/${name}/wxMaxima/${version}/wxmaxima-${version}.tar.gz";
-    sha256 = "1fm47ah4aw5qdjqhkz67w5fwhy8yfffa5z896crp0d3hk2bh4180";
+  src = fetchFromGitHub {
+    owner = "wxMaxima-developers";
+    repo = "wxmaxima";
+    rev = "Version-${version}";
+    sha256 = "sha256-Lrj/oJNmKlCkNbnCGY2TewCospwajKdWgmKkreHzEIU=";
   };
 
-  buildInputs = [wxGTK maxima makeWrapper];
+  buildInputs = [
+    wxGTK
+    maxima
+    # So it won't embed svg files into headers.
+    gnome.adwaita-icon-theme
+    # So it won't crash under Sway.
+    glib
+  ];
 
-  postInstall = ''
-    # Make sure that wxmaxima can find its runtime dependencies.
-    for prog in "$out/bin/"*; do
-      wrapProgram "$prog" --prefix PATH ":" "${maxima}/bin"
-    done
+  nativeBuildInputs = [
+    wrapGAppsHook
+    cmake
+    gettext
+  ];
+
+  cmakeFlags = [
+    "-DwxWidgets_LIBRARIES=${wxGTK}/lib"
+  ];
+
+  preConfigure = ''
+    gappsWrapperArgs+=(--prefix PATH ":" ${maxima}/bin)
   '';
 
-  doCheck = true;
-
-  enableParallelBuilding = true;
-
-  meta = {
+  meta = with lib; {
     description = "Cross platform GUI for the computer algebra system Maxima";
-    license = stdenv.lib.licenses.gpl2;
-    homepage = http://wxmaxima.sourceforge.net;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.peti ];
+    license = licenses.gpl2;
+    homepage = "https://wxmaxima-developers.github.io/wxmaxima/";
+    maintainers = with maintainers; [ doronbehar ];
+    platforms = platforms.linux;
   };
 }

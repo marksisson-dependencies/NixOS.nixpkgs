@@ -1,28 +1,57 @@
-{ stdenv, fetchurl, pkgconfig, docbook2x, docbook_xml_dtd_45
-, flex, bison, libmnl, libnftnl, gmp, readline }:
+{ lib, stdenv, fetchurl, pkg-config, bison, flex
+, asciidoc, libxslt, findXMLCatalogs, docbook_xml_dtd_45, docbook_xsl
+, libmnl, libnftnl, libpcap
+, gmp, jansson, libedit
+, autoreconfHook
+, withDebugSymbols ? false
+, withPython ? false, python3
+, withXtables ? true, iptables
+, nixosTests
+}:
 
 stdenv.mkDerivation rec {
-  name = "nftables-0.6";
+  version = "1.0.8";
+  pname = "nftables";
 
   src = fetchurl {
-    url = "http://netfilter.org/projects/nftables/files/${name}.tar.bz2";
-    sha256 = "0bbcrn9nz75daic8bq7rspvcw3ck7l82vqcvkyyg4mhwbxjn5pny";
+    url = "https://netfilter.org/projects/nftables/files/${pname}-${version}.tar.xz";
+    hash = "sha256-k3N0DeQagtvJiBjgpGoHP664qNBon6T6GnQ5nDK/PVA=";
   };
 
-  configureFlags = [
-    "CONFIG_MAN=y"
-    "DB2MAN=docbook2man"
+  nativeBuildInputs = [
+    autoreconfHook
+    pkg-config bison flex
+    asciidoc docbook_xml_dtd_45 docbook_xsl findXMLCatalogs libxslt
   ];
 
-  XML_CATALOG_FILES = "${docbook_xml_dtd_45}/xml/dtd/docbook/catalog.xml";
+  buildInputs = [
+    libmnl libnftnl libpcap
+    gmp jansson libedit
+  ] ++ lib.optional withXtables iptables
+    ++ lib.optionals withPython [
+      python3
+      python3.pkgs.setuptools
+    ];
 
-  buildInputs = [ pkgconfig docbook2x flex bison libmnl libnftnl gmp readline ];
+  configureFlags = [
+    "--with-json"
+    "--with-cli=editline"
+  ] ++ lib.optional (!withDebugSymbols) "--disable-debug"
+    ++ lib.optional (!withPython) "--disable-python"
+    ++ lib.optional withPython "--enable-python"
+    ++ lib.optional withXtables "--with-xtables";
 
-  meta = with stdenv.lib; {
+  passthru.tests = {
+    inherit (nixosTests) firewall-nftables lxd-nftables;
+    nat = { inherit (nixosTests.nat.nftables) firewall standalone; };
+  };
+
+  meta = with lib; {
     description = "The project that aims to replace the existing {ip,ip6,arp,eb}tables framework";
-    homepage = http://netfilter.org/projects/nftables;
-    license = licenses.gpl2;
+    homepage = "https://netfilter.org/projects/nftables/";
+    license = licenses.gpl2Only;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ wkennington ];
+    maintainers = with maintainers; [ izorkin ajs124 ];
+    mainProgram = "nft";
   };
 }

@@ -1,28 +1,47 @@
-{ stdenv, fetchurl, cmake, qt4, pkgconfig, qtkeychain, sqlite }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, mkDerivation
+, pkg-config
+, cmake
+, extra-cmake-modules
+, callPackage
+, qtbase
+, qtkeychain
+, wrapQtAppsHook
+, qttools
+, sqlite
+, libsecret
+}:
 
 stdenv.mkDerivation rec {
-  name = "owncloud-client" + "-" + version;
+  pname = "owncloud-client";
+  version = "4.2.0";
 
-  version = "2.2.3";
+  libregraph = callPackage ./libre-graph-api-cpp-qt-client.nix { };
 
-  src = fetchurl {
-    url = "https://download.owncloud.com/desktop/stable/owncloudclient-${version}.tar.xz";
-    sha256 = "00bx9wrgvbdhi9vx30qfgkdz0k8nxlj313pac34cchx5xpij3jgq";
+  src = fetchFromGitHub {
+    owner = "owncloud";
+    repo = "client";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-dPNVp5DxCI4ye8eFjHoLGDlf8Ap682o1UB0k2VNr2rs=";
   };
 
-  buildInputs =
-    [ cmake qt4 pkgconfig qtkeychain sqlite];
+  nativeBuildInputs = [ pkg-config cmake extra-cmake-modules wrapQtAppsHook qttools ];
+  buildInputs = [ qtbase qtkeychain sqlite libsecret libregraph ];
 
   cmakeFlags = [
-  "-UCMAKE_INSTALL_LIBDIR"
+    "-UCMAKE_INSTALL_LIBDIR"
+    "-DNO_SHIBBOLETH=1"
   ];
 
-  enableParallelBuilding = true;
-
-  meta = {
+  meta = with lib; {
     description = "Synchronise your ownCloud with your computer using this desktop client";
-    homepage = https://owncloud.org;
-    maintainers = with stdenv.lib.maintainers; [ qknight ];
-    meta.platforms = stdenv.lib.platforms.unix;
+    homepage = "https://owncloud.org";
+    maintainers = with maintainers; [ qknight hellwolf ];
+    platforms = platforms.unix;
+    broken = stdenv.isDarwin;
+    license = licenses.gpl2Plus;
+    changelog = "https://github.com/owncloud/client/releases/tag/v${version}";
   };
 }

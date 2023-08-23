@@ -1,27 +1,38 @@
-{ stdenv, fetchurl, pkgconfig, which, openssl, qt4, libtool, gcc, makeWrapper }:
+{ stdenv, mkDerivation, lib, fetchFromGitHub, fetchpatch, autoreconfHook, pkg-config
+, libtool, openssl, qtbase, qttools, sphinx }:
 
-stdenv.mkDerivation rec {
-  name = "xca-${version}";
-  version = "1.3.2";
+mkDerivation rec {
+  pname = "xca";
+  version = "2.4.0";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/xca/${name}.tar.gz";
-    sha256 = "1r2w9gpahjv221j963bd4vn0gj4cxmb9j42f3cd9qdn890hizw84";
+  src = fetchFromGitHub {
+    owner  = "chris2511";
+    repo   = "xca";
+    rev    = "RELEASE.${version}";
+    sha256 = "04z0mmjsry72nvib4icmwh1717y4q9pf2gr68ljrzln4vv4ckpwk";
   };
 
-  postInstall = ''
-    wrapProgram "$out/bin/xca" \
-      --prefix LD_LIBRARY_PATH : \
-        "${gcc.cc.lib}/lib64:${stdenv.lib.makeLibraryPath [ qt4 gcc.cc openssl libtool ]}"
-  '';
+  # Adaptions to stay OpenSSL 3.0 compatible
+  patches = [ (fetchpatch {
+    url = "https://github.com/chris2511/xca/commit/f5ac099e948ea354deac75ff9fa09d51453476e1.patch";
+    hash = "sha256-4rRO2y9hZq879HTsgBgbXGRYEcgfG4niJKyK3l3PMZ8=";
+  }) ];
 
-  buildInputs = [ openssl qt4 libtool gcc makeWrapper ];
-  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ libtool openssl qtbase ];
 
-  meta = with stdenv.lib; {
-    description = "Interface for managing asymetric keys like RSA or DSA";
-    homepage = http://xca.sourceforge.net/;
-    platforms = platforms.all;
-    license = licenses.bsd3;
+  nativeBuildInputs = [ autoreconfHook pkg-config qttools sphinx ];
+
+  # Needed for qcollectiongenerator (see https://github.com/NixOS/nixpkgs/pull/92710)
+  QT_PLUGIN_PATH = "${qtbase}/${qtbase.qtPluginPrefix}";
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    broken = stdenv.isDarwin;
+    description = "An x509 certificate generation tool, handling RSA, DSA and EC keys, certificate signing requests (PKCS#10) and CRLs";
+    homepage    = "https://hohnstaedt.de/xca/";
+    license     = licenses.bsd3;
+    maintainers = with maintainers; [ offline peterhoeg ];
+    platforms   = platforms.all;
   };
 }

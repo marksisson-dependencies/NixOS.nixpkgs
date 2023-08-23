@@ -20,7 +20,7 @@ let
   cronNixosPkg = pkgs.cron.override {
     # The mail.nix nixos module, if there is any local mail system enabled,
     # should have sendmail in this path.
-    sendmailPath = "/var/setuid-wrappers/sendmail";
+    sendmailPath = "/run/wrappers/bin/sendmail";
   };
 
   allFiles =
@@ -39,33 +39,33 @@ in
 
       enable = mkOption {
         type = types.bool;
-        example = true;
-        description = "Whether to enable the Vixie cron daemon.";
+        default = false;
+        description = lib.mdDoc "Whether to enable the Vixie cron daemon.";
       };
 
       mailto = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "Email address to which job output will be mailed.";
+        description = lib.mdDoc "Email address to which job output will be mailed.";
       };
 
       systemCronJobs = mkOption {
         type = types.listOf types.str;
         default = [];
-        example = literalExample ''
+        example = literalExpression ''
           [ "* * * * *  test   ls -l / > /tmp/cronout 2>&1"
             "* * * * *  eelco  echo Hello World > /home/eelco/cronout"
           ]
         '';
-        description = ''
+        description = lib.mdDoc ''
           A list of Cron jobs to be appended to the system-wide
           crontab.  See the manual page for crontab for the expected
           format. If you want to get the results mailed you must setuid
-          sendmail. See <option>security.setuidOwners</option>
+          sendmail. See {option}`security.wrappers`
 
           If neither /var/cron/cron.deny nor /var/cron/cron.allow exist only root
-          will is allowed to have its own crontab file. The /var/cron/cron.deny file
-          is created automatically for you. So every user can use a crontab.
+          is allowed to have its own crontab file. The /var/cron/cron.deny file
+          is created automatically for you, so every user can use a crontab.
 
           Many nixos modules set systemCronJobs, so if you decide to disable vixie cron
           and enable another cron daemon, you may want it to get its system crontab
@@ -76,7 +76,7 @@ in
       cronFiles = mkOption {
         type = types.listOf types.path;
         default = [];
-        description = ''
+        description = lib.mdDoc ''
           A list of extra crontab files that will be read and appended to the main
           crontab file when the cron service starts.
         '';
@@ -92,13 +92,14 @@ in
   config = mkMerge [
 
     { services.cron.enable = mkDefault (allFiles != []); }
-
     (mkIf (config.services.cron.enable) {
-
-      security.setuidPrograms = [ "crontab" ];
-
+      security.wrappers.crontab =
+        { setuid = true;
+          owner = "root";
+          group = "root";
+          source = "${cronNixosPkg}/bin/crontab";
+        };
       environment.systemPackages = [ cronNixosPkg ];
-
       environment.etc.crontab =
         { source = pkgs.runCommand "crontabs" { inherit allFiles; preferLocalBuild = true; }
             ''
@@ -126,7 +127,7 @@ in
               fi
             '';
 
-          restartTriggers = [ config.environment.etc.localtime.source ];
+          restartTriggers = [ config.time.timeZone ];
           serviceConfig.ExecStart = "${cronNixosPkg}/bin/cron -n";
         };
 

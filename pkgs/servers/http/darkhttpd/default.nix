@@ -1,30 +1,34 @@
-{ stdenv, fetchurl }:
+{ lib
+, stdenv
+, fetchFromGitHub
+}:
 
 stdenv.mkDerivation rec {
-  name = "darkhttpd-${version}";
-  version = "1.11";
+  pname = "darkhttpd";
+  version = "1.14";
 
-  src = fetchurl {
-    url = "https://unix4lyfe.org/darkhttpd/${name}.tar.bz2";
-    sha256 = "0lbcv6pa82md0gqyyskxndf8hm58y76nrnkanc831ia3vm529bdg";
+  src = fetchFromGitHub {
+    owner = "emikulic";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-J/tjT3Rfhk5++jbmLBrZu9O4GgTBqeycuz82NliCBxw=";
   };
 
+  enableParallelBuilding = true;
+
   installPhase = ''
-    install -d "$out/bin"
-
-    # install darkhttpd
-    install -Dm755 "darkhttpd" "$out/bin/darkhttpd"
-
-    # install license
-    install -d "$out/share/licenses/darkhttpd"
-    head -n 18 darkhttpd.c > "$out/share/licenses/darkhttpd/LICENSE"
+    runHook preInstall
+    install -Dm555 -t $out/bin darkhttpd
+    install -Dm444 -t $out/share/doc/${pname} README.md
+    head -n 18 darkhttpd.c > $out/share/doc/${pname}/LICENSE
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Small and secure static webserver";
-    homepage = http://dmr.ath.cx/net/darkhttpd/;
-    license = stdenv.lib.licenses.bsd3;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.bobvanderlinden ];
+    homepage = "https://unix4lyfe.org/darkhttpd/";
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ bobvanderlinden ];
+    platforms = platforms.all;
   };
 }

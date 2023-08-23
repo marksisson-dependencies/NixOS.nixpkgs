@@ -1,61 +1,109 @@
-{ stdenv, fetchurl, pkgconfig, flex, bison, libxslt
-, glib, libiconv, libintlOrEmpty
+{ stdenv, lib, fetchurl, fetchpatch, pkg-config, flex, bison, libxslt, autoconf, autoreconfHook
+, gnome, graphviz, glib, libiconv, libintl, libtool, expat, substituteAll, vala
 }:
 
 let
-  generic = { major, minor, sha256 }:
-  stdenv.mkDerivation rec {
-    name = "vala-${major}.${minor}";
+  generic = lib.makeOverridable ({
+    version, sha256,
+    extraNativeBuildInputs ? [],
+    extraBuildInputs ? [],
+    withGraphviz ? false
+  }:
+  let
+    # Build vala (valadoc) without graphviz support. Inspired from the openembedded-core project.
+    # https://github.com/openembedded/openembedded-core/blob/a5440d4288e09d3e/meta/recipes-devtools/vala/vala/disable-graphviz.patch
+    graphvizPatch =
+      {
+        "0.48" = ./disable-graphviz-0.46.1.patch;
+
+        "0.54" = ./disable-graphviz-0.46.1.patch;
+
+        "0.56" = ./disable-graphviz-0.56.8.patch;
+
+      }.${lib.versions.majorMinor version} or (throw "no graphviz patch for this version of vala");
+
+    disableGraphviz = lib.versionAtLeast version "0.38" && !withGraphviz;
+
+  in stdenv.mkDerivation rec {
+    pname = "vala";
+    inherit version;
+
+    setupHook = substituteAll {
+      src = ./setup-hook.sh;
+      apiVersion = lib.versions.majorMinor version;
+    };
 
     src = fetchurl {
-      url = "mirror://gnome/sources/vala/${major}/${name}.tar.xz";
+      url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
       inherit sha256;
     };
 
-    nativeBuildInputs = [ pkgconfig flex bison libxslt ];
+    postPatch = ''
+      patchShebangs tests
+    '';
 
-    buildInputs = [ glib libiconv ] ++ libintlOrEmpty;
+    # If we're disabling graphviz, apply the patches and corresponding
+    # configure flag. We also need to override the path to the valac compiler
+    # so that it can be used to regenerate documentation.
+    patches        = lib.optionals disableGraphviz [ graphvizPatch ];
+    configureFlags = lib.optional  disableGraphviz "--disable-graphviz";
+    # when cross-compiling ./compiler/valac is valac for host
+    # so add the build vala in nativeBuildInputs
+    preBuild       = lib.optionalString (disableGraphviz && (stdenv.buildPlatform == stdenv.hostPlatform)) "buildFlagsArray+=(\"VALAC=$(pwd)/compiler/valac\")";
 
-    meta = with stdenv.lib; {
+    outputs = [ "out" "devdoc" ];
+
+    nativeBuildInputs = [
+      pkg-config flex bison libxslt
+    ] ++ lib.optional (stdenv.isDarwin && (lib.versionAtLeast version "0.38")) expat
+      ++ lib.optional disableGraphviz autoreconfHook # if we changed our ./configure script, need to reconfigure
+      ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [ vala ]
+      ++ extraNativeBuildInputs;
+
+    buildInputs = [
+      glib libiconv libintl
+    ] ++ lib.optional (lib.versionAtLeast version "0.38" && withGraphviz) graphviz
+      ++ extraBuildInputs;
+
+    enableParallelBuilding = true;
+
+    doCheck = false; # fails, requires dbus daemon
+
+    passthru = {
+      updateScript = gnome.updateScript {
+        attrPath =
+          let
+            roundUpToEven = num: num + lib.mod num 2;
+          in "${pname}_${lib.versions.major version}_${builtins.toString (roundUpToEven (lib.toInt (lib.versions.minor version)))}";
+        packageName = pname;
+        freeze = true;
+      };
+    };
+
+    meta = with lib; {
       description = "Compiler for GObject type system";
-      homepage = "http://live.gnome.org/Vala";
+      homepage = "https://wiki.gnome.org/Projects/Vala";
       license = licenses.lgpl21Plus;
       platforms = platforms.unix;
-      maintainers = with maintainers; [ antono lethalman peterhoeg ];
+      maintainers = with maintainers; [ antono jtojnar maxeaubrey ] ++ teams.pantheon.members;
     };
-  };
+  });
 
 in rec {
-
-  vala_0_23 = generic {
-    major   = "0.23";
-    minor   = "2";
-    sha256  = "0g22ss9qbm3fqhx4fxhsyfmdc5g1hgdw4dz9d37f4489kl0qf8pl";
+  vala_0_48 = generic {
+    version = "0.48.25";
+    sha256 = "UMs8Xszdx/1DaL+pZBSlVgReedKxWmiRjHJ7jIOxiiQ=";
   };
 
-  vala_0_26 = generic {
-    major   = "0.26";
-    minor   = "2";
-    sha256  = "1i03ds1z5hivqh4nhf3x80fg7n0zd22908w5minkpaan1i1kzw9p";
+  vala_0_54 = generic {
+    version = "0.54.9";
+    sha256 = "hXLA6Nd9eMFZfVFgCPBUDH50leA10ou0wlzJk+U85LQ=";
   };
 
-  vala_0_28 = generic {
-    major   = "0.28";
-    minor   = "0";
-    sha256  = "0zwpzhkhfk3piya14m7p2hl2vaabahprphppfm46ci91z39kp7hd";
+  vala_0_56 = generic {
+    version = "0.56.9";
+    sha256 = "VVeMfE8Ges4CjlQYBq8kD4CEy2/wzFVMqorAjL+Lzi8=";
   };
 
-  vala_0_32 = generic {
-    major   = "0.32";
-    minor   = "1";
-    sha256  = "1ab1l44abf9fj1wznzq5956431ia136rl5049cggnk5393jlf3fx";
-  };
-
-  vala_0_34 = generic {
-    major   = "0.34";
-    minor   = "1";
-    sha256  = "16cjybjw100qps6jg0jdyjh8hndz8a876zmxpybnf30a8vygrk7m";
-  };
-
-  vala = vala_0_34;
+  vala = vala_0_56;
 }

@@ -1,24 +1,31 @@
-{ stdenv, fetchurl, jdk }:
-with stdenv.lib;
+{ lib, stdenv, fetchurl, jdk, w3m, openssl, makeWrapper }:
 
 stdenv.mkDerivation rec {
-  name = "picoLisp-${version}";
-  version = "16.6";
+  pname = "picoLisp";
+  version = "20.6";
   src = fetchurl {
-    url = "http://www.software-lab.de/${name}.tgz";
-    sha256 = "0y9b4wqpgx0j0igbp4h7k0bw3hvp7dnrhl3fsaagjpp305b003z3";
+    url = "https://www.software-lab.de/${pname}-${version}.tgz";
+    sha256 = "0l51x98bn1hh6kv40sdgp0x09pzg5i8yxbcjvm9n5bxsd6bbk5w2";
   };
-  buildInputs = optional stdenv.is64bit jdk;
-  patchPhase = optionalString stdenv.isArm ''
-    sed -i s/-m32//g Makefile
-    cat >>Makefile <<EOF
-    ext.o: ext.c
-    	\$(CC) \$(CFLAGS) -fPIC -D_OS='"\$(OS)"' \$*.c
-    ht.o: ht.c
-    	\$(CC) \$(CFLAGS) -fPIC -D_OS='"\$(OS)"' \$*.c
-    EOF
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [openssl] ++ lib.optional stdenv.is64bit jdk;
+  patchPhase = ''
+    sed -i "s/which java/command -v java/g" mkAsm
+
+    ${lib.optionalString stdenv.isAarch32 ''
+      sed -i s/-m32//g Makefile
+      cat >>Makefile <<EOF
+      ext.o: ext.c
+        \$(CC) \$(CFLAGS) -fPIC -D_OS='"\$(OS)"' \$*.c
+      ht.o: ht.c
+        \$(CC) \$(CFLAGS) -fPIC -D_OS='"\$(OS)"' \$*.c
+      EOF
+    ''}
   '';
-  sourceRoot = ''picoLisp/src${optionalString stdenv.is64bit "64"}'';
+  sourceRoot = ''picoLisp/src${lib.optionalString stdenv.is64bit "64"}'';
+  postBuild = ''
+    cd ../src; make gate
+  '';
   installPhase = ''
     cd ..
 
@@ -26,23 +33,29 @@ stdenv.mkDerivation rec {
     cp -r . "$out/share/picolisp/build-dir"
     ln -s "$out/share/picolisp/build-dir" "$out/lib/picolisp"
     ln -s "$out/lib/picolisp/bin/picolisp" "$out/bin/picolisp"
+    ln -s "$out/lib/picolisp/bin/httpGate" "$out/bin/httpGate"
 
-    cat >"$out/bin/pil" <<EOF
-    #! /bin/sh
-    exec $out/bin/picolisp $out/lib/picolisp/lib.l @lib/misc.l @lib/btree.l @lib/db.l @lib/pilog.l
-    EOF
-    chmod +x "$out/bin/pil"
+
+    makeWrapper $out/bin/picolisp $out/bin/pil \
+      --prefix PATH : ${w3m}/bin \
+      --add-flags "$out/lib/picolisp/lib.l" \
+      --add-flags "@lib/misc.l" \
+      --add-flags "@lib/btree.l" \
+      --add-flags "@lib/db.l" \
+      --add-flags "@lib/pilog.l"
 
     mkdir -p "$out/share/emacs"
     ln -s "$out/lib/picolisp/lib/el" "$out/share/emacs/site-lisp"
   '';
 
-  meta = {
+  meta = with lib; {
+    # darwin: build times out
+    broken = (stdenv.isLinux && stdenv.isAarch64) || stdenv.isDarwin;
     description = "A simple Lisp with an integrated database";
-    homepage = http://picolisp.com/;
+    homepage = "https://picolisp.com/";
     license = licenses.mit;
+    maintainers = with maintainers; [ raskin ];
     platforms = platforms.all;
-    maintainers = with maintainers; [ raskin tohl ];
   };
 
   passthru = {

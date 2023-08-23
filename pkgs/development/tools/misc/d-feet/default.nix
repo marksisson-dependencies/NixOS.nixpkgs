@@ -1,42 +1,90 @@
-{ stdenv, pkgconfig, fetchurl, itstool, intltool, libxml2, glib, gtk3
-, pythonPackages, makeWrapper, gnome3, libwnck3 }:
+{ lib
+, pkg-config
+, fetchurl
+, fetchpatch
+, meson
+, ninja
+, glib
+, gtk3
+, python3
+, wrapGAppsHook
+, gnome
+, libwnck
+, gobject-introspection
+, gettext
+, itstool
+}:
 
-let
-  version = "${major}.11";
-  major = "0.3";
-in pythonPackages.mkPythonDerivation rec {
-  name = "d-feet-${version}";
-  namePrefix = "";
+python3.pkgs.buildPythonApplication rec {
+  pname = "d-feet";
+  version = "0.3.16";
+
+  format = "other";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/d-feet/${major}/d-feet-${version}.tar.xz";
-    sha256 = "a3dc940c66f84b996c328531e3034d475ec690d7ff639445ff7ca746aa8cb9c2";
+    url = "mirror://gnome/sources/d-feet/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "hzPOS5qaVOwYWx2Fv02p2dEQUogqiAdg/2D5d5stHMs=";
   };
 
-  buildInputs = [ pkgconfig libxml2 itstool intltool glib gtk3
-    gnome3.defaultIconTheme makeWrapper libwnck3
+  patches = [
+    # Fix build with meson 0.61
+    # data/meson.build:15:0: ERROR: Function does not take positional arguments.
+    # data/meson.build:27:0: ERROR: Function does not take positional arguments.
+    # Patch taken from https://gitlab.gnome.org/GNOME/d-feet/-/merge_requests/32
+    (fetchpatch {
+      url = "https://gitlab.gnome.org/GNOME/d-feet/-/commit/05465d486afdba116dbc22fc22c1e6573aea4f22.patch";
+      sha256 = "sFI3nd0YE/deGws/YcTpzC/em9QNgicyb4j7cTfOdhY=";
+    })
   ];
 
-  propagatedBuildInputs = with pythonPackages; [ pygobject3 pep8 ];
+  nativeBuildInputs = [
+    gettext
+    gobject-introspection
+    itstool
+    meson
+    ninja
+    pkg-config
+    python3
+    wrapGAppsHook
+  ];
 
-  preFixup =
-    ''
-      wrapProgram $out/bin/d-feet \
-        --prefix GI_TYPELIB_PATH : "$GI_TYPELIB_PATH" \
-        --prefix XDG_DATA_DIRS : "$XDG_ICON_DIRS:$out/share"
-    '';
+  buildInputs = [
+    glib
+    gnome.adwaita-icon-theme
+    gtk3
+    libwnck
+  ];
 
-  meta = {
+  propagatedBuildInputs = with python3.pkgs; [
+    pygobject3
+  ];
+
+  mesonFlags = [
+    "-Dtests=false" # needs dbus
+  ];
+
+  postPatch = ''
+    chmod +x meson_post_install.py
+    patchShebangs meson_post_install.py
+  '';
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      attrPath = "dfeet";
+      versionPolicy = "none";
+    };
+  };
+
+  meta = with lib; {
     description = "D-Feet is an easy to use D-Bus debugger";
-
     longDescription = ''
       D-Feet can be used to inspect D-Bus interfaces of running programs
       and invoke methods on those interfaces.
     '';
-
-    homepage = https://wiki.gnome.org/action/show/Apps/DFeet;
-    platforms = stdenv.lib.platforms.all;
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = with stdenv.lib.maintainers; [ ktosiek ];
+    homepage = "https://wiki.gnome.org/Apps/DFeet";
+    platforms = platforms.linux;
+    license = licenses.gpl2;
+    maintainers = teams.gnome.members;
   };
 }

@@ -1,22 +1,37 @@
-{ stdenv, fetchurl, ncurses, lessSecure ? false }:
+{ lib
+, stdenv
+, fetchurl
+, ncurses
+, pcre2
+}:
 
 stdenv.mkDerivation rec {
-  name = "less-481";
+  pname = "less";
+  version = "633";
 
+  # Only tarballs on the website are valid releases,
+  # other versions, e.g. git tags are considered snapshots.
   src = fetchurl {
-    url = "http://www.greenwoodsoftware.com/less/${name}.tar.gz";
-    sha256 = "19fxj0h10y5bhr3a1xa7kqvnwl44db3sdypz8jxl1q79yln8z8rz";
+    url = "https://www.greenwoodsoftware.com/less/less-${version}.tar.gz";
+    hash = "sha256-LyAdZLgouIrzbf5s/bo+CBns4uRG6+YiSBMgmq7+0E8=";
   };
 
-  configureFlags = [ "--sysconfdir=/etc" ] # Look for ‘sysless’ in /etc.
-    ++ stdenv.lib.optional lessSecure [ "--with-secure" ];
+  configureFlags = [
+    # Look for ‘sysless’ in /etc.
+    "--sysconfdir=/etc"
+    "--with-regex=pcre2"
+  ];
 
-  buildInputs = [ ncurses ];
+  buildInputs = [
+    ncurses
+    pcre2
+  ];
 
-  meta = {
-    homepage = http://www.greenwoodsoftware.com/less/;
+  meta = with lib; {
+    homepage = "https://www.greenwoodsoftware.com/less/";
     description = "A more advanced file pager than ‘more’";
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.eelco ];
+    platforms = platforms.unix;
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ eelco dtzWill ];
   };
 }

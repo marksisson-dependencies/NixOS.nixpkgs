@@ -1,43 +1,36 @@
-{ stdenv, go, buildGoPackage, go-bindata, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, testers, prometheus-pushgateway }:
 
-buildGoPackage rec {
-  name = "pushgateway-${version}";
-  version = "0.3.1";
-  rev = "v${version}";
-
-  goPackagePath = "github.com/prometheus/pushgateway";
+buildGoModule rec {
+  pname = "pushgateway";
+  version = "1.6.0";
 
   src = fetchFromGitHub {
-    inherit rev;
     owner = "prometheus";
     repo = "pushgateway";
-    sha256 = "0ax83yy5hbfppcr66l9al7wxibcqfnyps05jdscvpwvgrg4q7ldk";
+    rev = "v${version}";
+    sha256 = "sha256-sJ4TTyo+A3CEUcTJv3LlUU60pc/a/PgB0Mk6R5wpTgM=";
   };
 
-  buildInputs = [ go-bindata ];
+  vendorHash = "sha256-oDvFp7FYam/hsiEesfTuNgXciH4JAUKkMiECn4FPqmE=";
 
-  preBuild = ''
-  (
-    cd "go/src/$goPackagePath"
-    go-bindata ./resources/
-  )
-  '';
+  ldflags = [
+    "-s"
+    "-w"
+    "-X github.com/prometheus/common/version.Version=${version}"
+    "-X github.com/prometheus/common/version.Revision=${version}"
+    "-X github.com/prometheus/common/version.Branch=${version}"
+    "-X github.com/prometheus/common/version.BuildUser=nix@nixpkgs"
+    "-X github.com/prometheus/common/version.BuildDate=19700101-00:00:00"
+  ];
 
-  buildFlagsArray = ''
-    -ldflags=
-        -X main.buildVersion=${version}
-        -X main.buildRev=${rev}
-        -X main.buildBranch=${rev}
-        -X main.buildUser=nix@nixpkgs
-        -X main.buildDate=19700101-00:00:00
-        -X main.goVersion=${stdenv.lib.getVersion go}
-  '';
+  passthru.tests.version = testers.testVersion {
+    package = prometheus-pushgateway;
+  };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Allows ephemeral and batch jobs to expose metrics to Prometheus";
-    homepage = https://github.com/prometheus/pushgateway;
+    homepage = "https://github.com/prometheus/pushgateway";
     license = licenses.asl20;
-    maintainers = with maintainers; [ benley fpletz ];
-    platforms = platforms.unix;
+    maintainers = with maintainers; [ benley ];
   };
 }

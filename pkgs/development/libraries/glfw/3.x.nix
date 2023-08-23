@@ -1,32 +1,55 @@
-{ stdenv, fetchFromGitHub, cmake, mesa, libXrandr, libXi, libXxf86vm, libXfixes, xlibsWrapper
-, libXinerama, libXcursor
+{ stdenv, lib, fetchFromGitHub, cmake
+, libGL, libXrandr, libXinerama, libXcursor, libX11, libXi, libXext
+, Carbon, Cocoa, Kernel, OpenGL, fixDarwinDylibNames
+, waylandSupport ? false, extra-cmake-modules, wayland
+, wayland-protocols, libxkbcommon
 }:
 
 stdenv.mkDerivation rec {
-  version = "3.2.1";
-  name = "glfw-${version}";
+  version = "3.3.8";
+  pname = "glfw";
 
   src = fetchFromGitHub {
     owner = "glfw";
     repo = "GLFW";
-    rev = "${version}";
-    sha256 = "0gq6ad38b3azk0w2yy298yz2vmg2jmf9g0ydidqbmiswpk25ills";
+    rev = version;
+    sha256 = "sha256-4+H0IXjAwbL5mAWfsIVhW0BSJhcWjkQx4j2TrzZ3aIo=";
   };
 
-  enableParallelBuilding = true;
+  # Fix linkage issues on X11 (https://github.com/NixOS/nixpkgs/issues/142583)
+  patches = lib.optional (!waylandSupport) ./x11.patch;
 
-  buildInputs = [
-    cmake mesa libXrandr libXi libXxf86vm libXfixes xlibsWrapper
-    libXinerama libXcursor
+  propagatedBuildInputs = [ (if stdenv.isDarwin then OpenGL else libGL) ];
+
+  nativeBuildInputs = [ cmake ]
+    ++ lib.optional stdenv.isDarwin fixDarwinDylibNames
+    ++ lib.optional waylandSupport extra-cmake-modules;
+
+  buildInputs =
+    if waylandSupport
+    then [ wayland wayland-protocols libxkbcommon ]
+    else [ libX11 libXrandr libXinerama libXcursor libXi libXext ]
+         ++ lib.optionals stdenv.isDarwin [ Carbon Cocoa Kernel ];
+
+  cmakeFlags = [
+    "-DBUILD_SHARED_LIBS=ON"
+  ] ++ lib.optionals (!stdenv.isDarwin) [
+    "-DCMAKE_C_FLAGS=-D_GLFW_GLX_LIBRARY='\"${lib.getLib libGL}/lib/libGL.so.1\"'"
+  ] ++ lib.optionals waylandSupport [
+    "-DGLFW_USE_WAYLAND=ON"
+    "-DCMAKE_C_FLAGS=-D_GLFW_EGL_LIBRARY='\"${lib.getLib libGL}/lib/libEGL.so.1\"'"
   ];
 
-  cmakeFlags = "-DBUILD_SHARED_LIBS=ON";
+  postPatch = lib.optionalString waylandSupport ''
+    substituteInPlace src/wl_init.c \
+      --replace "libxkbcommon.so.0" "${lib.getLib libxkbcommon}/lib/libxkbcommon.so.0"
+  '';
 
-  meta = with stdenv.lib; { 
+  meta = with lib; {
     description = "Multi-platform library for creating OpenGL contexts and managing input, including keyboard, mouse, joystick and time";
-    homepage = "http://www.glfw.org/";
+    homepage = "https://www.glfw.org/";
     license = licenses.zlib;
-    maintainers = with maintainers; [ marcweber ];
-    platforms = platforms.linux;
+    maintainers = with maintainers; [ marcweber twey ];
+    platforms = platforms.unix;
   };
 }

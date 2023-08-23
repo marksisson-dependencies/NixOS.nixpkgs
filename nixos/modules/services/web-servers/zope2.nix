@@ -6,37 +6,37 @@ let
 
   cfg = config.services.zope2;
 
-  zope2Opts = { name, config, ... }: {
+  zope2Opts = { name, ... }: {
     options = {
 
       name = mkOption {
         default = "${name}";
-        type = types.string;
-        description = "The name of the zope2 instance. If undefined, the name of the attribute set will be used.";
+        type = types.str;
+        description = lib.mdDoc "The name of the zope2 instance. If undefined, the name of the attribute set will be used.";
       };
 
       threads = mkOption {
         default = 2;
         type = types.int;
-        description = "Specify the number of threads that Zope's ZServer web server will use to service requests. ";
+        description = lib.mdDoc "Specify the number of threads that Zope's ZServer web server will use to service requests. ";
       };
 
       http_address = mkOption {
         default = "localhost:8080";
-        type = types.string;
-        description = "Give a port and address for the HTTP server.";
+        type = types.str;
+        description = lib.mdDoc "Give a port and address for the HTTP server.";
       };
 
       user = mkOption {
         default = "zope2";
-        type = types.string;
-        description = "The name of the effective user for the Zope process.";
+        type = types.str;
+        description = lib.mdDoc "The name of the effective user for the Zope process.";
       };
 
       clientHome = mkOption {
         default = "/var/lib/zope2/${name}";
-        type = types.string;
-        description = "Home directory of zope2 instance.";
+        type = types.path;
+        description = lib.mdDoc "Home directory of zope2 instance.";
       };
       extra = mkOption {
         default =
@@ -52,13 +52,13 @@ let
             </blobstorage>
           </zodb_db>
           '';
-        type = types.string;
-        description = "Extra zope.conf";
+        type = types.lines;
+        description = lib.mdDoc "Extra zope.conf";
       };
 
       packages = mkOption {
         type = types.listOf types.package;
-        description = "The list of packages you want to make available to the zope2 instance.";
+        description = lib.mdDoc "The list of packages you want to make available to the zope2 instance.";
       };
 
     };
@@ -74,8 +74,8 @@ in
 
     services.zope2.instances = mkOption {
       default = {};
-      type = with types; loaOf (submodule zope2Opts);
-      example = literalExample ''
+      type = with types; attrsOf (submodule zope2Opts);
+      example = literalExpression ''
         {
           plone01 = {
             http_address = "127.0.0.1:8080";
@@ -95,7 +95,7 @@ in
           };
         }
       '';
-      description = "zope2 instances to be created automaticaly by the system.";
+      description = lib.mdDoc "zope2 instances to be created automatically by the system.";
     };
   };
 
@@ -103,7 +103,11 @@ in
 
   config = mkIf (cfg.instances != {}) {
 
-    users.extraUsers.zope2.uid = config.ids.uids.zope2;
+    users.users.zope2 = {
+      isSystemUser = true;
+      group = "zope2";
+    };
+    users.groups.zope2 = {};
 
     systemd.services =
       let

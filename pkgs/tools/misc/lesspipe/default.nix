@@ -1,20 +1,39 @@
-{ stdenv, fetchFromGitHub, perl }:
+{ lib, stdenv, fetchFromGitHub, makeWrapper, perl, procps, file, gnused, bash }:
 
 stdenv.mkDerivation rec {
-  name = "lesspipe-${version}";
-  version = "1.82";
-
-  buildInputs = [ perl ];
-  preConfigure = "patchShebangs .";
+  pname = "lesspipe";
+  version = "2.08";
 
   src = fetchFromGitHub {
     owner = "wofr06";
     repo = "lesspipe";
-    rev = version;
-    sha256 = "0vb7bpap8vy003ha10hc7hxl17y47sgdnrjpihgqxkn8k0bfqbbq";
+    rev = "v${version}";
+    sha256 = "sha256-jN8x5qd9zRr0bpjGYOWfFbiXbWSDDQ8CLZJo79fnegI=";
   };
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [ perl makeWrapper ];
+  buildInputs = [ perl bash ];
+  strictDeps = true;
+
+  postPatch = ''
+    patchShebangs --build configure
+    substituteInPlace configure --replace '/etc/bash_completion.d' '/share/bash-completion/completions'
+  '';
+
+  configureFlags = [ "--shell=${bash}/bin/bash" "--prefix=/" ];
+  configurePlatforms = [ ];
+
+  dontBuild = true;
+
+  installFlags = [ "DESTDIR=$(out)" ];
+
+  postInstall = ''
+    for f in lesspipe.sh lesscomplete; do
+      wrapProgram "$out/bin/$f" --prefix-each PATH : "${lib.makeBinPath [ file gnused procps ]}"
+    done
+  '';
+
+  meta = with lib; {
     description = "A preprocessor for less";
     longDescription = ''
       Usually lesspipe.sh is called as an input filter to less. With the help
@@ -27,7 +46,7 @@ stdenv.mkDerivation rec {
       plist and archive formats, perl storable data and gpg encrypted files.
       This does require additional helper programs being installed.
     '';
-    homepage = https://github.com/wofr06/lesspipe;
+    homepage = "https://github.com/wofr06/lesspipe";
     platforms = platforms.all;
     license = licenses.gpl2;
     maintainers = [ maintainers.martijnvermaat ];

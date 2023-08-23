@@ -1,39 +1,48 @@
-{ stdenv, fetchurl, fetchpatch, autoreconfHook, pkgconfig, perl, docbook2x
-, docbook_xml_dtd_45, python3Packages
+{ lib, stdenv, fetchurl, autoreconfHook, pkg-config, perl, docbook2x
+, docbook_xml_dtd_45, python3Packages, pam, fetchpatch
 
 # Optional Dependencies
 , libapparmor ? null, gnutls ? null, libselinux ? null, libseccomp ? null
-, cgmanager ? null, libnih ? null, dbus ? null, libcap ? null, systemd ? null
+, libcap ? null, systemd ? null
 }:
 
-let
-  enableCgmanager = cgmanager != null && libnih != null && dbus != null;
-in
-with stdenv.lib;
+with lib;
 stdenv.mkDerivation rec {
-  name = "lxc-${version}";
-  version = "2.0.6";
+  pname = "lxc";
+  version = "4.0.12";
 
   src = fetchurl {
     url = "https://linuxcontainers.org/downloads/lxc/lxc-${version}.tar.gz";
-    sha256 = "0ynddnfirh9pmy7ijg300jrgzdhjzm07fsmvdw71mb2x0p82qabw";
+    sha256 = "1vyk2j5w9gfyh23w3ar09cycyws16mxh3clbb33yhqzwcs1jy96v";
   };
 
   nativeBuildInputs = [
-    autoreconfHook pkgconfig perl docbook2x python3Packages.wrapPython
+    autoreconfHook pkg-config perl docbook2x python3Packages.wrapPython
   ];
   buildInputs = [
-    libapparmor gnutls libselinux libseccomp cgmanager libnih dbus libcap
-    python3Packages.python systemd
+    pam libapparmor gnutls libselinux libseccomp libcap
+    python3Packages.python python3Packages.setuptools systemd
   ];
 
   patches = [
     ./support-db2x.patch
+
+    # Backport of https://github.com/lxc/lxc/pull/4179 for glibc-2.36 build
+    (fetchpatch {
+      url = "https://github.com/lxc/lxc/commit/c1115e1503bf955c97f4cf3b925a6a9f619764c3.patch";
+      sha256 = "sha256-aC1XQesRJfkyQnloB3NvR4p/1WITrqkGYzw50PDxDrs=";
+      excludes = [ "meson.build" ];
+    })
   ];
+
+  postPatch = ''
+    sed -i '/chmod u+s/d' src/lxc/Makefile.am
+  '';
 
   XML_CATALOG_FILES = "${docbook_xml_dtd_45}/xml/dtd/docbook/catalog.xml";
 
   configureFlags = [
+    "--enable-pam"
     "--localstatedir=/var"
     "--sysconfdir=/etc"
     "--disable-api-docs"
@@ -65,10 +74,21 @@ stdenv.mkDerivation rec {
 
   postInstall = ''
     wrapPythonPrograms
+
+    completions=(
+      lxc-attach lxc-cgroup lxc-console lxc-destroy lxc-device lxc-execute
+      lxc-freeze lxc-info lxc-monitor lxc-snapshot lxc-stop lxc-unfreeze
+    )
+    pushd $out/share/bash-completion/completions/
+      mv lxc lxc-start
+      for completion in ''${completions[@]}; do
+        ln -sfn lxc-start $completion
+      done
+    popd
   '';
 
   meta = {
-    homepage = "http://lxc.sourceforge.net";
+    homepage = "https://linuxcontainers.org/";
     description = "Userspace tools for Linux Containers, a lightweight virtualization system";
     license = licenses.lgpl21Plus;
 
@@ -81,6 +101,6 @@ stdenv.mkDerivation rec {
     '';
 
     platforms = platforms.linux;
-    maintainers = with maintainers; [ wkennington globin fpletz ];
+    maintainers = with maintainers; [ ];
   };
 }

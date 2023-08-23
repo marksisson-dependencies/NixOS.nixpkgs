@@ -1,27 +1,39 @@
-{ stdenv, lib, fetchurl, fetchpatch
-, withGUI ? false, gtk2, pkgconfig, sqlite # compile GUI
+{ stdenv
+, lib
+, fetchFromGitHub
+, hwdata
+, gtk2
+, pkg-config
+, gettext
+, sqlite # compile GUI
+, withGUI ? false
 }:
 
-let numVersion = "02.18"; # :(
-in
 stdenv.mkDerivation rec {
-  name = "lshw-${numVersion}b";
-  version = "B.${numVersion}";
+  pname = "lshw";
+  # FIXME: when switching to a stable release:
+  # Fix repology.org by not including the prefixed B, otherwise the `pname` attr
+  # gets filled as `lshw-B.XX.XX` in `nix-env --query --available --attr nixpkgs.lshw --meta`
+  # See https://github.com/NixOS/nix/pull/4463 for a definitive fix
+  version = "unstable-2023-03-20";
 
-  src = fetchurl {
-    url = "http://ezix.org/software/files/lshw-${version}.tar.gz";
-    sha256 = "0brwra4jld0d53d7jsgca415ljglmmx1l2iazpj4ndilr48yy8mf";
+  src = fetchFromGitHub {
+    owner = "lyonel";
+    repo = pname;
+    rev = "b4e067307906ec6f277cce5c8a882f5edd03cbbc";
+    #rev = "B.${version}";
+    sha256 = "sha256-ahdaQeYZEFCVxwAMJPMB9bfo3ndIiqFyM6OghXwtm1A=";
   };
 
-  patches = [ (fetchpatch {
-    # fix crash in scan_dmi_sysfs() when run as non-root
-    url = "https://github.com/lyonel/lshw/commit/fbdc6ab15f7eea0ddcd63da355356ef156dd0d96.patch";
-    sha256 = "147wyr5m185f8swsmb4q1ahs9r1rycapbpa2548aqbv298bbish3";
-  })];
+  nativeBuildInputs = [ pkg-config gettext ];
 
-  buildInputs = lib.optionals withGUI [ gtk2 pkgconfig sqlite ];
+  buildInputs = [ hwdata ]
+    ++ lib.optionals withGUI [ gtk2 sqlite ];
 
-  makeFlags = [ "PREFIX=$(out)" ];
+  makeFlags = [
+    "PREFIX=$(out)"
+    "VERSION=${src.rev}"
+  ];
 
   buildFlags = [ "all" ] ++ lib.optional withGUI "gui";
 
@@ -29,11 +41,11 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    homepage = http://ezix.org/project/wiki/HardwareLiSter;
+  meta = with lib; {
+    homepage = "https://ezix.org/project/wiki/HardwareLiSter";
     description = "Provide detailed information on the hardware configuration of the machine";
     license = licenses.gpl2;
-    maintainers = with maintainers; [ phreedom jgeerds ];
+    maintainers = with maintainers; [ thiagokokada ];
     platforms = platforms.linux;
   };
 }

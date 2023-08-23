@@ -1,23 +1,43 @@
-{stdenv, fetchurl, ncurses}:
-
-assert stdenv.isLinux;
+{lib, stdenv, fetchFromGitLab, fetchpatch, autoconf, automake, gettext, ncurses}:
 
 stdenv.mkDerivation rec {
-  name = "psmisc-22.21";
+  pname = "psmisc";
+  version = "23.5";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/psmisc/${name}.tar.gz";
-    sha256 = "0nhlm1vrrwn4a845p6y4nnnb4liq70n74zbdd5dq844jc6nkqclp";
+  src = fetchFromGitLab {
+    owner = pname;
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-02jvRPqN8DS30ID42hQFu400NoFC5QiH5YA3NB+EoFI=";
   };
 
-  buildInputs = [ncurses];
+  patches = [
+    # Upstream patch to be released in the next version
+    (fetchpatch {
+      name = "fallback-to-kill.diff";
+      url = "https://gitlab.com/psmisc/psmisc/-/commit/6892e321e7042e3df60a5501a1c59d076e8a856f.patch";
+      sha256 = "sha256-3uk1KXEOqAxpHWBORUw5+dR5s/Z55JJs5tuBZlTdjlo=";
+      excludes = [ "ChangeLog" ];
+    })
+  ];
 
-  # From upstream, will be in next release.
-  patches = [ ./0001-Typo-in-fuser-makes-M-on-all-the-time.patch ];
+  nativeBuildInputs = [ autoconf automake gettext ];
+  buildInputs = [ ncurses ];
 
-  meta = {
-    homepage = http://psmisc.sourceforge.net/;
+  preConfigure = lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    # Goes past the rpl_malloc linking failure
+    export ac_cv_func_malloc_0_nonnull=yes
+    export ac_cv_func_realloc_0_nonnull=yes
+  '' + ''
+    echo $version > .tarball-version
+    ./autogen.sh
+  '';
+
+  meta = with lib; {
+    homepage = "https://gitlab.com/psmisc/psmisc";
     description = "A set of small useful utilities that use the proc filesystem (such as fuser, killall and pstree)";
-    platforms = stdenv.lib.platforms.linux;
+    platforms = platforms.linux;
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ ryantm ];
   };
 }

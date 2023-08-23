@@ -1,81 +1,150 @@
-{ lib, stdenv, fetchurl, pkgconfig, zlib, libseccomp, fetchpatch, autoreconfHook, ncurses ? null, perl ? null, pam, systemd, minimal ? false }:
+{ lib, stdenv, fetchurl, fetchpatch, pkg-config, zlib, shadow
+, capabilitiesSupport ? stdenv.isLinux
+, libcap_ng
+, libxcrypt
+, ncursesSupport ? true
+, ncurses
+, pamSupport ? true
+, pam
+, systemdSupport ? lib.meta.availableOn stdenv.hostPlatform systemd
+, systemd
+, nlsSupport ? true
+, translateManpages ? true
+, po4a
+, installShellFiles
+, writeSupport ? stdenv.isLinux
+, shadowSupport ? stdenv.isLinux
+, memstreamHook
+}:
 
 stdenv.mkDerivation rec {
-  name = "util-linux-${version}";
-  version = lib.concatStringsSep "." ([ majorVersion ]
-    ++ lib.optional (patchVersion != "") patchVersion);
-  majorVersion = "2.28";
-  patchVersion = "1";
+  pname = "util-linux" + lib.optionalString (!nlsSupport && !ncursesSupport && !systemdSupport) "-minimal";
+  version = "2.39";
 
   src = fetchurl {
-    url = "mirror://kernel/linux/utils/util-linux/v${majorVersion}/${name}.tar.xz";
-    sha256 = "03xnaw3c7pavxvvh1vnimcr44hlhhf25whawiyv8dxsflfj4xkiy";
+    url = "mirror://kernel/linux/utils/util-linux/v${lib.versions.majorMinor version}/util-linux-${version}.tar.xz";
+    hash = "sha256-MrMKM2zakDGC7WH+s+m5CLdipeZv4U5D77iNNxYgdcs=";
   };
 
   patches = [
     ./rtcwake-search-PATH-for-shutdown.patch
+
+    # FIXME: backport mount fixes for older kernels, remove in next release
     (fetchpatch {
-      name = "CVE-2016-2779.diff";
-      url = https://github.com/karelzak/util-linux/commit/8e4925016875c6a4f2ab4f833ba66f0fc57396a2.patch;
-      sha256 = "0kmigkq4s1b1ijrq8vcg2a5cw4qnm065m7cb1jn1q1f4x99ycy60";
-  })];
+      url = "https://github.com/util-linux/util-linux/commit/f94a7760ed7ce81389a6059f020238981627a70d.diff";
+      hash = "sha256-UorqDeECK8pBePkmpo2x90p/jP3rCMshyPCyijSX1wo=";
+    })
+    (fetchpatch {
+      url = "https://github.com/util-linux/util-linux/commit/1bd85b64632280d6bf0e86b4ff29da8b19321c5f.diff";
+      hash = "sha256-dgu4de5ul/si7Vzwe8lr9NvsdI1CWfDQKuqvARaY6sE=";
+    })
 
-  outputs = [ "bin" "dev" "out" "man" ];
+    # FIXME: backport bcache detection fixes, remove in next release
+    (fetchpatch {
+      url = "https://github.com/util-linux/util-linux/commit/158639a2a4c6e646fd4fa0acb5f4743e65daa415.diff";
+      hash = "sha256-9F1OQFxKuI383u6MVy/UM15B6B+tkZFRwuDbgoZrWME=";
+    })
+    (fetchpatch {
+      url = "https://github.com/util-linux/util-linux/commit/00a19fb8cdfeeae30a6688ac6b490e80371b2257.diff";
+      hash = "sha256-w1S6IKSoL6JhVew9t6EemNRc/nrJQ5oMqFekcx0kno8=";
+    })
+  ];
 
-  #FIXME: make it also work on non-nixos?
+  # We separate some of the utilities into their own outputs. This
+  # allows putting together smaller systems depending on only part of
+  # the greater util-linux toolset.
+  # Compatibility is maintained by symlinking the binaries from the
+  # smaller outputs in the bin output.
+  outputs = [ "bin" "dev" "out" "lib" "man" ] ++ lib.optionals stdenv.isLinux [ "mount" ] ++ [ "login" ] ++ lib.optionals stdenv.isLinux [ "swap" ];
+  separateDebugInfo = true;
+
   postPatch = ''
-    # Substituting store paths would create a circular dependency on systemd
-    substituteInPlace include/pathnames.h \
-      --replace "/bin/login" "/run/current-system/sw/bin/login" \
-      --replace "/sbin/shutdown" "/run/current-system/sw/bin/shutdown"
-  '';
+    patchShebangs tests/run.sh
 
-  crossAttrs = {
-    # Work around use of `AC_RUN_IFELSE'.
-    preConfigure = "export scanf_cv_type_modifier=ms";
-  };
+    substituteInPlace sys-utils/eject.c \
+      --replace "/bin/umount" "$bin/bin/umount"
+  '' + lib.optionalString shadowSupport ''
+    substituteInPlace include/pathnames.h \
+      --replace "/bin/login" "${shadow}/bin/login"
+  '';
 
   # !!! It would be better to obtain the path to the mount helpers
   # (/sbin/mount.*) through an environment variable, but that's
   # somewhat risky because we have to consider that mount can setuid
   # root...
-  configureFlags = ''
-    --enable-write
-    --enable-last
-    --enable-mesg
-    --disable-use-tty-group
-    --enable-fs-paths-default=/var/setuid-wrappers:/var/run/current-system/sw/bin:/sbin
-    ${if ncurses == null then "--without-ncurses" else ""}
-    ${if systemd == null then "" else ''
-      --with-systemd
-      --with-systemdsystemunitdir=$out/lib/systemd/system/
-    ''}
-  '';
+  configureFlags = [
+    "--localstatedir=/var"
+    "--disable-use-tty-group"
+    "--enable-fs-paths-default=/run/wrappers/bin:/run/current-system/sw/bin:/sbin"
+    "--disable-makeinstall-setuid" "--disable-makeinstall-chown"
+    "--disable-su" # provided by shadow
+    (lib.enableFeature writeSupport "write")
+    (lib.enableFeature nlsSupport "nls")
+    (lib.withFeature ncursesSupport "ncursesw")
+    (lib.withFeature systemdSupport "systemd")
+    (lib.withFeatureAs systemdSupport
+       "systemdsystemunitdir" "${placeholder "bin"}/lib/systemd/system/")
+    (lib.enableFeature translateManpages "poman")
+    "SYSCONFSTATICDIR=${placeholder "lib"}/lib"
+  ] ++ lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
+       "scanf_cv_type_modifier=ms"
+  ;
 
-  makeFlags = "usrbin_execdir=$(bin)/bin usrsbin_execdir=$(bin)/sbin";
+  makeFlags = [
+    "usrbin_execdir=${placeholder "bin"}/bin"
+    "usrlib_execdir=${placeholder "lib"}/lib"
+    "usrsbin_execdir=${placeholder "bin"}/sbin"
+  ];
 
-  # autoreconfHook is required for CVE-2016-2779
-  nativeBuildInputs = [ pkgconfig autoreconfHook ];
-  # libseccomp is required for CVE-2016-2779
-  buildInputs =
-    [ zlib pam libseccomp ]
-    ++ lib.optional (ncurses != null) ncurses
-    ++ lib.optional (systemd != null) systemd
-    ++ lib.optional (perl != null) perl;
+  nativeBuildInputs = [ pkg-config installShellFiles ]
+    ++ lib.optionals translateManpages [ po4a ];
 
-  postInstall = ''
-    rm "$bin/bin/su" # su should be supplied by the su package (shadow)
-  '' + lib.optionalString minimal ''
-    rm -rf $out/share/{locale,doc,bash-completion}
-  '';
+  buildInputs = [ zlib libxcrypt ]
+    ++ lib.optionals pamSupport [ pam ]
+    ++ lib.optionals capabilitiesSupport [ libcap_ng ]
+    ++ lib.optionals ncursesSupport [ ncurses ]
+    ++ lib.optionals systemdSupport [ systemd ]
+    ++ lib.optionals (stdenv.system == "x86_64-darwin") [ memstreamHook ];
+
+  doCheck = false; # "For development purpose only. Don't execute on production system!"
 
   enableParallelBuilding = true;
 
+  postInstall = lib.optionalString stdenv.isLinux ''
+    moveToOutput bin/mount "$mount"
+    moveToOutput bin/umount "$mount"
+    ln -svf "$mount/bin/"* $bin/bin/
+    '' + ''
+
+    moveToOutput sbin/nologin "$login"
+    moveToOutput sbin/sulogin "$login"
+    prefix=$login _moveSbin
+    ln -svf "$login/bin/"* $bin/bin/
+    '' + lib.optionalString stdenv.isLinux ''
+
+    moveToOutput sbin/swapon "$swap"
+    moveToOutput sbin/swapoff "$swap"
+    prefix=$swap _moveSbin
+    ln -svf "$swap/bin/"* $bin/bin/
+    '' + ''
+
+    installShellCompletion --bash bash-completion/*
+  '';
+
   meta = with lib; {
-    homepage = https://www.kernel.org/pub/linux/utils/util-linux/;
+    homepage = "https://www.kernel.org/pub/linux/utils/util-linux/";
     description = "A set of system utilities for Linux";
-    license = licenses.gpl2; # also contains parts under more permissive licenses
-    platforms = platforms.linux;
+    changelog = "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v${lib.versions.majorMinor version}/v${version}-ReleaseNotes";
+    # https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/tree/README.licensing
+    license = with licenses; [ gpl2Only gpl2Plus gpl3Plus lgpl21Plus bsd3 bsdOriginalUC publicDomain ];
+    platforms = platforms.unix;
+    pkgConfigModules = [
+      "blkid"
+      "fdisk"
+      "mount"
+      "smartcols"
+      "uuid"
+    ];
     priority = 6; # lower priority than coreutils ("kill") and shadow ("login" etc.) packages
   };
 }

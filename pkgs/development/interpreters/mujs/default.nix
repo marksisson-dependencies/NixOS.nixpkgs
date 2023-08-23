@@ -1,23 +1,33 @@
-{ stdenv, fetchgit, clang }:
+{ lib
+, stdenv
+, fetchurl
+, readline
+, gitUpdater
+}:
 
 stdenv.mkDerivation rec {
-  name = "mujs-2016-11-30";
+  pname = "mujs";
+  version = "1.3.3";
 
-  src = fetchgit {
-    url = git://git.ghostscript.com/mujs.git;
-    rev  = "a0ceaf5050faf419401fe1b83acfa950ec8a8a89";
-    sha256 = "13abghhqrivaip4h0fav80i8hid220dj0ddc1xnhn6w9rbnrriyg";
+  src = fetchurl {
+    url = "https://mujs.com/downloads/mujs-${version}.tar.gz";
+    hash = "sha256-4sXuVBbf2iIwx6DLeJXfmpstWyBluxjn5k3sKnlqvhs=";
   };
 
-  buildInputs = [ clang ];
+  buildInputs = [ readline ];
 
   makeFlags = [ "prefix=$(out)" ];
 
-  meta = with stdenv.lib; {
-    homepage = http://mujs.com/;
+  passthru.updateScript = gitUpdater {
+    # No nicer place to track releases
+    url = "git://git.ghostscript.com/mujs.git";
+  };
+
+  meta = with lib; {
+    homepage = "https://mujs.com/";
     description = "A lightweight, embeddable Javascript interpreter";
-    platforms = stdenv.lib.platforms.linux;
+    platforms = platforms.unix;
     maintainers = with maintainers; [ pSub ];
-    license = licenses.gpl3;
+    license = licenses.isc;
   };
 }

@@ -1,6 +1,8 @@
-{ buildPythonPackage 
-, fetchurl
+{ buildPythonPackage
+, addOpenGLRunpath
+, fetchPypi
 , fetchFromGitHub
+, mako
 , boost
 , numpy
 , pytools
@@ -8,42 +10,44 @@
 , decorator
 , appdirs
 , six
-, cudatoolkit
+, cudaPackages
 , python
 , mkDerivation
-, stdenv
-, pythonOlder
-, isPy35
+, lib
 }:
 let
   compyte = import ./compyte.nix {
     inherit mkDerivation fetchFromGitHub;
   };
+
+  inherit (cudaPackages) cudatoolkit;
 in
 buildPythonPackage rec {
   pname = "pycuda";
-  version = "2016.1.2";
-  name = "${pname}-${version}";
+  version = "2022.2.2";
 
-  src = fetchurl {
-    url = "mirror://pypi/${builtins.substring 0 1 pname}/${pname}/${name}.tar.gz";
-    sha256 = "0dvf1cnrlvmrc7i100n2ndrnd7fjm7aq3wpmk2nx5h7hwb3xmnx7";
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-zZLnJGu0WsNFKVWhEHFBEmdM3ztKni9P8lpBWcaE5rs=";
   };
 
-  preConfigure = ''
-    findInputs ${boost.dev} boost_dirs propagated-native-build-inputs
-
-    export BOOST_INCLUDEDIR=$(echo $boost_dirs | sed -e s/\ /\\n/g - | grep '\-dev')/include
-    export BOOST_LIBRARYDIR=$(echo $boost_dirs | sed -e s/\ /\\n/g - | grep -v '\-dev')/lib
-
-    ${python.interpreter} configure.py --boost-inc-dir=$BOOST_INCLUDEDIR \
-                            --boost-lib-dir=$BOOST_LIBRARYDIR \
-                            --no-use-shipped-boost \
-                            --boost-python-libname=boost_python
+  preConfigure = with lib.versions; ''
+    ${python.pythonForBuild.interpreter} configure.py --boost-inc-dir=${boost.dev}/include \
+                          --boost-lib-dir=${boost}/lib \
+                          --no-use-shipped-boost \
+                          --boost-python-libname=boost_python${major python.version}${minor python.version} \
+                          --cuda-root=${cudatoolkit}
   '';
 
   postInstall = ''
-    ln -s ${compyte} $out/${python.sitePackages}/pycuda/compyte 
+    ln -s ${compyte} $out/${python.sitePackages}/pycuda/compyte
+  '';
+
+  postFixup = ''
+    find $out/lib -type f \( -name '*.so' -or -name '*.so.*' \) | while read lib; do
+      echo "setting opengl runpath for $lib..."
+      addOpenGLRunpath "$lib"
+    done
   '';
 
   # Requires access to libcuda.so.1 which is provided by the driver
@@ -52,6 +56,10 @@ buildPythonPackage rec {
   checkPhase = ''
     py.test
   '';
+
+  nativeBuildInputs = [
+    addOpenGLRunpath
+  ];
 
   propagatedBuildInputs = [
     numpy
@@ -63,10 +71,11 @@ buildPythonPackage rec {
     cudatoolkit
     compyte
     python
-  ]; 
+    mako
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/inducer/pycuda/;
+  meta = with lib; {
+    homepage = "https://github.com/inducer/pycuda/";
     description = "CUDA integration for Python.";
     license = licenses.mit;
     maintainers = with maintainers; [ artuuge ];

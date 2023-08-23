@@ -1,26 +1,28 @@
-{ stdenv, fetchzip, ocaml, findlib, ocamlbuild, topkg, opam, cmdliner, astring, fmt, result }:
+{ lib, buildDunePackage, fetchurl
+, astring, cmdliner, fmt, re, stdlib-shims, uutf, ocaml-syntax-shims
+}:
 
-stdenv.mkDerivation rec {
-  name = "ocaml${ocaml.version}-alcotest-${version}";
-  version = "0.7.2";
+buildDunePackage rec {
+  pname = "alcotest";
+  version = "1.7.0";
 
-  src = fetchzip {
-    url = "https://github.com/mirage/alcotest/archive/${version}.tar.gz";
-    sha256 = "1qgsz2zz5ky6s5pf3j3shc4fjc36rqnjflk8x0wl1fcpvvkr52md";
+  duneVersion = "3";
+
+  src = fetchurl {
+    url = "https://github.com/mirage/alcotest/releases/download/${version}/alcotest-${version}.tbz";
+    hash = "sha256-gSus2zS0XoiZXgfXMGvasvckee8ZlmN/HV0fQWZ5At8=";
   };
 
-  buildInputs = [ ocaml findlib ocamlbuild opam topkg ];
+  nativeBuildInputs = [ ocaml-syntax-shims ];
 
-  propagatedBuildInputs = [ cmdliner astring fmt result ];
+  propagatedBuildInputs = [ astring cmdliner fmt re stdlib-shims uutf ];
 
-  inherit (topkg) buildPhase installPhase;
+  doCheck = true;
 
-  createFindlibDestdir = true;
-
-  meta = with stdenv.lib; {
-    homepage = https://github.com/mirage/alcotest;
+  meta = with lib; {
+    homepage = "https://github.com/mirage/alcotest";
     description = "A lightweight and colourful test framework";
-    license = stdenv.lib.licenses.isc;
+    license = licenses.isc;
     maintainers = [ maintainers.ericbmerritt ];
   };
 }

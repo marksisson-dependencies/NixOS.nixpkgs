@@ -1,32 +1,53 @@
-{ stdenv, fetchurl, which, qt4, xlibsWrapper, libpulseaudio, fftwSinglePrec
-, lame, zlib, mesa, alsaLib, freetype, perl, pkgconfig
-, libX11, libXv, libXrandr, libXvMC, libXinerama, libXxf86vm, libXmu
-, yasm, libuuid, taglib, libtool, autoconf, automake, file
+{ lib, mkDerivation, fetchFromGitHub, fetchpatch, which, qtbase, qtwebkit, qtscript
+, libpulseaudio, fftwSinglePrec , lame, zlib, libGLU, libGL, alsa-lib, freetype
+, perl, pkg-config , libsamplerate, libbluray, lzo, libX11, libXv, libXrandr, libXvMC, libXinerama, libXxf86vm
+, libXmu , yasm, libuuid, taglib, libtool, autoconf, automake, file, exiv2, linuxHeaders
+, soundtouch, libzip, libhdhomerun
+, withWebKit ? false
 }:
 
-stdenv.mkDerivation rec {
-  name = "mythtv-${version}";
-  version = "0.27.4";
+mkDerivation rec {
+  pname = "mythtv";
+  version = "32.0";
 
-  src = fetchurl {
-    url = "https://github.com/MythTV/mythtv/archive/v${version}.tar.gz";
-    sha256 = "0nrn4fbkkzh43n7jgbv21i92sb4z4yacwj9yj6m3hjbffzy4ywqz";
+  src = fetchFromGitHub {
+    owner = "MythTV";
+    repo = "mythtv";
+    rev = "v${version}";
+    sha256 = "0i4fs3rbk1jggh62wflpa2l03na9i1ihpz2vsdic9vfahqqjxff1";
   };
 
-  sourceRoot = "${name}/mythtv";
+  patches = [
+    # Disable sourcing /etc/os-release
+    ./dont-source-os-release.patch
+
+    # Fix QMake variable substitution syntax - MythTV/mythtv#550
+    (fetchpatch {
+      name = "fix-qmake-var-syntax.patch";
+      url = "https://github.com/MythTV/mythtv/commit/a8da7f7e7ec069164adbef65a8104adc9bb52e36.patch";
+      stripLen = 1;
+      hash = "sha256-JfRME00YNNjl6SKs1HBa0wBa/lR/Rt3zbQtWhsC36JM=";
+    })
+  ];
+
+  setSourceRoot = "sourceRoot=$(echo */mythtv)";
 
   buildInputs = [
-    freetype qt4 lame zlib xlibsWrapper mesa perl alsaLib libpulseaudio fftwSinglePrec
-    libX11 libXv libXrandr libXvMC libXmu libXinerama libXxf86vm libXmu
-    libuuid taglib
-  ];
-  nativeBuildInputs = [ pkgconfig which yasm libtool autoconf automake file ];
+    freetype qtbase qtscript lame zlib libGLU libGL
+    perl libsamplerate libbluray lzo alsa-lib libpulseaudio fftwSinglePrec libX11 libXv libXrandr libXvMC
+    libXmu libXinerama libXxf86vm libXmu libuuid taglib exiv2 soundtouch libzip
+    libhdhomerun
+  ] ++ lib.optional withWebKit qtwebkit;
+  nativeBuildInputs = [ pkg-config which yasm libtool autoconf automake file ];
 
-  meta = with stdenv.lib; {
+  configureFlags =
+    [ "--dvb-path=${linuxHeaders}/include" ];
+
+  meta = with lib; {
     homepage = "https://www.mythtv.org/";
     description = "Open Source DVR";
-    license = licenses.gpl2;
-    meta.platforms = platforms.linux;
+    license = licenses.gpl2Plus;
+    platforms = platforms.linux;
     maintainers = [ maintainers.titanous ];
   };
 }

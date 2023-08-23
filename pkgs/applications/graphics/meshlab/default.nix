@@ -1,51 +1,89 @@
-{ stdenv, fetchurl, qt4, bzip2, lib3ds, levmar, muparser, unzip, vcg }:
+{ mkDerivation
+, lib
+, fetchFromGitHub
+, libGLU
+, qtbase
+, qtscript
+, qtxmlpatterns
+, lib3ds
+, bzip2
+, muparser
+, eigen
+, glew
+, gmp
+, levmar
+, qhull
+, cmake
+, cgal_5
+, boost179
+, mpfr
+, xercesc
+}:
 
-stdenv.mkDerivation rec {
-  name = "meshlab-1.3.3";
+mkDerivation rec {
+  pname = "meshlab";
+  version = "2022.02";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/meshlab/meshlab/MeshLab%20v1.3.3/MeshLabSrc_AllInc_v133.tgz";
-    sha256 = "03wqaibfbfag2w1zi1a5z6h546r9d7pg2sjl5pwg24w7yp8rr0n9";
+  src = fetchFromGitHub {
+    owner = "cnr-isti-vclab";
+    repo = "meshlab";
+    rev = "Meshlab-${version}";
+    sha256 = "sha256-MP+jkiV6yS1T1eWClxM56kZWLXwu0g4w/zBHy6CSL6Y=";
+    fetchSubmodules = true; # for vcglib
   };
 
-  # I don't know why I need this; without this, the rpath set at the beginning of the
-  # buildPhase gets removed from the 'meshlab' binary
-  dontPatchELF = true;
+  buildInputs = [
+    libGLU
+    qtbase
+    qtscript
+    qtxmlpatterns
+    lib3ds
+    bzip2
+    muparser
+    eigen
+    glew
+    gmp
+    levmar
+    qhull
+    cgal_5
+    boost179
+    mpfr
+    xercesc
+  ];
 
-  patches = [ ./include-unistd.diff ];
+  nativeBuildInputs = [ cmake ];
 
-  hardeningDisable = [ "format" ];
-
-  buildPhase = ''
-    mkdir -p "$out/include"
-    export NIX_LDFLAGS="-rpath $out/opt/meshlab $NIX_LDFLAGS"
-    cd meshlab/src
-    pushd external
-    qmake -recursive external.pro
-    make
-    popd
-    qmake -recursive meshlab_full.pro
-    make
+  preConfigure = ''
+    substituteAll ${./meshlab.desktop} scripts/Linux/resources/meshlab.desktop
+    cmakeDir=$PWD/src
+    mkdir ../build
+    cd ../build
   '';
 
-  installPhase = ''
-    mkdir -p $out/opt/meshlab $out/bin $out/lib
-    pushd distrib
-    cp -R * $out/opt/meshlab
-    popd
-    ln -s $out/opt/meshlab/meshlab $out/bin/meshlab
+  cmakeFlags = [
+    "-DALLOW_BUNDLED_EIGEN=OFF"
+    "-DALLOW_BUNDLED_GLEW=OFF"
+    "-DALLOW_BUNDLED_LIB3DS=OFF"
+    "-DALLOW_BUNDLED_MUPARSER=OFF"
+    "-DALLOW_BUNDLED_QHULL=OFF"
+    # disable when available in nixpkgs
+    "-DALLOW_BUNDLED_OPENCTM=ON"
+    "-DALLOW_BUNDLED_SSYNTH=ON"
+    "-DALLOW_BUNDLED_BOOST=OFF"
+    # some plugins are disabled unless these are on
+    "-DALLOW_BUNDLED_NEWUOA=ON"
+    "-DALLOW_BUNDLED_LEVMAR=ON"
+  ];
+
+  postFixup = ''
+    patchelf --add-needed $out/lib/meshlab/libmeshlab-common.so $out/bin/.meshlab-wrapped
   '';
-
-  sourceRoot = ".";
-
-  buildInputs = [ qt4 unzip vcg ];
 
   meta = {
-    description = "System for the processing and editing of unstructured 3D triangular meshes";
-    homepage = http://meshlab.sourceforge.net/;
-    license = stdenv.lib.licenses.gpl2Plus;
-    maintainers = with stdenv.lib.maintainers; [viric];
-    platforms = with stdenv.lib.platforms; linux;
-    broken = stdenv.isLinux && stdenv.isi686;
+    description = "A system for processing and editing 3D triangular meshes";
+    homepage = "https://www.meshlab.net/";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ viric ];
+    platforms = with lib.platforms; linux;
   };
 }

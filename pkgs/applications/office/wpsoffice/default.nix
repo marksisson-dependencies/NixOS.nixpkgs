@@ -1,52 +1,107 @@
-{stdenv, fetchurl, unzip, libX11, libcxxabi, glib, xorg, qt4, fontconfig, phonon, freetype, zlib, libpng12, libICE, libXrender, cups, lib}:
+{ lib
+, stdenv
+, fetchurl
+, dpkg
+, autoPatchelfHook
+, alsa-lib
+, at-spi2-core
+, libtool
+, libxkbcommon
+, nspr
+, mesa
+, libtiff
+, udev
+, gtk3
+, qtbase
+, xorg
+, cups
+, pango
+, useChineseVersion ? false
+}:
 
-stdenv.mkDerivation rec{
-  name = "wpsoffice-${version}";
-  version = "10.1.0.5672";
+stdenv.mkDerivation rec {
+  pname = "wpsoffice";
+  version = "11.1.0.11704";
 
-  src = fetchurl {
-    name = "${name}.tar.gz";
-    url = "http://kdl.cc.ksosoft.com/wps-community/download/a21/wps-office_10.1.0.5672~a21_x86_64.tar.xz";
-    sha1 = "7e9b17572ed5cea50af24f01457f726fc558a515";
+  src = if useChineseVersion then fetchurl {
+    url = "https://wps-linux-personal.wpscdn.cn/wps/download/ep/Linux2019/${lib.last (lib.splitString "." version)}/wps-office_${version}_amd64.deb";
+    hash = "sha256-ffLSon9FpQZDQ1uapchBUkVaHOXs+H/6kHJLNiWqwiE=";
+  } else fetchurl {
+    url = "https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/${lib.last (lib.splitString "." version)}/wps-office_${version}.XA_amd64.deb";
+    hash = "sha256-nxpMEWKiNjjEUoVJkhpvjnCuWBCCGjPk+sUlKz+KjMI=";
   };
-  
-  meta = {
-    description = "Office program originally named Kingsoft Office";
-    homepage = http://wps-community.org/;
-    platforms = [ "x86_64-linux" ];
-    # Binary for i686 is also available if someone can package it
-    license = lib.licenses.unfreeRedistributable;
-  };
 
-  libPath = stdenv.lib.makeLibraryPath [
-    libX11
-    libcxxabi
-    libpng12
-    glib
-    xorg.libSM
-    xorg.libXext
-    fontconfig
-    phonon
-    zlib
-    freetype
-    libICE
-    cups
-    libXrender
+  unpackCmd = "dpkg -x $src .";
+  sourceRoot = ".";
+
+  nativeBuildInputs = [
+    dpkg
+    autoPatchelfHook
   ];
 
-  phases = [ "unpackPhase" "installPhase" ];
+  buildInputs = [
+    alsa-lib
+    at-spi2-core
+    libtool
+    libxkbcommon
+    nspr
+    mesa
+    libtiff
+    udev
+    gtk3
+    qtbase
+    xorg.libXdamage
+    xorg.libXtst
+    xorg.libXv
+  ];
+
+  dontWrapQtApps = true;
+
+  runtimeDependencies = map lib.getLib [
+    cups
+    pango
+  ];
+
+  autoPatchelfIgnoreMissingDeps = [
+    # distribution is missing libkappessframework.so
+    "libkappessframework.so"
+    # qt4 support is deprecated
+    "libQtCore.so.4"
+    "libQtNetwork.so.4"
+    "libQtXml.so.4"
+  ];
 
   installPhase = ''
-    cp -r . "$out"
-    chmod +x "$out/office6/wpp"
-    patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) --force-rpath --set-rpath "$out/office6:$libPath" "$out/office6/wpp"
-    chmod +x "$out/office6/wps"
-    patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) --force-rpath --set-rpath "$out/office6:$libPath" "$out/office6/wps"
-    chmod +x "$out/office6/et"
-    patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) --force-rpath --set-rpath "$out/office6:$libPath" "$out/office6/et"
-    mkdir -p "$out/bin/"
-    ln -s "$out/office6/wpp" "$out/bin/wpspresentation"
-    ln -s "$out/office6/wps" "$out/bin/wpswriter"
-    ln -s "$out/office6/et" "$out/bin/wpsspreadsheets"
+    runHook preInstall
+    prefix=$out/opt/kingsoft/wps-office
+    mkdir -p $out
+    cp -r opt $out
+    cp -r usr/* $out
+    for i in wps wpp et wpspdf; do
+      substituteInPlace $out/bin/$i \
+        --replace /opt/kingsoft/wps-office $prefix
+    done
+    for i in $out/share/applications/*;do
+      substituteInPlace $i \
+        --replace /usr/bin $out/bin
+    done
+    runHook postInstall
   '';
+
+  preFixup = ''
+    # The following libraries need libtiff.so.5, but nixpkgs provides libtiff.so.6
+    patchelf --replace-needed libtiff.so.5 libtiff.so $out/opt/kingsoft/wps-office/office6/{libpdfmain.so,libqpdfpaint.so,qt/plugins/imageformats/libqtiff.so,addons/pdfbatchcompression/libpdfbatchcompressionapp.so}
+    # dlopen dependency
+    patchelf --add-needed libudev.so.1 $out/opt/kingsoft/wps-office/office6/addons/cef/libcef.so
+  '';
+
+  meta = with lib; {
+    description = "Office suite, formerly Kingsoft Office";
+    homepage = "https://www.wps.com";
+    platforms = [ "x86_64-linux" ];
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+    hydraPlatforms = [ ];
+    license = licenses.unfreeRedistributable;
+    maintainers = with maintainers; [ mlatus th0rgal rewine ];
+  };
 }

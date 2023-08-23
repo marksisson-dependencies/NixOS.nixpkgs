@@ -2,16 +2,13 @@
 
 with lib;
 
-let
-  cfg = config.services.gdomap;
-in
 {
   #
   # interface
   #
   options = {
     services.gdomap = {
-      enable = mkEnableOption "GNUstep Distributed Objects name server";
+      enable = mkEnableOption (lib.mdDoc "GNUstep Distributed Objects name server");
    };
   };
 

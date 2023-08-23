@@ -1,25 +1,27 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, expat, libaio, boost }:
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, expat, libaio, boost }:
 
 stdenv.mkDerivation rec {
-  name = "thin-provisioning-tools-${version}";
-  version = "0.6.3";
+  pname = "thin-provisioning-tools";
+  version = "0.9.0";
 
   src = fetchFromGitHub {
     owner = "jthornber";
     repo = "thin-provisioning-tools";
     rev = "v${version}";
-    sha256 = "0glwhfzwj9afbqdv59ppgfqy7rik8m0vcap7279fpnvwpr1c2p5n";
+    sha256 = "1iwg04rhmdhijmlk5hfl8wvv83115lzb65if6cc1glkkfva8jfjp";
   };
 
   nativeBuildInputs = [ autoreconfHook ];
 
   buildInputs = [ expat libaio boost ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/jthornber/thin-provisioning-tools/;
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    homepage = "https://github.com/jthornber/thin-provisioning-tools/";
     description = "A suite of tools for manipulating the metadata of the dm-thin device-mapper target";
     license = licenses.gpl3;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ globin ];
+    maintainers = with maintainers; [ ];
   };
 }

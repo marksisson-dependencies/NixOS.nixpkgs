@@ -1,10 +1,11 @@
-{ fetchurl, stdenv, gmp, isl }:
+{ fetchurl, lib, stdenv, gmp, isl }:
 
 stdenv.mkDerivation rec {
-  name = "cloog-0.18.0";
+  pname = "cloog";
+  version = "0.18.0";
 
   src = fetchurl {
-    url = "http://www.bastoul.net/cloog/pages/download/count.php3?url=./${name}.tar.gz";
+    url = "http://www.bastoul.net/cloog/pages/download/count.php3?url=./cloog-${version}.tar.gz";
     sha256 = "1c4aa8dde7886be9cbe0f9069c334843b21028f61d344a2d685f88cb1dcf2228";
   };
 
@@ -17,9 +18,6 @@ stdenv.mkDerivation rec {
   enableParallelBuilding = true;
 
   doCheck = true;
-
-  # FIXME needs gcc 4.9 in bootstrap tools
-  hardeningDisable = [ "stackprotector" ];
 
   meta = {
     description = "Library that generates loops for scanning polyhedra";
@@ -38,9 +36,9 @@ stdenv.mkDerivation rec {
       effective code.
     '';
 
-    homepage = http://www.cloog.org/;
+    homepage = "http://www.cloog.org/";
 
-    license = stdenv.lib.licenses.gpl2Plus;
+    license = lib.licenses.gpl2Plus;
 
     /* Leads to an ICE on Cygwin:
 
@@ -61,6 +59,6 @@ stdenv.mkDerivation rec {
        make[3]: *** [Box.lo] Error 1
 
     */
-    platforms = with stdenv.lib.platforms; allBut cygwin;
+    platforms = lib.platforms.unix; # Once had cygwin problems
   };
 }

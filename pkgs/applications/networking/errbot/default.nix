@@ -1,36 +1,71 @@
-{ stdenv, fetchurl, pythonPackages }:
+{ lib
+, fetchFromGitHub
+, glibcLocales
+, python39
+}:
 
-pythonPackages.buildPythonApplication rec {
-  name = "errbot-${version}";
-  version = "4.2.2";
+let
+  python3 = python39;
+in python3.pkgs.buildPythonApplication rec {
+  pname = "errbot";
+  version = "6.1.7";
 
-  src = fetchurl {
-    url = "mirror://pypi/e/errbot/${name}.tar.gz";
-    sha256 = "1f1nw4m58dvmw0a37gbnihgdxxr3sz0l39653jigq9ysh3nznifv";
+  src = fetchFromGitHub {
+    owner = "errbotio";
+    repo = "errbot";
+    rev = version;
+    sha256 = "02h44qd3d91zy657hyqsw3gskgxg31848pw6zpb8dhd1x84z5y77";
   };
 
-  disabled = !pythonPackages.isPy3k;
+  LC_ALL = "en_US.utf8";
 
-  patches = [
-    ./fix-dnspython.patch
+  buildInputs = [ glibcLocales ];
+
+  propagatedBuildInputs = with python3.pkgs; [
+    ansi
+    colorlog
+    daemonize
+    deepmerge
+    dulwich
+    flask
+    hypchat
+    irc
+    jinja2
+    markdown
+    pyasn1
+    pyasn1-modules
+    pygments
+    pygments-markdown-lexer
+    pyopenssl
+    requests
+    slackclient
+    sleekxmpp
+    telegram
+    webtest
   ];
 
-  buildInputs = with pythonPackages; [
-    pep8 mock pytest pytest_xdist
+  nativeCheckInputs = with python3.pkgs; [
+    mock
+    pytestCheckHook
   ];
 
-  propagatedBuildInputs = with pythonPackages; [
-    webtest bottle threadpool rocket-errbot requests2 jinja2
-    pyopenssl colorlog Yapsy markdown ansi pygments dns pep8
-    daemonize pygments-markdown-lexer telegram irc slackclient
-    pyside sleekxmpp hypchat pytest
+  # Slack backend test has an import issue
+  pytestFlagsArray = [ "--ignore=tests/backend_tests/slack_test.py" ];
+
+  disabledTests = [
+    "backup"
+    "broken_plugin"
+    "plugin_cycle"
   ];
 
-  meta = with stdenv.lib; {
+  pythonImportsCheck = [ "errbot" ];
+
+  meta = with lib; {
     description = "Chatbot designed to be simple to extend with plugins written in Python";
-    homepage = http://errbot.io/;
-    maintainers = with maintainers; [ fpletz ];
-    license = licenses.gpl3;
-    platforms = platforms.unix;
+    homepage = "http://errbot.io/";
+    maintainers = with maintainers; [ globin ];
+    license = licenses.gpl3Plus;
+    platforms = platforms.linux;
+    # flaky on darwin, "RuntimeError: can't start new thread"
   };
 }

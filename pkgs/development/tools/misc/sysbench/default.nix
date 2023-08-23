@@ -1,23 +1,56 @@
-{ stdenv, fetchgit, libmysql, libxslt, zlib, autoreconfHook }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, pkg-config
+, libmysqlclient
+, libaio
+, luajit
+# For testing:
+, testers
+, sysbench
+}:
 
 stdenv.mkDerivation rec {
-  name = "sysbench-2015-04-22";
+  pname = "sysbench";
+  version = "1.0.20";
 
-  buildInputs = [ autoreconfHook libmysql libxslt zlib ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+  buildInputs = [ libmysqlclient luajit ] ++ lib.optionals stdenv.isLinux [ libaio ];
 
-  src = fetchgit {
-    url = git://github.com/akopytov/sysbench.git;
-    rev = "2b3042883090c9cf8cb9be2b24d3590cdcee112f";
-    sha256 = "1xlb3fracha3wva3dmmjk36b262vblynkmiz8n0mn1vkc78bssaw";
+  src = fetchFromGitHub {
+    owner = "akopytov";
+    repo = pname;
+    rev = version;
+    sha256 = "1sanvl2a52ff4shj62nw395zzgdgywplqvwip74ky8q7s6qjf5qy";
   };
 
-  preAutoreconf = ''
-    touch NEWS AUTHORS
-  '';
+  enableParallelBuilding = true;
+
+  configureFlags = [
+    # The bundled version does not build on aarch64-darwin:
+    # https://github.com/akopytov/sysbench/issues/416
+    "--with-system-luajit"
+  ];
+
+  passthru.tests = {
+    versionTest = testers.testVersion {
+      package = sysbench;
+    };
+  };
 
   meta = {
     description = "Modular, cross-platform and multi-threaded benchmark tool";
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+    longDescription = ''
+      sysbench is a scriptable multi-threaded benchmark tool based on LuaJIT.
+      It is most frequently used for database benchmarks, but can also be used
+      to create arbitrarily complex workloads that do not involve a database
+      server.
+    '';
+    homepage = "https://github.com/akopytov/sysbench";
+    downloadPage = "https://github.com/akopytov/sysbench/releases/tag/${version}";
+    changelog = "https://github.com/akopytov/sysbench/blob/${version}/ChangeLog";
+    license = lib.licenses.gpl2;
+    platforms = lib.platforms.unix;
   };
 }

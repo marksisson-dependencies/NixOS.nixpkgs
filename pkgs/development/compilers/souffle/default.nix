@@ -1,44 +1,50 @@
-{ stdenv, fetchFromGitHub, autoconf, automake, boost, bison, flex, openjdk, doxygen, perl, graphviz }:
+{ lib, stdenv, fetchFromGitHub, fetchpatch
+, bash-completion, perl, ncurses, zlib, sqlite, libffi
+, mcpp, cmake, bison, flex, doxygen, graphviz
+, makeWrapper
+}:
 
+
+let
+  toolsPath = lib.makeBinPath [ mcpp ];
+in
 stdenv.mkDerivation rec {
-  version = "1.0.0";
-  name    = "souffle-${version}";
+  pname = "souffle";
+  version = "2.4";
 
   src = fetchFromGitHub {
     owner  = "souffle-lang";
     repo   = "souffle";
     rev    = version;
-    sha256 = "13j14227dgxcm25z9iizcav563wg2ak9338pb03aqqz8yqxbmz4n";
+    sha256 = "sha256-5g2Ikbfm5nQrsgGntZZ/VbjqSDOj0AP/mnH1nW2b4co=";
   };
 
-  buildInputs = [
-    autoconf automake boost bison flex openjdk
-    # Used for docs
-    doxygen perl graphviz
+  patches = [
+    ./threads.patch
   ];
 
-  patchPhase = ''
-    substituteInPlace configure.ac \
-      --replace "m4_esyscmd([git describe --tags --abbrev=0 | tr -d '\n'])" "${version}"
+  hardeningDisable = lib.optionals stdenv.isDarwin [ "strictoverflow" ];
+
+  nativeBuildInputs = [ bison cmake flex mcpp doxygen graphviz makeWrapper perl ];
+  buildInputs = [ bash-completion ncurses zlib sqlite libffi ];
+  # these propagated inputs are needed for the compiled Souffle mode to work,
+  # since generated compiler code uses them. TODO: maybe write a g++ wrapper
+  # that adds these so we can keep the propagated inputs clean?
+  propagatedBuildInputs = [ ncurses zlib sqlite libffi ];
+
+  cmakeFlags = [ "-DSOUFFLE_GIT=OFF" ];
+
+  postInstall = ''
+    wrapProgram "$out/bin/souffle" --prefix PATH : "${toolsPath}"
   '';
 
-  # Without this, we get an obscure error about not being able to find a library version
-  # without saying what library it's looking for. Turns out it's searching global paths
-  # for boost and failing there, so we tell it what's what here.
-  configureFlags = [ "--with-boost-libdir=${boost}/lib" ];
+  outputs = [ "out" ];
 
-  preConfigure = "./bootstrap";
-
-  enableParallelBuilding = true;
-
-  # See https://github.com/souffle-lang/souffle/issues/176
-  hardeningDisable = [ "fortify" ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A translator of declarative Datalog programs into the C++ language";
-    homepage    = "http://souffle-lang.github.io/";
+    homepage    = "https://souffle-lang.github.io/";
     platforms   = platforms.unix;
-    maintainers = with maintainers; [ copumpkin ];
+    maintainers = with maintainers; [ thoughtpolice copumpkin wchresta ];
     license     = licenses.upl;
   };
 }

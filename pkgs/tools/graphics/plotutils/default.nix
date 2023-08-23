@@ -1,4 +1,4 @@
-{ fetchurl, stdenv, libpng }:
+{ fetchurl, lib, stdenv, libpng, autoreconfHook }:
 
 # debian splits this package into plotutils and libplot2c2
 
@@ -6,28 +6,30 @@
 # I'm only interested in making pstoedit convert to svg
 
 stdenv.mkDerivation rec {
-  name = "plotutils-2.6";
+  pname = "plotutils";
+  version = "2.6";
 
   src = fetchurl {
-    url = "mirror://gnu/plotutils/${name}.tar.gz";
+    url = "mirror://gnu/plotutils/plotutils-${version}.tar.gz";
     sha256 = "1arkyizn5wbgvbh53aziv3s6lmd3wm9lqzkhxb3hijlp1y124hjg";
   };
 
+  nativeBuildInputs = [ autoreconfHook ];
   buildInputs = [ libpng ];
-
-  # disable failing test on i686
-  # https://lists.gnu.org/archive/html/bug-plotutils/2016-04/msg00002.html
-  prePatch = stdenv.lib.optionalString stdenv.isi686 ''
-    substituteInPlace test/Makefile.in --replace 'spline.test' ' '
-  '';
-
   patches = map fetchurl (import ./debian-patches.nix);
 
-  configureFlags = "--enable-libplotter"; # required for pstoedit
+  preBuild = ''
+    # Fix parallel building.
+    make -C libplot xmi.h
+  '';
+
+  configureFlags = [ "--enable-libplotter" ]; # required for pstoedit
 
   hardeningDisable = [ "format" ];
 
   doCheck = true;
+
+  enableParallelBuilding = true;
 
   meta = {
     description = "Powerful C/C++ library for exporting 2D vector graphics";
@@ -48,10 +50,10 @@ stdenv.mkDerivation rec {
          graphics.
       '';
 
-    homepage = http://www.gnu.org/software/plotutils/;
+    homepage = "https://www.gnu.org/software/plotutils/";
 
-    license = stdenv.lib.licenses.gpl2Plus;
-    maintainers = [ stdenv.lib.maintainers.marcweber ];
-    platforms = stdenv.lib.platforms.gnu;
+    license = lib.licenses.gpl2Plus;
+    maintainers = [ lib.maintainers.marcweber ];
+    platforms = lib.platforms.unix;
   };
 }

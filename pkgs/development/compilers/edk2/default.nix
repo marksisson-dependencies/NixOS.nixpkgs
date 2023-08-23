@@ -1,71 +1,124 @@
-{ stdenv, fetchgit, libuuid, python2, iasl }:
+{ stdenv
+, clangStdenv
+, fetchFromGitHub
+, fetchpatch
+, libuuid
+, python3
+, bc
+, lib
+, buildPackages
+}:
 
 let
-  pythonEnv = python2.withPackages(ps: [ps.tkinter]);
+  pythonEnv = buildPackages.python3.withPackages (ps: [ps.tkinter]);
 
 targetArch = if stdenv.isi686 then
   "IA32"
 else if stdenv.isx86_64 then
   "X64"
+else if stdenv.isAarch32 then
+  "ARM"
+else if stdenv.isAarch64 then
+  "AARCH64"
 else
   throw "Unsupported architecture";
 
-edk2 = stdenv.mkDerivation {
-  name = "edk2-2014-12-10";
+buildType = if stdenv.isDarwin then
+    "CLANGPDB"
+  else
+    "GCC5";
 
-  src = fetchgit {
-    url = git://github.com/tianocore/edk2;
-    rev = "684a565a04";
-    sha256 = "0s9ywb8w7xzlnmm4kwzykxkrdaw53b7pky121cc9wjkllzqwyxrb";
+edk2 = stdenv.mkDerivation {
+  pname = "edk2";
+  version = "202305";
+
+  patches = [
+    # pass targetPrefix as an env var
+    (fetchpatch {
+      url = "https://src.fedoraproject.org/rpms/edk2/raw/08f2354cd280b4ce5a7888aa85cf520e042955c3/f/0021-Tweak-the-tools_def-to-support-cross-compiling.patch";
+      hash = "sha256-E1/fiFNVx0aB1kOej2DJ2DlBIs9tAAcxoedym2Zhjxw=";
+    })
+  ];
+
+  # submodules
+  src = fetchFromGitHub {
+    owner = "tianocore";
+    repo = "edk2";
+    rev = "edk2-stable${edk2.version}";
+    fetchSubmodules = true;
+    hash = "sha256-htOvV43Hw5K05g0SF3po69HncLyma3BtgpqYSdzRG4s=";
   };
 
-  buildInputs = [ libuuid pythonEnv];
+  nativeBuildInputs = [ pythonEnv ];
+  depsBuildBuild = [ buildPackages.stdenv.cc buildPackages.util-linux buildPackages.bash ];
+  strictDeps = true;
 
-  makeFlags = "-C BaseTools";
+  # trick taken from https://src.fedoraproject.org/rpms/edk2/blob/08f2354cd280b4ce5a7888aa85cf520e042955c3/f/edk2.spec#_319
+  ${"GCC5_${targetArch}_PREFIX"}=stdenv.cc.targetPrefix;
+
+  makeFlags = [ "-C BaseTools" ];
+
+  env.NIX_CFLAGS_COMPILE = "-Wno-return-type" + lib.optionalString (stdenv.cc.isGNU) " -Wno-error=stringop-truncation";
 
   hardeningDisable = [ "format" "fortify" ];
 
   installPhase = ''
     mkdir -vp $out
     mv -v BaseTools $out
-    mv -v EdkCompatibilityPkg $out
     mv -v edksetup.sh $out
+    # patchShebangs fails to see these when cross compiling
+    for i in $out/BaseTools/BinWrappers/PosixLike/*; do
+      substituteInPlace $i --replace '/usr/bin/env bash' ${buildPackages.bash}/bin/bash
+    done
   '';
 
-  meta = {
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     description = "Intel EFI development kit";
-    homepage = http://sourceforge.net/projects/edk2/;
-    license = stdenv.lib.licenses.bsd2;
-    platforms = ["x86_64-linux" "i686-linux"];
+    homepage = "https://github.com/tianocore/tianocore.github.io/wiki/EDK-II/";
+    license = licenses.bsd2;
+    platforms = with platforms; aarch64 ++ arm ++ i686 ++ x86_64;
   };
 
   passthru = {
-    setup = projectDscPath: attrs: {
-      buildInputs = [ pythonEnv ] ++
-        stdenv.lib.optionals (attrs ? buildInputs) attrs.buildInputs;
+    mkDerivation = projectDscPath: attrsOrFun: stdenv.mkDerivation (finalAttrs:
+    let
+      attrs = lib.toFunction attrsOrFun finalAttrs;
+    in
+    {
+      inherit (edk2) src;
 
-      configurePhase = ''
-        mkdir -v Conf
-        sed -e 's|Nt32Pkg/Nt32Pkg.dsc|${projectDscPath}|' -e \
-          's|MYTOOLS|GCC49|' -e 's|IA32|${targetArch}|' -e 's|DEBUG|RELEASE|'\
-          < ${edk2}/BaseTools/Conf/target.template > Conf/target.txt
-        sed -e 's|DEFINE GCC48_IA32_PREFIX       = /usr/bin/|DEFINE GCC48_IA32_PREFIX       = ""|' \
-          -e 's|DEFINE GCC48_X64_PREFIX        = /usr/bin/|DEFINE GCC48_X64_PREFIX        = ""|' \
-          -e 's|DEFINE UNIX_IASL_BIN           = /usr/bin/iasl|DEFINE UNIX_IASL_BIN           = ${iasl}/bin/iasl|' \
-          < ${edk2}/BaseTools/Conf/tools_def.template > Conf/tools_def.txt
-        export WORKSPACE="$PWD"
-        export EFI_SOURCE="$PWD/EdkCompatibilityPkg"
+      depsBuildBuild = [ buildPackages.stdenv.cc ] ++ attrs.depsBuildBuild or [];
+      nativeBuildInputs = [ bc pythonEnv ] ++ attrs.nativeBuildInputs or [];
+      strictDeps = true;
+
+      ${"GCC5_${targetArch}_PREFIX"}=stdenv.cc.targetPrefix;
+
+      prePatch = ''
+        rm -rf BaseTools
         ln -sv ${edk2}/BaseTools BaseTools
-        ln -sv ${edk2}/EdkCompatibilityPkg EdkCompatibilityPkg
-        . ${edk2}/edksetup.sh BaseTools
       '';
 
-      buildPhase = "
-        build
-      ";
+      configurePhase = ''
+        runHook preConfigure
+        export WORKSPACE="$PWD"
+        . ${edk2}/edksetup.sh BaseTools
+        runHook postConfigure
+      '';
 
-      installPhase = "mv -v Build/*/* $out";
-    } // (removeAttrs attrs [ "buildInputs" ] );
+      buildPhase = ''
+        runHook preBuild
+        build -a ${targetArch} -b ${attrs.buildConfig or "RELEASE"} -t ${buildType} -p ${projectDscPath} -n $NIX_BUILD_CORES $buildFlags
+        runHook postBuild
+      '';
+
+      installPhase = ''
+        runHook preInstall
+        mv -v Build/*/* $out
+        runHook postInstall
+      '';
+    } // removeAttrs attrs [ "nativeBuildInputs" "depsBuildBuild" ]);
   };
 };
 

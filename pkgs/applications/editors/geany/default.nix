@@ -1,38 +1,51 @@
-{ stdenv, fetchurl, gtk2, which, pkgconfig, intltool, file }:
-
-let
-  version = "1.29";
-in
+{ lib, stdenv
+, fetchurl
+, gtk3
+, which
+, pkg-config
+, intltool
+, file
+, libintl
+, hicolor-icon-theme
+, wrapGAppsHook
+}:
 
 stdenv.mkDerivation rec {
-  name = "geany-${version}";
+  pname = "geany";
+  version = "1.38";
+
+  outputs = [ "out" "dev" "doc" "man" ];
 
   src = fetchurl {
-    url = "http://download.geany.org/${name}.tar.bz2";
-    sha256 = "394307596bc908419617e4c33e93eae8b5b733dfc8d01161677b8cbd3a4fb20f";
+    url = "https://download.geany.org/${pname}-${version}.tar.bz2";
+    sha256 = "abff176e4d48bea35ee53037c49c82f90b6d4c23e69aed6e4a5ca8ccd3aad546";
   };
 
-  NIX_LDFLAGS = if stdenv.isDarwin then "-lintl" else null;
+  nativeBuildInputs = [
+    pkg-config
+    intltool
+    libintl
+    which
+    file
+    hicolor-icon-theme
+    wrapGAppsHook
+  ];
 
-  buildInputs = [ gtk2 which pkgconfig intltool file ];
+  buildInputs = [
+    gtk3
+  ];
 
   doCheck = true;
 
   enableParallelBuilding = true;
 
-  patchPhase = "patchShebangs .";
-
-  # This file should normally require a gtk-update-icon-cache -q /usr/share/icons/hicolor command
-  # It have no reasons to exist in a redistribuable package
-  postInstall = "rm $out/share/icons/hicolor/icon-theme.cache";
-
-  meta = {
+  meta = with lib; {
     description = "Small and lightweight IDE";
     longDescription = ''
       Geany is a small and lightweight Integrated Development Environment.
       It was developed to provide a small and fast IDE, which has only a few dependencies from other packages.
       Another goal was to be as independent as possible from a special Desktop Environment like KDE or GNOME.
-      Geany only requires the GTK2 runtime libraries.
+      Geany only requires the GTK runtime libraries.
       Some basic features of Geany:
       - Syntax highlighting
       - Code folding
@@ -47,9 +60,10 @@ stdenv.mkDerivation rec {
       - Simple project management
       - Plugin interface
     '';
-    homepage = "http://www.geany.org/";
-    license = "GPL";
-    maintainers = [ stdenv.lib.maintainers.bbenoist ];
-    platforms = stdenv.lib.platforms.all;
+    homepage = "https://www.geany.org/";
+    license = licenses.gpl2;
+    maintainers = with maintainers; [ frlan ];
+    platforms = platforms.all;
+    mainProgram = "geany";
   };
 }

@@ -1,29 +1,52 @@
-{stdenv, fetchurl, ncurses, autoconf
-, withGtk ? false, gtk2 ? null}:
+{ stdenv
+, lib
+, fetchFromGitHub
+, autoreconfHook
+, pkg-config
+, libcap
+, ncurses
+, jansson
+, withGtk ? false
+, gtk3
+}:
 
-assert withGtk -> gtk2 != null;
-
-with stdenv.lib;
 stdenv.mkDerivation rec {
-  baseName="mtr";
-  version="0.86";
-  name="${baseName}-${version}";
-  
-  src = fetchurl {
-    url="ftp://ftp.bitwizard.nl/${baseName}/${name}.tar.gz";
-    sha256 = "01lcy89q3i9g4kz4liy6m7kcq1zyvmbc63rqidgw67341f94inf5";
+  pname = "mtr${lib.optionalString withGtk "-gui"}";
+  version = "0.95";
+
+  src = fetchFromGitHub {
+    owner = "traviscross";
+    repo = "mtr";
+    rev = "v${version}";
+    sha256 = "sha256-f5bL3IdXibIc1xXCuZHwcEV5vhypRE2mLsS3A8HW2QM=";
   };
 
-  configureFlags = optionalString (!withGtk) "--without-gtk";
+  # we need this before autoreconfHook does its thing
+  postPatch = ''
+    echo ${version} > .tarball-version
+  '';
 
-  buildInputs = [ autoconf ncurses ] ++ optional withGtk gtk2;
+  # and this after autoreconfHook has generated Makefile.in
+  preConfigure = ''
+    substituteInPlace Makefile.in \
+      --replace ' install-exec-hook' ""
+  '';
 
-  meta = {
-    homepage = http://www.bitwizard.nl/mtr/;
+  configureFlags = lib.optional (!withGtk) "--without-gtk";
+
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+
+  buildInputs = [ ncurses jansson ]
+    ++ lib.optional withGtk gtk3
+    ++ lib.optional stdenv.isLinux libcap;
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     description = "A network diagnostics tool";
-    maintainers = [ maintainers.koral maintainers.raskin ];
-    platforms = platforms.unix;
+    homepage = "https://www.bitwizard.nl/mtr/";
     license = licenses.gpl2;
+    maintainers = with maintainers; [ koral orivej raskin globin ];
+    platforms = platforms.unix;
   };
 }
-

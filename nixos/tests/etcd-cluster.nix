@@ -1,6 +1,6 @@
 # This test runs simple etcd cluster
 
-import ./make-test.nix ({ pkgs, ... } : let
+import ./make-test-python.nix ({ pkgs, ... } : let
 
   runWithOpenSSL = file: cmd: pkgs.runCommand file {
     buildInputs = [ pkgs.openssl ];
@@ -53,7 +53,7 @@ import ./make-test.nix ({ pkgs, ... } : let
     [ v3_req ]
     basicConstraints = CA:FALSE
     keyUsage = digitalSignature, keyEncipherment
-    extendedKeyUsage = serverAuth
+    extendedKeyUsage = serverAuth, clientAuth
     subjectAltName = @alt_names
     [alt_names]
     DNS.1 = node1
@@ -79,30 +79,33 @@ import ./make-test.nix ({ pkgs, ... } : let
         keyFile = etcd_key;
         certFile = etcd_cert;
         trustedCaFile = ca_pem;
-        peerClientCertAuth = true;
+        clientCertAuth = true;
         listenClientUrls = ["https://127.0.0.1:2379"];
         listenPeerUrls = ["https://0.0.0.0:2380"];
       };
     };
 
     environment.variables = {
-      ETCDCTL_CERT_FILE = "${etcd_client_cert}";
-      ETCDCTL_KEY_FILE = "${etcd_client_key}";
-      ETCDCTL_CA_FILE = "${ca_pem}";
-      ETCDCTL_PEERS = "https://127.0.0.1:2379";
+      ETCD_CERT_FILE = "${etcd_client_cert}";
+      ETCD_KEY_FILE = "${etcd_client_key}";
+      ETCD_CA_FILE = "${ca_pem}";
+      ETCDCTL_ENDPOINTS = "https://127.0.0.1:2379";
+      ETCDCTL_CACERT = "${ca_pem}";
+      ETCDCTL_CERT = "${etcd_cert}";
+      ETCDCTL_KEY = "${etcd_key}";
     };
 
     networking.firewall.allowedTCPPorts = [ 2380 ];
   };
 in {
-  name = "etcd";
+  name = "etcd-cluster";
 
-  meta = with pkgs.stdenv.lib.maintainers; {
+  meta = with pkgs.lib.maintainers; {
     maintainers = [ offline ];
   };
 
   nodes = {
-    node1 = { config, pkgs, nodes, ... }: {
+    node1 = { ... }: {
       require = [nodeConfig];
       services.etcd = {
         initialCluster = ["node1=https://node1:2380" "node2=https://node2:2380"];
@@ -110,7 +113,7 @@ in {
       };
     };
 
-    node2 = { config, pkgs, ... }: {
+    node2 = { ... }: {
       require = [nodeConfig];
       services.etcd = {
         initialCluster = ["node1=https://node1:2380" "node2=https://node2:2380"];
@@ -118,7 +121,7 @@ in {
       };
     };
 
-    node3 = { config, pkgs, ... }: {
+    node3 = { ... }: {
       require = [nodeConfig];
       services.etcd = {
         initialCluster = ["node1=https://node1:2380" "node2=https://node2:2380" "node3=https://node3:2380"];
@@ -129,29 +132,26 @@ in {
   };
 
   testScript = ''
-    subtest "should start etcd cluster", sub {
-      $node1->start();
-      $node2->start();
-      $node1->waitForUnit("etcd.service");
-      $node2->waitForUnit("etcd.service");
-      $node2->waitUntilSucceeds("etcdctl cluster-health");
-      $node1->succeed("etcdctl set /foo/bar 'Hello world'");
-      $node2->succeed("etcdctl get /foo/bar | grep 'Hello world'");
-    };
+    with subtest("should start etcd cluster"):
+        node1.start()
+        node2.start()
+        node1.wait_for_unit("etcd.service")
+        node2.wait_for_unit("etcd.service")
+        node2.wait_until_succeeds("etcdctl endpoint status")
+        node1.succeed("etcdctl put /foo/bar 'Hello world'")
+        node2.succeed("etcdctl get /foo/bar | grep 'Hello world'")
 
-    subtest "should add another member", sub {
-      $node1->succeed("etcdctl member add node3 https://node3:2380");
-      $node3->start();
-      $node3->waitForUnit("etcd.service");
-      $node3->waitUntilSucceeds("etcdctl member list | grep 'node3'");
-      $node3->succeed("etcdctl cluster-health");
-    };
+    with subtest("should add another member"):
+        node1.wait_until_succeeds("etcdctl member add node3 --peer-urls=https://node3:2380")
+        node3.start()
+        node3.wait_for_unit("etcd.service")
+        node3.wait_until_succeeds("etcdctl member list | grep 'node3'")
+        node3.succeed("etcdctl endpoint status")
 
-    subtest "should survive member crash", sub {
-      $node3->crash;
-      $node1->succeed("etcdctl cluster-health");
-      $node1->succeed("etcdctl set /foo/bar 'Hello degraded world'");
-      $node1->succeed("etcdctl get /foo/bar | grep 'Hello degraded world'");
-    };
+    with subtest("should survive member crash"):
+        node3.crash()
+        node1.succeed("etcdctl endpoint status")
+        node1.succeed("etcdctl put /foo/bar 'Hello degraded world'")
+        node1.succeed("etcdctl get /foo/bar | grep 'Hello degraded world'")
   '';
 })

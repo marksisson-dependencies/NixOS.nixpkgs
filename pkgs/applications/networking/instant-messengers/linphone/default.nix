@@ -1,47 +1,148 @@
-{ stdenv, fetchurl, intltool, pkgconfig, readline, openldap, cyrus_sasl, libupnp
-, zlib, libxml2, gtk2, libnotify, speex, ffmpeg, libX11, libsoup, udev
-, ortp, mediastreamer, sqlite, belle-sip, libosip, libexosip
-, mediastreamer-openh264, bctoolbox, makeWrapper, fetchFromGitHub, cmake
-, libmatroska, bcunit, doxygen, gdk_pixbuf, glib, cairo, pango, polarssl
+{ bctoolbox
+, belcard
+, belle-sip
+, belr
+, cmake
+, fetchFromGitLab
+, lib
+, liblinphone
+, mediastreamer
+, mediastreamer-openh264
+, minizip-ng
+, mkDerivation
+, qtgraphicaleffects
+, qtquickcontrols2
+, qttranslations
 }:
 
-stdenv.mkDerivation rec {
-  baseName = "linphone";
-  version = "3.10.2";
-  name = "${baseName}-${version}";
+# How to update Linphone? (The Qt desktop app)
+#
+# Belledonne Communications (BC), the company making Linphone, has split the
+# project into several sub-projects that they maintain, plus some third-party
+# dependencies that they also extend with commits of their own, specific to
+# Linphone and not (yet?) upstreamed.
+#
+# All of this is organised in a Software Development Kit (SDK) meta-repository
+# with git submodules to pin all those repositories into a coherent whole.
+#
+# The Linphone Qt desktop app uses this SDK as submodule as well.
+#
+# So, in order to update the desktop app to a new release, one has to follow
+# the submodule chain and update the corresponding derivations here, in nixpkgs,
+# with the corresponding version number (or commit hash)
 
-  src = fetchFromGitHub {
-    owner = "BelledonneCommunications";
-    repo = "${baseName}";
-    rev = "${version}";
-    sha256 = "053gad4amdbq5za8f2n9j5q59nkky0w098zbsa3dvpcqvv7ar16p";
+mkDerivation rec {
+  pname = "linphone-desktop";
+  version = "5.0.16";
+
+  src = fetchFromGitLab {
+    domain = "gitlab.linphone.org";
+    owner = "public";
+    group = "BC";
+    repo = pname;
+    rev = version;
+    hash = "sha256-zS0JyK+HGiHY7tPdl3RK6fJJOUS+fKM1u3npNxDAAYE=";
   };
 
-  buildInputs = [
-    readline openldap cyrus_sasl libupnp zlib libxml2 gtk2 libnotify speex ffmpeg libX11
-    polarssl libsoup udev ortp mediastreamer sqlite belle-sip libosip libexosip
-    bctoolbox libmatroska bcunit gdk_pixbuf glib cairo pango
+  patches = [
+    ./do-not-build-linphone-sdk.patch
+    ./remove-bc_compute_full_version-usage.patch
+    ./no-store-path-in-autostart.patch
   ];
 
-  nativeBuildInputs = [ intltool pkgconfig makeWrapper cmake doxygen ];
-
-  NIX_CFLAGS_COMPILE = " -Wno-error -I${glib.dev}/include/glib-2.0
-    -I${glib.out}/lib/glib-2.0/include -I${gtk2.dev}/include/gtk-2.0/
-    -I${cairo.dev}/include/cairo -I${pango.dev}/include/pango-1.0
-    -I${gtk2}/lib/gtk-2.0/include
-    -DLIBLINPHONE_GIT_VERSION=\"v${version}\"
-    ";
-
-  postInstall = ''
-    for i in $(cd $out/bin && ls); do
-      wrapProgram $out/bin/$i --set MEDIASTREAMER_PLUGINS_DIR ${mediastreamer-openh264}/lib/mediastreamer/plugins
-    done
+  # See: https://gitlab.linphone.org/BC/public/linphone-desktop/issues/21
+  postPatch = ''
+    echo "project(linphoneqt VERSION ${version})" >linphone-app/linphoneqt_version.cmake
+    substituteInPlace linphone-app/src/app/AppController.cpp \
+      --replace "APPLICATION_SEMVER" "\"${version}\""
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://www.linphone.org/;
-    description = "Open Source video SIP softphone";
-    license = licenses.gpl2Plus;
+  # TODO: After linphone-desktop and liblinphone split into separate packages,
+  # there might be some build inputs here that aren't needed for
+  # linphone-desktop.
+  buildInputs = [
+    # Made by BC
+    bctoolbox
+    belcard
+    belle-sip
+    belr
+    liblinphone
+    mediastreamer
+    mediastreamer-openh264
+
+    minizip-ng
+    qtgraphicaleffects
+    qtquickcontrols2
+    qttranslations
+  ];
+
+  nativeBuildInputs = [
+    cmake
+  ];
+
+  cmakeFlags = [
+    "-DMINIZIP_INCLUDE_DIRS=${minizip-ng}/include"
+    "-DMINIZIP_LIBRARIES=minizip"
+
+    # RPATH of binary /nix/store/.../bin/... contains a forbidden reference to /build/
+    "-DCMAKE_SKIP_BUILD_RPATH=ON"
+  ];
+
+  # The default install phase fails because the paths are somehow messed up in
+  # the makefiles. The errors were like:
+  #
+  #   CMake Error at cmake_builder/linphone_package/cmake_install.cmake:49 (file):
+  #     file INSTALL cannot find
+  #     "/build/linphone-desktop-.../build/linphone-sdk/desktop//nix/store/.../bin":
+  #     No such file or directory.
+  #
+  # If someone is able to figure out how to fix that, great. For now, just
+  # trying to pick all the relevant files to the output.
+  #
+  # Also, the exec path in linphone.desktop file remains invalid, pointing to
+  # the build directory, after the whole nix build process. So, let's use sed to
+  # manually fix that path.
+  #
+  # In order to find mediastreamer plugins, mediastreamer package was patched to
+  # support an environment variable pointing to the plugin directory. Set that
+  # environment variable by wrapping the Linphone executable.
+  #
+  # Also, some grammar files needed to be copied too from some dependencies. I
+  # suppose if one define a dependency in such a way that its share directory is
+  # found, then this copying would be unnecessary. These missing grammar files
+  # were discovered when linphone crashed at startup and it was run with
+  # --verbose flag. Instead of actually copying these files, create symlinks.
+  #
+  # It is quite likely that there are some other files still missing and
+  # Linphone will randomly crash when it tries to access those files. Then,
+  # those just need to be copied manually below.
+  installPhase = ''
+    mkdir -p $out/bin $out/lib
+    cp linphone-app/linphone $out/bin/
+    cp linphone-app/libapp-plugin.so $out/lib/
+    mkdir -p $out/lib/mediastreamer/plugins
+    ln -s ${mediastreamer-openh264}/lib/mediastreamer/plugins/* $out/lib/mediastreamer/plugins/
+    ln -s ${mediastreamer}/lib/mediastreamer/plugins/* $out/lib/mediastreamer/plugins/
+    wrapProgram $out/bin/linphone \
+      --set MEDIASTREAMER_PLUGINS_DIR \
+            $out/lib/mediastreamer/plugins
+    mkdir -p $out/share/applications
+    cp linphone-app/linphone.desktop $out/share/applications/
+    mkdir -p $out/share/icons/hicolor/scalable/apps
+    cp ../linphone-app/assets/images/linphone_logo.svg $out/share/icons/hicolor/scalable/apps/linphone.svg
+    mkdir -p $out/share/belr/grammars
+    ln -s ${liblinphone}/share/belr/grammars/* $out/share/belr/grammars/
+    ln -s ${belle-sip}/share/belr/grammars/* $out/share/belr/grammars/
+    mkdir -p $out/share/linphone
+    ln -s ${liblinphone}/share/linphone/* $out/share/linphone/
+    ln -s ${liblinphone}/share/sounds $out/share/sounds
+  '';
+
+  meta = with lib; {
+    homepage = "https://www.linphone.org/";
+    description = "Open source SIP phone for voice/video calls and instant messaging";
+    license = licenses.gpl3Plus;
     platforms = platforms.linux;
+    maintainers = with maintainers; [ jluttine ];
   };
 }

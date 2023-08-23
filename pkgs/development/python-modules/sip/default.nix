@@ -1,24 +1,41 @@
-{ lib, fetchurl, mkPythonDerivation, python, isPyPy }:
+{ lib
+, stdenv
+, buildPythonPackage
+, fetchPypi
+, setuptools
+, wheel
+, packaging
+, ply
+, toml
+}:
 
-if isPyPy then throw "sip not supported for interpreter ${python.executable}" else mkPythonDerivation rec {
-  name = "sip-4.18.1";
+buildPythonPackage rec {
+  pname = "sip";
+  version = "6.7.7";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/pyqt/sip/${name}/${name}.tar.gz";
-    sha256 = "1452zy3g0qv4fpd9c0y4gq437kn0xf7bbfniibv5n43zpwnpmklv";
+  format = "pyproject";
+
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-3unAb6iubUQaQB+SKGf8YZbt2idO69n7/sVPB2nCqeI=";
   };
 
-  configurePhase = ''
-    ${python.executable} ./configure.py \
-      -d $out/lib/${python.libPrefix}/site-packages \
-      -b $out/bin -e $out/include
-  '';
+  nativeBuildInputs = [
+    setuptools
+    wheel
+  ];
+
+  propagatedBuildInputs = [ packaging ply toml ];
+
+  # There aren't tests
+  doCheck = false;
+
+  pythonImportsCheck = [ "sipbuild" ];
 
   meta = with lib; {
     description = "Creates C++ bindings for Python modules";
-    homepage    = "http://www.riverbankcomputing.co.uk/";
-    license     = licenses.gpl2Plus;
-    maintainers = with maintainers; [ lovek323 sander urkud ];
-    platforms   = platforms.all;
+    homepage    = "https://riverbankcomputing.com/";
+    license     = licenses.gpl3Only;
+    maintainers = with maintainers; [ nrdxp ];
   };
 }

@@ -17,42 +17,66 @@ in {
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = "Whether to enable the postsrsd SRS server for Postfix.";
-      };
-
-      domain = mkOption {
-        type = types.str;
-        description = "Domain name for rewrite";
+        description = lib.mdDoc "Whether to enable the postsrsd SRS server for Postfix.";
       };
 
       secretsFile = mkOption {
         type = types.path;
         default = "/var/lib/postsrsd/postsrsd.secret";
-        description = "Secret keys used for signing and verification";
+        description = lib.mdDoc "Secret keys used for signing and verification";
       };
+
+      domain = mkOption {
+        type = types.str;
+        description = lib.mdDoc "Domain name for rewrite";
+      };
+
+      separator = mkOption {
+        type = types.enum ["-" "=" "+"];
+        default = "=";
+        description = lib.mdDoc "First separator character in generated addresses";
+      };
+
+      # bindAddress = mkOption { # uncomment once 1.5 is released
+      #   type = types.str;
+      #   default = "127.0.0.1";
+      #   description = "Socket listen address";
+      # };
 
       forwardPort = mkOption {
         type = types.int;
         default = 10001;
-        description = "Port for the forward SRS lookup";
+        description = lib.mdDoc "Port for the forward SRS lookup";
       };
 
       reversePort = mkOption {
         type = types.int;
         default = 10002;
-        description = "Port for the reverse SRS lookup";
+        description = lib.mdDoc "Port for the reverse SRS lookup";
+      };
+
+      timeout = mkOption {
+        type = types.int;
+        default = 1800;
+        description = lib.mdDoc "Timeout for idle client connections in seconds";
+      };
+
+      excludeDomains = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = lib.mdDoc "Origin domains to exclude from rewriting in addition to primary domain";
       };
 
       user = mkOption {
         type = types.str;
         default = "postsrsd";
-        description = "User for the daemon";
+        description = lib.mdDoc "User for the daemon";
       };
 
       group = mkOption {
         type = types.str;
         default = "postsrsd";
-        description = "Group for the daemon";
+        description = lib.mdDoc "Group for the daemon";
       };
 
     };
@@ -66,16 +90,16 @@ in {
 
     services.postsrsd.domain = mkDefault config.networking.hostName;
 
-    users.extraUsers = optionalAttrs (cfg.user == "postsrsd") (singleton
-      { name = "postsrsd";
+    users.users = optionalAttrs (cfg.user == "postsrsd") {
+      postsrsd = {
         group = cfg.group;
         uid = config.ids.uids.postsrsd;
-      });
+      };
+    };
 
-    users.extraGroups = optionalAttrs (cfg.group == "postsrsd") (singleton
-      { name = "postsrsd";
-        gid = config.ids.gids.postsrsd;
-      });
+    users.groups = optionalAttrs (cfg.group == "postsrsd") {
+      postsrsd.gid = config.ids.gids.postsrsd;
+    };
 
     systemd.services.postsrsd = {
       description = "PostSRSd SRS rewriting server";
@@ -86,7 +110,7 @@ in {
       path = [ pkgs.coreutils ];
 
       serviceConfig = {
-        ExecStart = ''${pkgs.postsrsd}/sbin/postsrsd "-s${cfg.secretsFile}" "-d${cfg.domain}" -f${toString cfg.forwardPort} -r${toString cfg.reversePort}'';
+        ExecStart = ''${pkgs.postsrsd}/sbin/postsrsd "-s${cfg.secretsFile}" "-d${cfg.domain}" -a${cfg.separator} -f${toString cfg.forwardPort} -r${toString cfg.reversePort} -t${toString cfg.timeout} "-X${concatStringsSep "," cfg.excludeDomains}"'';
         User = cfg.user;
         Group = cfg.group;
         PermissionsStartOnly = true;

@@ -1,41 +1,129 @@
-{ stdenv, fetchurl, libgpgerror, gnupg, pkgconfig, glib, pth, libassuan
-, useGnupg1 ? false, gnupg1 ? null }:
-
-assert useGnupg1 -> gnupg1 != null;
-assert !useGnupg1 -> gnupg != null;
-
+{ lib
+, stdenv
+, fetchurl
+, fetchpatch
+, autoreconfHook
+, libgpg-error
+, gnupg
+, pkg-config
+, glib
+, pth
+, libassuan
+, file
+, which
+, ncurses
+, texinfo
+, buildPackages
+, qtbase ? null
+, pythonSupport ? false
+, swig2 ? null
+# only for passthru.tests
+, libsForQt5
+, python3
+}:
 let
-  gpgStorePath = if useGnupg1 then gnupg1 else gnupg;
-  gpgProgram = if useGnupg1 then "gpg" else "gpg2";
+  inherit (stdenv.hostPlatform) system;
 in
 stdenv.mkDerivation rec {
-  name = "gpgme-1.7.0";
+  pname = "gpgme";
+  version = "1.21.0";
 
   src = fetchurl {
-    url = "mirror://gnupg/gpgme/${name}.tar.bz2";
-    sha256 = "0j6capvv6lcr6p763lr2ygzkzkj5lqm7fnbfc1xaygib1znmzxbi";
+    url = "mirror://gnupg/gpgme/${pname}-${version}.tar.bz2";
+    hash = "sha256-QW4XThZXNNhIBiU/jJa9opk/0H8ljDqtXwU6bv1GPog=";
   };
 
-  outputs = [ "out" "dev" "info" ];
-  outputBin = "dev"; # gpgme-config; not so sure about gpgme-tool
-
-  propagatedBuildInputs = [ libgpgerror glib libassuan pth ];
-
-  nativeBuildInputs = [ pkgconfig gnupg ];
-
-  configureFlags = [
-    "--with-gpg=${gpgStorePath}/bin/${gpgProgram}"
-    "--enable-fixed-path=${gpgStorePath}/bin"
+  patches = [
+    # Support Python 3.10 version detection without distutils, https://dev.gnupg.org/D545
+    ./python-310-detection-without-distutils.patch
+    # Fix a test after disallowing compressed signatures in gpg (PR #180336)
+    ./test_t-verify_double-plaintext.patch
   ];
 
-  NIX_CFLAGS_COMPILE =
-    with stdenv; lib.optional (system == "i686-linux") "-D_FILE_OFFSET_BITS=64";
+  outputs = [ "out" "dev" "info" ];
 
-  meta = with stdenv.lib; {
-    homepage = "http://www.gnupg.org/related_software/gpgme";
+  outputBin = "dev"; # gpgme-config; not so sure about gpgme-tool
+
+  nativeBuildInputs = [
+    autoreconfHook
+    gnupg
+    pkg-config
+    texinfo
+  ] ++ lib.optionals pythonSupport [
+    python3.pythonForBuild
+    ncurses
+    swig2
+    which
+  ];
+
+  buildInputs = lib.optionals pythonSupport [
+    python3
+  ];
+
+  propagatedBuildInputs = [
+    glib
+    libassuan
+    libgpg-error
+    pth
+  ] ++ lib.optionals (qtbase != null) [
+    qtbase
+  ];
+
+  nativeCheckInputs = [
+    which
+  ];
+
+  depsBuildBuild = [
+    buildPackages.stdenv.cc
+  ];
+
+  dontWrapQtApps = true;
+
+  configureFlags = [
+    "--enable-fixed-path=${gnupg}/bin"
+    "--with-libgpg-error-prefix=${libgpg-error.dev}"
+    "--with-libassuan-prefix=${libassuan.dev}"
+  ] ++ lib.optional pythonSupport "--enable-languages=python"
+  # Tests will try to communicate with gpg-agent instance via a UNIX socket
+  # which has a path length limit. Nix on darwin is using a build directory
+  # that already has quite a long path and the resulting socket path doesn't
+  # fit in the limit. https://github.com/NixOS/nix/pull/1085
+  ++ lib.optionals stdenv.isDarwin [ "--disable-gpg-test" ];
+
+  env.NIX_CFLAGS_COMPILE = toString (
+    # qgpgme uses Q_ASSERT which retains build inputs at runtime unless
+    # debugging is disabled
+    lib.optional (qtbase != null) "-DQT_NO_DEBUG"
+    # https://www.gnupg.org/documentation/manuals/gpgme/Largefile-Support-_0028LFS_0029.html
+    ++ lib.optional stdenv.hostPlatform.is32bit "-D_FILE_OFFSET_BITS=64"
+  );
+
+  enableParallelBuilding = true;
+
+  # prevent tests from being run during the buildPhase
+  makeFlags = [ "tests=" ];
+
+  doCheck = true;
+
+  checkFlags = [ "-C" "tests" ];
+
+  passthru.tests = {
+    python = python3.pkgs.gpgme;
+    qt = libsForQt5.qgpgme;
+  };
+
+  meta = with lib; {
+    homepage = "https://gnupg.org/software/gpgme/index.html";
+    changelog = "https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gpgme.git;f=NEWS;hb=gpgme-${version}";
     description = "Library for making GnuPG easier to use";
-    license = licenses.gpl2;
+    longDescription = ''
+      GnuPG Made Easy (GPGME) is a library designed to make access to GnuPG
+      easier for applications. It provides a High-Level Crypto API for
+      encryption, decryption, signing, signature verification and key
+      management.
+    '';
+    license = with licenses; [ lgpl21Plus gpl3Plus ];
     platforms = platforms.unix;
-    maintainers = [ maintainers.fuuzetsu ];
+    maintainers = with maintainers; [ dotlambda ];
   };
 }

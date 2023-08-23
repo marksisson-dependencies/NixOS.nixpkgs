@@ -1,26 +1,23 @@
-{stdenv, fetchurl,
-sendmailPath ? "/var/setuid-wrappers/sendmail" }:
+{ lib, stdenv, fetchurl
+, sendmailPath ? "/run/wrappers/bin/sendmail"
+}:
 
 stdenv.mkDerivation rec {
-
-  name = "ts-0.7.6";
+  pname = "ts";
+  version = "1.0";
 
   installPhase=''make install "PREFIX=$out"'';
-
-  crossAttrs = {
-    makeFlags = "CC=${stdenv.cross.config}-gcc";
-  };
 
   patchPhase = ''
     sed -i s,/usr/sbin/sendmail,${sendmailPath}, mail.c ts.1
   '';
 
   src = fetchurl {
-    url = "http://viric.name/~viric/soft/ts/${name}.tar.gz";
-    sha256 = "07b61sx3hqpdxlg5a1xrz9sxww9yqdix3bmr0sm917r3rzk87lwk";
+    url = "https://viric.name/~viric/soft/ts/ts-${version}.tar.gz";
+    sha256 = "15dkzczx10fhl0zs9bmcgkxfbwq2znc7bpscljm4rchbzx7y6lsg";
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "http://vicerveza.homeunix.net/~viric/soft/ts";
     description = "Task spooler - batch queue";
     license = licenses.gpl2;

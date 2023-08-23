@@ -1,31 +1,40 @@
-{ stdenv, fetchFromGitHub, lib, ocaml, libelf, cf-private, CoreServices }:
-
-with lib;
+{ lib, stdenv, fetchFromGitHub, ocamlPackages, CoreServices }:
 
 stdenv.mkDerivation rec {
-  version = "0.36.0";
-  name = "flow-${version}";
+  pname = "flow";
+  version = "0.214.0";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "flow";
     rev = "v${version}";
-    sha256 = "1371dcn2dy13pm8mb43p61xb2qlyylkiq1hwr0x42lhv1gwdlcnw";
+    sha256 = "sha256-N3eunmUl08RPu54k1QQWqgKa9RS0uzVVI2f0kCbmb2w=";
   };
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp bin/flow $out/bin/
+  postPatch = ''
+    substituteInPlace src/services/inference/check_cache.ml --replace 'Core_kernel' 'Core'
   '';
 
-  buildInputs = [ ocaml libelf ]
-    ++ optionals stdenv.isDarwin [ cf-private CoreServices ];
+  makeFlags = [ "FLOW_RELEASE=1" ];
 
-  meta = with stdenv.lib; {
+  installPhase = ''
+    install -Dm755 bin/flow $out/bin/flow
+    install -Dm644 resources/shell/bash-completion $out/share/bash-completion/completions/flow
+  '';
+
+  strictDeps = true;
+
+  nativeBuildInputs = with ocamlPackages; [ ocaml dune_3 findlib ocamlbuild ];
+
+  buildInputs = lib.optionals stdenv.isDarwin [ CoreServices ]
+    ++ (with ocamlPackages; [ core_kernel dtoa fileutils lwt_log lwt_ppx ocaml_lwt ppx_deriving ppx_gen_rec ppx_let sedlex visitors wtf8 ] ++ lib.optionals stdenv.isLinux [ inotify ]);
+
+  meta = with lib; {
     description = "A static type checker for JavaScript";
-    homepage = http://flowtype.org;
-    license = licenses.bsd3;
-    platforms = [ "x86_64-linux" "x86_64-darwin" ];
-    maintainers = with maintainers; [ puffnfresh globin ];
+    homepage = "https://flow.org/";
+    changelog = "https://github.com/facebook/flow/blob/v${version}/Changelog.md";
+    license = licenses.mit;
+    platforms = ocamlPackages.ocaml.meta.platforms;
+    maintainers = with maintainers; [ marsam puffnfresh ];
   };
 }

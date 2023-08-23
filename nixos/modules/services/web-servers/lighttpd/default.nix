@@ -15,7 +15,8 @@ let
   # Some modules are always imported and should not appear in the config:
   # disallowedModules = [ "mod_indexfile" "mod_dirlisting" "mod_staticfile" ];
   #
-  # Get full module list: "ls -1 $lighttpd/lib/*.so"
+  # For full module list, see the output of running ./configure in the lighttpd
+  # source.
   allKnownModules = [
     "mod_rewrite"
     "mod_redirect"
@@ -37,21 +38,33 @@ let
     "mod_rrdtool"
     "mod_accesslog"
     # Remaining list of modules, order assumed to be unimportant.
+    "mod_authn_dbi"
+    "mod_authn_file"
+    "mod_authn_gssapi"
+    "mod_authn_ldap"
+    "mod_authn_mysql"
+    "mod_authn_pam"
+    "mod_authn_sasl"
     "mod_cml"
-    "mod_dirlisting"
+    "mod_deflate"
     "mod_evasive"
     "mod_extforward"
     "mod_flv_streaming"
+    "mod_geoip"
     "mod_magnet"
     "mod_mysql_vhost"
+    "mod_openssl"  # since v1.4.46
     "mod_scgi"
     "mod_setenv"
     "mod_trigger_b4_dl"
+    "mod_uploadprogress"
+    "mod_vhostdb"  # since v1.4.46
     "mod_webdav"
+    "mod_wstunnel"  # since v1.4.46
   ];
 
   maybeModuleString = moduleName:
-    if elem moduleName cfg.enableModules then ''"${moduleName}"'' else "";
+    optionalString (elem moduleName cfg.enableModules) ''"${moduleName}"'';
 
   modulesIncludeString = concatStringsSep ",\n"
     (filter (x: x != "") (map maybeModuleString allKnownModules));
@@ -86,27 +99,22 @@ let
       accesslog.use-syslog = "enable"
       server.errorlog-use-syslog = "enable"
 
-      mimetype.assign = (
-          ".html" => "text/html",
-          ".htm" => "text/html",
-          ".txt" => "text/plain",
-          ".jpg" => "image/jpeg",
-          ".png" => "image/png",
-          ".css" => "text/css"
-          )
+      ${lib.optionalString cfg.enableUpstreamMimeTypes ''
+      include "${pkgs.lighttpd}/share/lighttpd/doc/config/conf.d/mime.conf"
+      ''}
 
       static-file.exclude-extensions = ( ".fcgi", ".php", ".rb", "~", ".inc" )
       index-file.names = ( "index.html" )
 
-      ${if cfg.mod_userdir then ''
+      ${optionalString cfg.mod_userdir ''
         userdir.path = "public_html"
-      '' else ""}
+      ''}
 
-      ${if cfg.mod_status then ''
+      ${optionalString cfg.mod_status ''
         status.status-url = "/server-status"
         status.statistics-url = "/server-statistics"
         status.config-url = "/server-config"
-      '' else ""}
+      ''}
 
       ${cfg.extraConfig}
     '';
@@ -122,15 +130,24 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           Enable the lighttpd web server.
+        '';
+      };
+
+      package = mkOption {
+        default = pkgs.lighttpd;
+        defaultText = lib.literalExpression "pkgs.lighttpd";
+        type = types.package;
+        description = lib.mdDoc ''
+          lighttpd package to use.
         '';
       };
 
       port = mkOption {
         default = 80;
-        type = types.int;
-        description = ''
+        type = types.port;
+        description = lib.mdDoc ''
           TCP port number for lighttpd to bind to.
         '';
       };
@@ -138,7 +155,7 @@ in
       document-root = mkOption {
         default = "/srv/www";
         type = types.path;
-        description = ''
+        description = lib.mdDoc ''
           Document-root of the web server. Must be readable by the "lighttpd" user.
         '';
       };
@@ -146,7 +163,7 @@ in
       mod_userdir = mkOption {
         default = false;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           If true, requests in the form /~user/page.html are rewritten to take
           the file public_html/page.html from the home directory of the user.
         '';
@@ -156,19 +173,30 @@ in
         type = types.listOf types.str;
         default = [ ];
         example = [ "mod_cgi" "mod_status" ];
-        description = ''
+        description = lib.mdDoc ''
           List of lighttpd modules to enable. Sub-services take care of
           enabling modules as needed, so this option is mainly for when you
           want to add custom stuff to
-          <option>services.lighttpd.extraConfig</option> that depends on a
+          {option}`services.lighttpd.extraConfig` that depends on a
           certain module.
+        '';
+      };
+
+      enableUpstreamMimeTypes = mkOption {
+        type = types.bool;
+        default = true;
+        description = lib.mdDoc ''
+          Whether to include the list of mime types bundled with lighttpd
+          (upstream). If you disable this, no mime types will be added by
+          NixOS and you will have to add your own mime types in
+          {option}`services.lighttpd.extraConfig`.
         '';
       };
 
       mod_status = mkOption {
         default = false;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           Show server status overview at /server-status, statistics at
           /server-statistics and list of loaded modules at /server-config.
         '';
@@ -177,8 +205,8 @@ in
       configText = mkOption {
         default = "";
         type = types.lines;
-	example = ''...verbatim config file contents...'';
-        description = ''
+        example = "...verbatim config file contents...";
+        description = lib.mdDoc ''
           Overridable config file contents to use for lighttpd. By default, use
           the contents automatically generated by NixOS.
         '';
@@ -187,10 +215,10 @@ in
       extraConfig = mkOption {
         default = "";
         type = types.lines;
-        description = ''
+        description = lib.mdDoc ''
           These configuration lines will be appended to the generated lighttpd
           config file. Note that this mechanism does not work when the manual
-          <option>configText</option> option is used.
+          {option}`configText` option is used.
         '';
       };
 
@@ -224,17 +252,17 @@ in
       description = "Lighttpd Web Server";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
-      serviceConfig.ExecStart = "${pkgs.lighttpd}/sbin/lighttpd -D -f ${configFile}";
+      serviceConfig.ExecStart = "${cfg.package}/sbin/lighttpd -D -f ${configFile}";
       # SIGINT => graceful shutdown
       serviceConfig.KillSignal = "SIGINT";
     };
 
-    users.extraUsers.lighttpd = {
+    users.users.lighttpd = {
       group = "lighttpd";
       description = "lighttpd web server privilege separation user";
       uid = config.ids.uids.lighttpd;
     };
 
-    users.extraGroups.lighttpd.gid = config.ids.gids.lighttpd;
+    users.groups.lighttpd.gid = config.ids.gids.lighttpd;
   };
 }

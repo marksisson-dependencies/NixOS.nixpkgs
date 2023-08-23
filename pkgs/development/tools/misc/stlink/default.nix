@@ -1,30 +1,61 @@
-{ stdenv, fetchurl, autoconf, automake, libtool, pkgconfig, libusb1 }:
-
-# IMPORTANT: You need permissions to access the stlink usb devices. Here are
-# example udev rules for stlink v1 and v2 so you don't need to have root
-# permissions (copied from <stlink>/49-stlink*.rules):
-#
-# SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="3744", MODE:="0666", SYMLINK+="stlinkv1_%n"
-# SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="3748", MODE:="0666", SYMLINK+="stlinkv2_%n"
+{ lib
+, stdenv
+, fetchFromGitHub
+, fetchpatch
+, cmake
+, libusb1
+, gtk3
+, pkg-config
+, wrapGAppsHook
+, withGUI ? false
+}:
 
 let
-  version = "1.1.0";
-in
-stdenv.mkDerivation {
-  name = "stlink-${version}";
+  # The Darwin build of stlink explicitly refers to static libusb.
+  libusb1' = if stdenv.isDarwin then libusb1.override { withStatic = true; } else libusb1;
 
-  src = fetchurl {
-    url = "https://github.com/texane/stlink/archive/${version}.tar.gz";
-    sha256 = "0b38a32ids9dpnz5h892l279fz8y1zzqk1qsnyhl1nm03p7xzi1s";
+# IMPORTANT: You need permissions to access the stlink usb devices.
+# Add services.udev.packages = [ pkgs.stlink ] to your configuration.nix
+
+in stdenv.mkDerivation rec {
+  pname = "stlink";
+  version = "1.7.0";
+
+  src = fetchFromGitHub {
+    owner = "stlink-org";
+    repo = "stlink";
+    rev = "v${version}";
+    sha256 = "03xypffpbp4imrczbxmq69vgkr7mbp0ps9dk815br5wwlz6vgygl";
   };
 
-  buildInputs = [ autoconf automake libtool pkgconfig libusb1 ];
-  preConfigure = "./autogen.sh";
+  patches = [
+    (fetchpatch {
+      url = "https://github.com/stlink-org/stlink/commit/468b1d2daa853b975c33ab69876c486734f2c6a7.diff";
+      sha256 = "sha256-ueSi/zc7xbOATl0yBtCL4U64IQ/yqu6sMYDOiPl1JBI=";
+    })
+  ];
 
-  meta = with stdenv.lib; {
+  buildInputs = [
+    libusb1'
+  ] ++ lib.optionals withGUI [
+    gtk3
+  ];
+  nativeBuildInputs = [
+    cmake
+  ] ++ lib.optionals withGUI [
+    pkg-config
+    wrapGAppsHook
+  ];
+
+  cmakeFlags = [
+    "-DSTLINK_MODPROBED_DIR=${placeholder "out"}/etc/modprobe.d"
+    "-DSTLINK_UDEV_RULES_DIR=${placeholder "out"}/lib/udev/rules.d"
+  ];
+
+  meta = with lib; {
     description = "In-circuit debug and programming for ST-Link devices";
     license = licenses.bsd3;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.bjornfor ];
+    platforms = platforms.unix;
+    maintainers = [ maintainers.bjornfor maintainers.rongcuid ];
   };
 }

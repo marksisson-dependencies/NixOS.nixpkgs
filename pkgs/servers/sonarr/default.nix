@@ -1,33 +1,39 @@
-{ stdenv, fetchurl, mono, libmediainfo, sqlite, makeWrapper, ... }:
+{ lib, stdenv, fetchurl, mono, libmediainfo, sqlite, curl, makeWrapper, nixosTests }:
 
 stdenv.mkDerivation rec {
-  name = "sonarr-${version}";
-  version = "2.0.0.4409";
+  pname = "sonarr";
+  version = "3.0.10.1567";
 
   src = fetchurl {
-    url = "http://download.sonarr.tv/v2/master/mono/NzbDrone.master.${version}.mono.tar.gz";
-    sha256 = "1kaj1m4ifby8liks8i7fsbgwbajaqwd96yindqp5maf2n6px2nw2";
+    url = "https://download.sonarr.tv/v3/main/${version}/Sonarr.main.${version}.linux.tar.gz";
+    hash = "sha256-6zdp/Bg+9pcrElW5neB+BC16Vn1VhTjhMRRIxGrKhxc=";
   };
 
-  buildInputs = [
-    makeWrapper
-  ];
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out/bin
     cp -r * $out/bin/
-
     makeWrapper "${mono}/bin/mono" $out/bin/NzbDrone \
-      --add-flags "$out/bin/NzbDrone.exe" \
-      --prefix LD_LIBRARY_PATH ':' "${sqlite.out}/lib" \
-      --prefix LD_LIBRARY_PATH ':' "${libmediainfo}/lib"
+      --add-flags "$out/bin/Sonarr.exe" \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [
+          curl sqlite libmediainfo ]}
+
+    runHook postInstall
   '';
+
+  passthru = {
+    updateScript = ./update.sh;
+    tests.smoke-test = nixosTests.sonarr;
+  };
 
   meta = {
     description = "Smart PVR for newsgroup and bittorrent users";
-    homepage = https://sonarr.tv/;
-    license = stdenv.lib.licenses.gpl3;
-    maintainers = [ stdenv.lib.maintainers.fadenb ];
-    platforms = stdenv.lib.platforms.all;
+    homepage = "https://sonarr.tv/";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ fadenb purcell ];
+    platforms = lib.platforms.all;
   };
 }

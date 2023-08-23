@@ -1,22 +1,126 @@
-{ stdenv, fetchurl, fetchpatch, zlib, expat, gettext }:
+{ lib, stdenv
+, fetchFromGitHub
+, zlib
+, expat
+, cmake
+, which
+, libxml2
+, python3
+, gettext
+, doxygen
+, graphviz
+, libxslt
+, libiconv
+, removeReferencesTo
+}:
 
 stdenv.mkDerivation rec {
-  name = "exiv2-0.25";
+  pname = "exiv2";
+  version = "0.27.7";
 
-  src = fetchurl {
-    url = "http://www.exiv2.org/${name}.tar.gz";
-    sha256 = "197g6vgcpyf9p2cwn5p5hb1r714xsk1v4p96f5pv1z8mi9vzq2y8";
+  outputs = [ "out" "lib" "dev" "doc" "man" "static" ];
+
+  src = fetchFromGitHub {
+    owner = "exiv2";
+    repo  = "exiv2";
+    rev = "v${version}";
+    sha256 = "sha256-xytVGrLDS22n2/yydFTT6CsDESmhO9mFbPGX4yk+b6g=";
   };
-  postPatch = "patchShebangs ./src/svn_version.sh";
 
-  outputs = [ "out" "dev" ];
+  nativeBuildInputs = [
+    cmake
+    doxygen
+    gettext
+    graphviz
+    libxslt
+    removeReferencesTo
+  ];
 
-  nativeBuildInputs = [ gettext ];
-  propagatedBuildInputs = [ zlib expat ];
+  buildInputs = lib.optional stdenv.isDarwin libiconv;
 
-  meta = {
-    homepage = http://www.exiv2.org/;
+  propagatedBuildInputs = [
+    expat
+    zlib
+  ];
+
+  nativeCheckInputs = [
+    libxml2.bin
+    python3
+    which
+  ];
+
+  cmakeFlags = [
+    "-DEXIV2_ENABLE_NLS=ON"
+    "-DEXIV2_BUILD_DOC=ON"
+    "-DEXIV2_ENABLE_BMFF=ON"
+  ];
+
+  buildFlags = [
+    "all"
+    "doc"
+  ];
+
+  doCheck = true;
+
+  preCheck = ''
+    patchShebangs ../test/
+    mkdir ../test/tmp
+
+    ${lib.optionalString stdenv.hostPlatform.isAarch ''
+      # Fix tests on arm
+      # https://github.com/Exiv2/exiv2/issues/933
+      rm -f ../tests/bugfixes/github/test_CVE_2018_12265.py
+    ''}
+
+    ${lib.optionalString stdenv.isDarwin ''
+      export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH''${DYLD_LIBRARY_PATH:+:}$PWD/lib
+      # Removing tests depending on charset conversion
+      substituteInPlace ../test/Makefile --replace "conversions.sh" ""
+      rm -f ../tests/bugfixes/redmine/test_issue_460.py
+      rm -f ../tests/bugfixes/redmine/test_issue_662.py
+      rm -f ../tests/bugfixes/github/test_issue_1046.py
+
+      rm ../tests/bugfixes/redmine/test_issue_683.py
+
+      # disable tests that requires loopback networking
+      substituteInPlace  ../tests/bash_tests/testcases.py \
+        --replace "def io_test(self):" "def io_disabled(self):"
+     ''}
+  '' + lib.optionalString (stdenv.isDarwin && stdenv.isAarch64) ''
+    export LC_ALL=C
+  '';
+
+  # With CMake we have to enable samples or there won't be
+  # a tests target. This removes them.
+  postInstall = ''
+    ( cd "$out/bin"
+      mv exiv2 .exiv2
+      rm *
+      mv .exiv2 exiv2
+    )
+
+    mkdir -p $static/lib
+    mv $lib/lib/*.a $static/lib/
+
+    remove-references-to -t ${stdenv.cc.cc} $lib/lib/*.so.*.*.* $out/bin/exiv2 $static/lib/*.a
+  '';
+
+  postFixup = ''
+    substituteInPlace "$dev"/lib/cmake/exiv2/exiv2Config.cmake --replace \
+      "set(_IMPORT_PREFIX \"$out\")" \
+      "set(_IMPORT_PREFIX \"$static\")"
+    substituteInPlace "$dev"/lib/cmake/exiv2/exiv2Config-*.cmake --replace \
+      "$lib/lib/libexiv2-xmp.a" \
+      "$static/lib/libexiv2-xmp.a"
+  '';
+
+  disallowedReferences = [ stdenv.cc.cc ];
+
+  meta = with lib; {
+    homepage = "https://exiv2.org";
     description = "A library and command-line utility to manage image metadata";
-    platforms = stdenv.lib.platforms.all;
+    platforms = platforms.all;
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ wegank ];
   };
 }

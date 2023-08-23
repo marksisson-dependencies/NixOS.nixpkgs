@@ -1,24 +1,47 @@
-{ stdenv, fetchurl, pkgconfig, udev, dbus_libs, perl, python2
-, IOKit ? null }:
+{ stdenv
+, lib
+, fetchurl
+, autoreconfHook
+, autoconf-archive
+, pkg-config
+, perl
+, python3
+, dbus
+, polkit
+, systemdMinimal
+, IOKit
+, pname ? "pcsclite"
+, polkitSupport ? false
+}:
 
 stdenv.mkDerivation rec {
-  name = "pcsclite-${version}";
-  version = "1.8.17";
+  inherit pname;
+  version = "1.9.5";
+
+  outputs = [ "bin" "out" "dev" "doc" "man" ];
 
   src = fetchurl {
-    url = "https://alioth.debian.org/frs/download.php/file/4173/pcsc-lite-${version}.tar.bz2";
-    sha256 = "0vq2291kvnbg8czlakqahxrdhsvp74fqy3z75lfjlkq2aj36yayp";
+    url = "https://pcsclite.apdu.fr/files/pcsc-lite-${version}.tar.bz2";
+    hash = "sha256-nuP5szNTdWIXeJNVmtT3uNXCPr6Cju9TBWwC2xQEnQg=";
   };
 
   patches = [ ./no-dropdir-literals.patch ];
 
+  postPatch = ''
+    sed -i configure.ac \
+      -e "s@polkit_policy_dir=.*@polkit_policy_dir=$bin/share/polkit-1/actions@"
+  '';
+
   configureFlags = [
+    "--enable-confdir=/etc"
     # The OS should care on preparing the drivers into this location
     "--enable-usbdropdir=/var/lib/pcsc/drivers"
-    "--enable-confdir=/etc"
+    (lib.enableFeature stdenv.isLinux "libsystemd")
+    (lib.enableFeature polkitSupport "polkit")
+  ] ++ lib.optionals stdenv.isLinux [
     "--enable-ipcdir=/run/pcscd"
-  ] ++ stdenv.lib.optional stdenv.isLinux
-         "--with-systemdsystemunitdir=\${out}/etc/systemd/system";
+    "--with-systemdsystemunitdir=${placeholder "bin"}/lib/systemd/system"
+  ];
 
   postConfigure = ''
     sed -i -re '/^#define *PCSCLITE_HP_DROPDIR */ {
@@ -26,15 +49,24 @@ stdenv.mkDerivation rec {
     }' config.h
   '';
 
-  nativeBuildInputs = [ pkgconfig perl python2 ];
-  buildInputs = stdenv.lib.optionals stdenv.isLinux [ udev dbus_libs ]
-             ++ stdenv.lib.optionals stdenv.isDarwin [ IOKit ];
+  postInstall = ''
+    # pcsc-spy is a debugging utility and it drags python into the closure
+    moveToOutput bin/pcsc-spy "$dev"
+  '';
 
-  meta = with stdenv.lib; {
+  enableParallelBuilding = true;
+
+  nativeBuildInputs = [ autoreconfHook autoconf-archive pkg-config perl ];
+
+  buildInputs = [ python3 ]
+    ++ lib.optionals stdenv.isLinux [ systemdMinimal ]
+    ++ lib.optionals stdenv.isDarwin [ IOKit ]
+    ++ lib.optionals polkitSupport [ dbus polkit ];
+
+  meta = with lib; {
     description = "Middleware to access a smart card using SCard API (PC/SC)";
-    homepage = http://pcsclite.alioth.debian.org/;
+    homepage = "https://pcsclite.apdu.fr/";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ viric wkennington ];
     platforms = with platforms; unix;
   };
 }

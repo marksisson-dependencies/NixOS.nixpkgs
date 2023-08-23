@@ -1,14 +1,13 @@
-{ config, lib, pkgs, options, modulesPath, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 let
-  inherit (lib) mkOption mkIf singleton;
   cfg = config.services.xserver.windowManager.wmii;
   wmii = pkgs.wmii_hg;
 in
 {
   options = {
-    services.xserver.windowManager.wmii.enable = mkEnableOption "wmii";
+    services.xserver.windowManager.wmii.enable = mkEnableOption (lib.mdDoc "wmii");
   };
 
   config = mkIf cfg.enable {

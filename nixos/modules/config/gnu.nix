@@ -1,21 +1,19 @@
 { config, lib, pkgs, ... }:
 
-with lib;
-
 {
   options = {
-    gnu = mkOption {
-      type = types.bool;
+    gnu = lib.mkOption {
+      type = lib.types.bool;
       default = false;
-      description =
-        '' When enabled, GNU software is chosen by default whenever a there is
-           a choice between GNU and non-GNU software (e.g., GNU lsh
-           vs. OpenSSH).
-        '';
+      description = lib.mdDoc ''
+        When enabled, GNU software is chosen by default whenever a there is
+        a choice between GNU and non-GNU software (e.g., GNU lsh
+        vs. OpenSSH).
+      '';
     };
   };
 
-  config = mkIf config.gnu {
+  config = lib.mkIf config.gnu {
 
     environment.systemPackages = with pkgs;
       # TODO: Adjust `requiredPackages' from `system-path.nix'.
@@ -26,12 +24,11 @@ with lib;
         nano zile
         texinfo # for the stand-alone Info reader
       ]
-      ++ stdenv.lib.optional (!stdenv.isArm) grub2;
+      ++ lib.optional (!stdenv.isAarch32) grub2;
 
 
     # GNU GRUB, where available.
-    boot.loader.grub.enable = !pkgs.stdenv.isArm;
-    boot.loader.grub.version = 2;
+    boot.loader.grub.enable = !pkgs.stdenv.isAarch32;
 
     # GNU lsh.
     services.openssh.enable = false;

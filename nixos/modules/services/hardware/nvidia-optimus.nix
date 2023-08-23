@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, lib, ... }:
 
 let kernel = config.boot.kernelPackages; in
 
@@ -11,7 +11,7 @@ let kernel = config.boot.kernelPackages; in
     hardware.nvidiaOptimus.disable = lib.mkOption {
       default = false;
       type = lib.types.bool;
-      description = ''
+      description = lib.mdDoc ''
         Completely disable the NVIDIA graphics card and use the
         integrated graphics processor instead.
       '';
@@ -23,7 +23,7 @@ let kernel = config.boot.kernelPackages; in
   ###### implementation
 
   config = lib.mkIf config.hardware.nvidiaOptimus.disable {
-    boot.blacklistedKernelModules = ["nouveau" "nvidia" "nvidiafb"];
+    boot.blacklistedKernelModules = ["nouveau" "nvidia" "nvidiafb" "nvidia-drm"];
     boot.kernelModules = [ "bbswitch" ];
     boot.extraModulePackages = [ kernel.bbswitch ];
 

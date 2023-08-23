@@ -26,20 +26,20 @@ in {
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Enable the riemann-dash dashboard daemon.
         '';
       };
       config = mkOption {
         type = types.lines;
-        description = ''
+        description = lib.mdDoc ''
           Contents added to the end of the riemann-dash configuration file.
         '';
       };
       dataDir = mkOption {
         type = types.str;
         default = "/var/riemann-dash";
-        description = ''
+        description = lib.mdDoc ''
           Location of the riemann-base dir. The dashboard configuration file is
           is stored to this directory. The directory is created automatically on
           service start, and owner is set to the riemanndash user.
@@ -51,26 +51,28 @@ in {
 
   config = mkIf cfg.enable {
 
-    users.extraGroups.riemanndash.gid = config.ids.gids.riemanndash;
+    users.groups.riemanndash.gid = config.ids.gids.riemanndash;
 
-    users.extraUsers.riemanndash = {
+    users.users.riemanndash = {
       description = "riemann-dash daemon user";
       uid = config.ids.uids.riemanndash;
       group = "riemanndash";
     };
+
+    systemd.tmpfiles.rules = [
+      "d '${cfg.dataDir}' - riemanndash riemanndash - -"
+    ];
 
     systemd.services.riemann-dash = {
       wantedBy = [ "multi-user.target" ];
       wants = [ "riemann.service" ];
       after = [ "riemann.service" ];
       preStart = ''
-        mkdir -p ${cfg.dataDir}/config
-        chown -R riemanndash:riemanndash ${cfg.dataDir}
+        mkdir -p '${cfg.dataDir}/config'
       '';
       serviceConfig = {
         User = "riemanndash";
         ExecStart = "${launcher}/bin/riemann-dash";
-        PermissionsStartOnly = true;
       };
     };
 

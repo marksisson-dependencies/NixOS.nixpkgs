@@ -1,37 +1,40 @@
-{ stdenv, fetchdarcs, rustPlatform, openssl, libssh }:
+{ lib, stdenv
+, fetchCrate
+, rustPlatform
+, pkg-config
+, libsodium
+, openssl
+, xxHash
+, darwin
+, gitImportSupport ? true
+, libgit2 ? null
+}:
 
-with rustPlatform;
+rustPlatform.buildRustPackage rec {
+  pname = "pijul";
+  version = "1.0.0-beta.6";
 
-buildRustPackage rec {
-  name = "pijul-${version}";
-  version = "0.2-6ab9ba";
-
-  src = fetchdarcs {
-    url = "http://pijul.org/";
-    context = ./pijul.org.context;
-    sha256 = "1cgkcr5wdkwj7s0rda90bfchbwmchgi60w5d637894w20hkplsr4";
+  src = fetchCrate {
+    inherit version pname;
+    hash = "sha256-1cIb4QsDYlOCGrQrLgEwIjjHZ3WwD2o0o0bF+OOqEtI=";
   };
 
-  sourceRoot = "fetchdarcs/pijul";
+  cargoHash = "sha256-mRi0NUETTdYE/oM+Jo7gW/zNby8dPAKl6XhzP0Qzsf0=";
 
-  depsSha256 = "110bj2lava1xs75z6k34aip7zb7rcmnxk5hmiyi32i9hs0ddsdrz";
+  doCheck = false;
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ openssl libsodium xxHash ]
+    ++ (lib.optionals gitImportSupport [ libgit2 ])
+    ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+      CoreServices Security SystemConfiguration
+    ]));
 
-  cargoUpdateHook = ''
-    cp -r ../libpijul src/
-  '';
+  buildFeatures = lib.optional gitImportSupport "git";
 
-  setSourceRoot = ''
-    chmod -R u+w "$sourceRoot"
-    cp -r "$sourceRoot"/../libpijul "$sourceRoot"/src/
-  '';
-
-  buildInputs = [ openssl libssh ];
-
-  meta = with stdenv.lib; {
-    homepage = https://pijul.org/;
-    description = "Fast DVCS based on a categorical theory of patches";
-    license = licenses.gpl3;
-    platforms = stdenv.lib.platforms.x86_64;  # i686 builds fail due to lmdb
-    maintainers = with maintainers; [ puffnfresh ];
+  meta = with lib; {
+    description = "A distributed version control system";
+    homepage = "https://pijul.org";
+    license = with licenses; [ gpl2Plus ];
+    maintainers = with maintainers; [ gal_bolle dywedir fabianhjr ];
   };
 }

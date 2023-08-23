@@ -1,38 +1,49 @@
-{stdenv, fetchurl, guile, texinfo}:
-
-assert stdenv ? cc && stdenv.cc.isGNU;
+{ lib
+, stdenv
+, fetchurl
+, guile
+, pkg-config
+, texinfo
+}:
 
 stdenv.mkDerivation rec {
-  name = "guile-lib-0.2.2";
+  pname = "guile-lib";
+  version = "0.2.7";
 
   src = fetchurl {
-    url = "mirror://savannah/guile-lib/${name}.tar.gz";
-    sha256 = "1f9n2b5b5r75lzjinyk6zp6g20g60msa0jpfrk5hhg4j8cy0ih4b";
+    url = "mirror://savannah/${pname}/${pname}-${version}.tar.gz";
+    hash = "sha256-5O87hF8SGILHwM8E+BocuP02DG9ktWuGjeVUYhT5BN4=";
   };
 
-  buildInputs = [guile texinfo];
+  nativeBuildInputs = [
+    pkg-config
+  ];
+  buildInputs = [
+    guile
+    texinfo
+  ];
 
-  doCheck = true;
+  makeFlags = [ "GUILE_AUTO_COMPILE=0" ];
 
-  preCheck =
+  doCheck = !stdenv.isDarwin;
+
+  preCheck = ''
     # Make `libgcc_s.so' visible for `pthread_cancel'.
-    '' export LD_LIBRARY_PATH="$(dirname $(echo ${stdenv.cc.cc.lib}/lib*/libgcc_s.so)):$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH=\
+    "$(dirname $(echo ${stdenv.cc.cc.lib}/lib*/libgcc_s.so))''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+  '';
+
+  meta = with lib; {
+    homepage = "https://www.nongnu.org/guile-lib/";
+    description = "A collection of useful Guile Scheme modules";
+    longDescription = ''
+      guile-lib is intended as an accumulation place for pure-scheme Guile
+      modules, allowing for people to cooperate integrating their generic Guile
+      modules into a coherent library.  Think "a down-scaled, limited-scope CPAN
+      for Guile".
     '';
-
-  meta = {
-    description = "Guile-Library, a collection of useful Guile Scheme modules";
-
-    longDescription =
-      '' guile-lib is intended as an accumulation place for pure-scheme Guile
-         modules, allowing for people to cooperate integrating their generic
-         Guile modules into a coherent library.  Think "a down-scaled,
-         limited-scope CPAN for Guile".
-      '';
-
-    homepage = http://www.nongnu.org/guile-lib/;
-    license = stdenv.lib.licenses.gpl3Plus;
-
-    maintainers = [ ];
-    platforms = stdenv.lib.platforms.gnu;  # arbitrary choice
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ vyp ];
+    platforms = guile.meta.platforms;
   };
 }

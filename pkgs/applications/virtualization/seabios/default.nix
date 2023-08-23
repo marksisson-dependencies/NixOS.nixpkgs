@@ -1,16 +1,21 @@
-{ stdenv, fetchurl, iasl, python }:
+{ lib, stdenv, fetchgit, acpica-tools, python3 }:
 
 stdenv.mkDerivation rec {
 
-  name = "seabios-${version}";
-  version = "1.9.3";
+  pname = "seabios";
+  version = "1.16.2";
 
-  src = fetchurl {
-    url = "http://code.coreboot.org/p/seabios/downloads/get/${name}.tar.gz";
-    sha256 = "13b7n20qfc2cc8v70jvl9r51m563rss9lbk1aflirvnd9705vs0s";
+  src = fetchgit {
+    url = "https://git.seabios.org/seabios.git";
+    rev = "rel-${version}";
+    sha256 = "sha256-J2FuT+FXn9YoFLSfxDOxyKZvKrys59a6bP1eYvEXVNU=";
   };
 
-  buildInputs = [ iasl python ];
+  nativeBuildInputs = [ python3 ];
+
+  buildInputs = [ acpica-tools ];
+
+  strictDeps = true;
 
   hardeningDisable = [ "pic" "stackprotector" "fortify" ];
 
@@ -30,17 +35,16 @@ stdenv.mkDerivation rec {
     cp out/Csm16.bin $out/Csm16.bin
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Open source implementation of a 16bit X86 BIOS";
     longDescription = ''
       SeaBIOS is an open source implementation of a 16bit X86 BIOS.
       It can run in an emulator or it can run natively on X86 hardware with the use of coreboot.
       SeaBIOS is the default BIOS for QEMU and KVM.
     '';
-    homepage = http://www.seabios.org;
+    homepage = "http://www.seabios.org";
     license = licenses.lgpl3;
-    maintainers = [ maintainers.tstrobel ];
-    platforms = platforms.linux;
+    maintainers = with maintainers; [ ];
+    platforms = [ "i686-linux" "x86_64-linux" ];
   };
 }
-

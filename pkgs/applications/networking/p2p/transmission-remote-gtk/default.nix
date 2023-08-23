@@ -1,33 +1,32 @@
-{ stdenv, autoconf, automake, libtool, makeWrapper, fetchgit, pkgconfig
-, intltool, gtk3, json_glib, curl }:
-
+{ lib, stdenv, wrapGAppsHook, fetchFromGitHub, pkg-config, gtk3, json-glib, curl
+, glib, appstream-glib, desktop-file-utils, meson, ninja, geoip, gettext
+, libappindicator, libmrss, libproxy }:
 
 stdenv.mkDerivation rec {
-  name = "transmission-remote-gtk-${version}";
-  version = "1.2";
+  pname = "transmission-remote-gtk";
+  version = "1.5.1";
 
-  src = fetchgit {
-    url = "https://github.com/ajf8/transmission-remote-gtk.git";
-    rev = "aa4e0c7d836cfcc10d8effd10225abb050343fc8";
-    sha256 = "0qz0jzr5w5fik2awfps0q49blwm4z7diqca2405rr3fyhyjhx42b";
+  src = fetchFromGitHub {
+    owner = "transmission-remote-gtk";
+    repo = "transmission-remote-gtk";
+    rev = version;
+    sha256 = "4/ID12JukDDvJzWupc76r7W8Us5erwv8oXZhDnB6VDk=";
   };
 
-  buildInputs = [ libtool autoconf automake makeWrapper pkgconfig intltool
-                  gtk3 json_glib curl ];
+  nativeBuildInputs =
+    [ desktop-file-utils wrapGAppsHook meson ninja pkg-config appstream-glib ];
 
-  preConfigure = "sh autogen.sh";
+  buildInputs =
+    [ gtk3 json-glib curl glib gettext libmrss geoip libproxy libappindicator ];
 
-  preFixup = ''
-    wrapProgram "$out/bin/transmission-remote-gtk" \
-      --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH"
-    rm $out/share/icons/hicolor/icon-theme.cache
-  '';
+  doCheck = false; # Requires network access
 
-  meta = with stdenv.lib;
-    { description = "GTK remote control for the Transmission BitTorrent client";
-      homepage = https://github.com/ajf8/transmission-remote-gtk;
-      license = licenses.gpl2;
-      maintainers = [ maintainers.ehmry ];
-      platforms = platforms.linux;
-    };
+  meta = with lib; {
+    description = "GTK remote control for the Transmission BitTorrent client";
+    homepage =
+      "https://github.com/transmission-remote-gtk/transmission-remote-gtk";
+    license = licenses.gpl2;
+    maintainers = [ maintainers.ehmry ];
+    platforms = platforms.linux;
+  };
 }

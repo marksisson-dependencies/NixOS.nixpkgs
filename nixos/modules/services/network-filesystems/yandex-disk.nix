@@ -21,45 +21,48 @@ in
     services.yandex-disk = {
 
       enable = mkOption {
+        type = types.bool;
         default = false;
-        description = "
+        description = lib.mdDoc ''
           Whether to enable Yandex-disk client. See https://disk.yandex.ru/
-        ";
+        '';
       };
 
       username = mkOption {
         default = "";
-        type = types.string;
-        description = ''
+        type = types.str;
+        description = lib.mdDoc ''
           Your yandex.com login name.
         '';
       };
 
       password = mkOption {
         default = "";
-        type = types.string;
-        description = ''
+        type = types.str;
+        description = lib.mdDoc ''
           Your yandex.com password. Warning: it will be world-readable in /nix/store.
         '';
       };
 
       user = mkOption {
         default = null;
-        description = ''
+        type = types.nullOr types.str;
+        description = lib.mdDoc ''
           The user the yandex-disk daemon should run as.
         '';
       };
 
       directory = mkOption {
+        type = types.path;
         default = "/home/Yandex.Disk";
-        description = "The directory to use for Yandex.Disk storage";
+        description = lib.mdDoc "The directory to use for Yandex.Disk storage";
       };
 
       excludes = mkOption {
         default = "";
-        type = types.string;
+        type = types.commas;
         example = "data,backup";
-        description = ''
+        description = lib.mdDoc ''
           Comma-separated list of directories which are excluded from synchronization.
         '';
       };
@@ -73,7 +76,7 @@ in
 
   config = mkIf cfg.enable {
 
-    users.extraUsers = mkIf (cfg.user == null) [ {
+    users.users = mkIf (cfg.user == null) [ {
       name = u;
       uid = config.ids.uids.yandexdisk;
       group = "nogroup";
@@ -99,10 +102,10 @@ in
             exit 1
         fi
 
-        ${pkgs.su}/bin/su -s ${pkgs.stdenv.shell} ${u} \
+        ${pkgs.su}/bin/su -s ${pkgs.runtimeShell} ${u} \
           -c '${pkgs.yandex-disk}/bin/yandex-disk token -p ${cfg.password} ${cfg.username} ${dir}/token'
 
-        ${pkgs.su}/bin/su -s ${pkgs.stdenv.shell} ${u} \
+        ${pkgs.su}/bin/su -s ${pkgs.runtimeShell} ${u} \
           -c '${pkgs.yandex-disk}/bin/yandex-disk start --no-daemon -a ${dir}/token -d ${cfg.directory} --exclude-dirs=${cfg.excludes}'
       '';
 

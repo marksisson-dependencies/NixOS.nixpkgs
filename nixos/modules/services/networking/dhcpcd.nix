@@ -16,10 +16,10 @@ let
   # Don't start dhcpcd on explicitly configured interfaces or on
   # interfaces that are part of a bridge, bond or sit device.
   ignoredInterfaces =
-    map (i: i.name) (filter (i: if i.useDHCP != null then !i.useDHCP else i.ip4 != [ ] || i.ipAddress != null) interfaces)
+    map (i: i.name) (filter (i: if i.useDHCP != null then !i.useDHCP else i.ipv4.addresses != [ ]) interfaces)
     ++ mapAttrsToList (i: _: i) config.networking.sits
     ++ concatLists (attrValues (mapAttrs (n: v: v.interfaces) config.networking.bridges))
-    ++ concatLists (attrValues (mapAttrs (n: v: v.interfaces) config.networking.vswitches))
+    ++ flatten (concatMap (i: attrNames (filterAttrs (_: config: config.type != "internal") i.interfaces)) (attrValues config.networking.vswitches))
     ++ concatLists (attrValues (mapAttrs (n: v: v.interfaces) config.networking.bonds))
     ++ config.networking.dhcpcd.denyInterfaces;
 
@@ -32,6 +32,13 @@ let
   allowInterfaces = arrayAppendOrNull cfg.allowInterfaces
     (if !config.networking.useDHCP && enableDHCP then
       map (i: i.name) (filter (i: i.useDHCP == true) interfaces) else null);
+
+  staticIPv6Addresses = map (i: i.name) (filter (i: i.ipv6.addresses != [ ]) interfaces);
+
+  noIPv6rs = concatStringsSep "\n" (map (name: ''
+    interface ${name}
+    noipv6rs
+  '') staticIPv6Addresses);
 
   # Config file adapted from the one that ships with dhcpcd.
   dhcpcdConf = pkgs.writeText "dhcpcd.conf"
@@ -59,6 +66,26 @@ let
       # Use the list of allowed interfaces if specified
       ${optionalString (allowInterfaces != null) "allowinterfaces ${toString allowInterfaces}"}
 
+      # Immediately fork to background if specified, otherwise wait for IP address to be assigned
+      ${{
+        background = "background";
+        any = "waitip";
+        ipv4 = "waitip 4";
+        ipv6 = "waitip 6";
+        both = "waitip 4\nwaitip 6";
+        if-carrier-up = "";
+      }.${cfg.wait}}
+
+      ${optionalString (config.networking.enableIPv6 == false) ''
+        # Don't solicit or accept IPv6 Router Advertisements and DHCPv6 if disabled IPv6
+        noipv6
+      ''}
+
+      ${optionalString (config.networking.enableIPv6 && cfg.IPv6rs == null && staticIPv6Addresses != [ ]) noIPv6rs}
+      ${optionalString (config.networking.enableIPv6 && cfg.IPv6rs == false) ''
+        noipv6rs
+      ''}
+
       ${cfg.extraConfig}
     '';
 
@@ -71,8 +98,7 @@ let
           # anything ever again ("couldn't resolve ..., giving up on
           # it"), so we silently lose time synchronisation. This also
           # applies to openntpd.
-          ${config.systemd.package}/bin/systemctl try-restart ntpd.service
-          ${config.systemd.package}/bin/systemctl try-restart openntpd.service
+          /run/current-system/systemd/bin/systemctl try-reload-or-restart ntpd.service openntpd.service chronyd.service || true
       fi
 
       ${cfg.runHook}
@@ -89,7 +115,7 @@ in
     networking.dhcpcd.enable = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Whether to enable dhcpcd for device configuration. This is mainly to
         explicitly disable dhcpcd (for example when using networkd).
       '';
@@ -98,7 +124,7 @@ in
     networking.dhcpcd.persistent = mkOption {
       type = types.bool;
       default = false;
-      description = ''
+      description = lib.mdDoc ''
           Whenever to leave interfaces configured on dhcpcd daemon
           shutdown. Set to true if you have your root or store mounted
           over the network or this machine accepts SSH connections
@@ -110,7 +136,7 @@ in
     networking.dhcpcd.denyInterfaces = mkOption {
       type = types.listOf types.str;
       default = [];
-      description = ''
+      description = lib.mdDoc ''
          Disable the DHCP client for any interface whose name matches
          any of the shell glob patterns in this list. The purpose of
          this option is to blacklist virtual interfaces such as those
@@ -121,7 +147,7 @@ in
     networking.dhcpcd.allowInterfaces = mkOption {
       type = types.nullOr (types.listOf types.str);
       default = null;
-      description = ''
+      description = lib.mdDoc ''
          Enable the DHCP client for any interface whose name matches
          any of the shell glob patterns in this list. Any interface not
          explicitly matched by this pattern will be denied. This pattern only
@@ -132,8 +158,18 @@ in
     networking.dhcpcd.extraConfig = mkOption {
       type = types.lines;
       default = "";
-      description = ''
+      description = lib.mdDoc ''
          Literal string to append to the config file generated for dhcpcd.
+      '';
+    };
+
+    networking.dhcpcd.IPv6rs = mkOption {
+      type = types.nullOr types.bool;
+      default = null;
+      description = lib.mdDoc ''
+        Force enable or disable solicitation and receipt of IPv6 Router Advertisements.
+        This is required, for example, when using a static unique local IPv6 address (ULA)
+        and global IPv6 address auto-configuration with SLAAC.
       '';
     };
 
@@ -141,9 +177,24 @@ in
       type = types.lines;
       default = "";
       example = "if [[ $reason =~ BOUND ]]; then echo $interface: Routers are $new_routers - were $old_routers; fi";
-      description = ''
+      description = lib.mdDoc ''
          Shell code that will be run after all other hooks. See
          `man dhcpcd-run-hooks` for details on what is possible.
+      '';
+    };
+
+    networking.dhcpcd.wait = mkOption {
+      type = types.enum [ "background" "any" "ipv4" "ipv6" "both" "if-carrier-up" ];
+      default = "any";
+      description = lib.mdDoc ''
+        This option specifies when the dhcpcd service will fork to background.
+        If set to "background", dhcpcd will fork to background immediately.
+        If set to "ipv4" or "ipv6", dhcpcd will wait for the corresponding IP
+        address to be assigned. If set to "any", dhcpcd will wait for any type
+        (IPv4 or IPv6) to be assigned. If set to "both", dhcpcd will wait for
+        both an IPv4 and an IPv6 address before forking.
+        The option "if-carrier-up" is equivalent to "any" if either ethernet
+        is plugged nor WiFi is powered, and to "background" otherwise.
       '';
     };
 
@@ -154,43 +205,66 @@ in
 
   config = mkIf enableDHCP {
 
-    systemd.services.dhcpcd =
+    assertions = [ {
+      # dhcpcd doesn't start properly with malloc ∉ [ libc scudo ]
+      # see https://github.com/NixOS/nixpkgs/issues/151696
+      assertion =
+        dhcpcd.enablePrivSep
+          -> elem config.environment.memoryAllocator.provider [ "libc" "scudo" ];
+      message = ''
+        dhcpcd with privilege separation is incompatible with chosen system malloc.
+          Currently only the `libc` and `scudo` allocators are known to work.
+          To disable dhcpcd's privilege separation, overlay Nixpkgs and override dhcpcd
+          to set `enablePrivSep = false`.
+      '';
+    } ];
+
+    systemd.services.dhcpcd = let
+      cfgN = config.networking;
+      hasDefaultGatewaySet = (cfgN.defaultGateway != null && cfgN.defaultGateway.address != "")
+                          && (!cfgN.enableIPv6 || (cfgN.defaultGateway6 != null && cfgN.defaultGateway6.address != ""));
+    in
       { description = "DHCP Client";
 
-        wantedBy = [ "multi-user.target" ];
-        after = [ "network.target" ];
+        wantedBy = [ "multi-user.target" ] ++ optional (!hasDefaultGatewaySet) "network-online.target";
         wants = [ "network.target" ];
+        before = [ "network-online.target" ];
+
+        restartTriggers = [ exitHook ];
 
         # Stopping dhcpcd during a reconfiguration is undesirable
         # because it brings down the network interfaces configured by
         # dhcpcd.  So do a "systemctl restart" instead.
         stopIfChanged = false;
 
-        path = [ dhcpcd pkgs.nettools pkgs.openresolv ];
+        path = [ dhcpcd pkgs.nettools config.networking.resolvconf.package ];
 
         unitConfig.ConditionCapability = "CAP_NET_ADMIN";
 
         serviceConfig =
           { Type = "forking";
-            PIDFile = "/run/dhcpcd.pid";
+            PIDFile = "/run/dhcpcd/pid";
+            RuntimeDirectory = "dhcpcd";
             ExecStart = "@${dhcpcd}/sbin/dhcpcd dhcpcd --quiet ${optionalString cfg.persistent "--persistent"} --config ${dhcpcdConf}";
             ExecReload = "${dhcpcd}/sbin/dhcpcd --rebind";
             Restart = "always";
           };
       };
 
+    users.users.dhcpcd = {
+      isSystemUser = true;
+      group = "dhcpcd";
+    };
+    users.groups.dhcpcd = {};
+
     environment.systemPackages = [ dhcpcd ];
 
-    environment.etc =
-      [ { source = exitHook;
-          target = "dhcpcd.exit-hook";
-        }
-      ];
+    environment.etc."dhcpcd.exit-hook".source = exitHook;
 
     powerManagement.resumeCommands = mkIf config.systemd.services.dhcpcd.enable
       ''
         # Tell dhcpcd to rebind its interfaces if it's running.
-        ${config.systemd.package}/bin/systemctl reload dhcpcd.service
+        /run/current-system/systemd/bin/systemctl reload dhcpcd.service
       '';
 
   };

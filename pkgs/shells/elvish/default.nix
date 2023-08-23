@@ -1,25 +1,68 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, runCommand
+}:
 
-buildGoPackage rec {
-  name = "elvish-${version}";
-  version = "0.1";
-
-  goPackagePath = "github.com/elves/elvish";
+let
+  pname = "elvish";
+  version = "0.19.2";
+  shellPath = "/bin/elvish";
+in
+buildGoModule {
+  inherit pname version;
 
   src = fetchFromGitHub {
-    repo = "elvish";
     owner = "elves";
-    rev = "4125c2bb927330b0100b354817dd4ad252118ba6";
-    sha256 = "1xwhjbw0y6j5xy19hz39456l0v6vjg2icd7c1jx4h1cydk3yn39f";
+    repo = "elvish";
+    rev = "v${version}";
+    hash = "sha256-eCPJXCgmMvrJ2yVqYgXHXJWb6Ec0sutc91LNs4yRBYk=";
   };
 
-  goDeps = ./deps.nix;
+  vendorHash = "sha256-VMI20IP1jVkUK3rJm35szaFDfZGEEingUEL/xfVJ1cc=";
 
-  meta = with stdenv.lib; {
-    description = "A Novel unix shell in go language";
-    homepage = https://github.com/elves/elvish;
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ vrthra ];
-    platforms = with platforms; [ linux ];
+  subPackages = [ "cmd/elvish" ];
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X src.elv.sh/pkg/buildinfo.Version==${version}"
+  ];
+
+  strictDeps = true;
+
+  doCheck = false;
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
+
+    $out${shellPath} -c "
+      fn expect {|key expected|
+        var actual = \$buildinfo[\$key]
+        if (not-eq \$actual \$expected) {
+          fail '\$buildinfo['\$key']: expected '(to-string \$expected)', got '(to-string \$actual)
+        }
+      }
+
+      expect version ${version}
+    "
+
+    runHook postInstallCheck
+  '';
+
+  passthru = {
+    inherit shellPath;
+  };
+
+  meta = {
+    homepage = "https://elv.sh/";
+    description = "A friendly and expressive command shell";
+    longDescription = ''
+      Elvish is a friendly interactive shell and an expressive programming
+      language. It runs on Linux, BSDs, macOS and Windows. Despite its pre-1.0
+      status, it is already suitable for most daily interactive use.
+    '';
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ vrthra AndersonTorres ];
   };
 }

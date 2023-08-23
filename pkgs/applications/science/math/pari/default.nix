@@ -1,27 +1,56 @@
-{ stdenv, fetchurl
-, gmp, readline, libX11, libpthreadstubs, tex, perl }:
+{ lib
+, stdenv
+, fetchurl
+, fetchpatch
+, gmp
+, libX11
+, libpthreadstubs
+, perl
+, readline
+, tex
+, withThread ? true
+}:
+
+assert withThread -> libpthreadstubs != null;
 
 stdenv.mkDerivation rec {
-
-  name = "pari-${version}";
-  version = "2.9.1";
+  pname = "pari";
+  version = "2.15.4";
 
   src = fetchurl {
-    url = "http://pari.math.u-bordeaux.fr/pub/pari/unix/${name}.tar.gz";
-    sha256 = "0rq7wz9df1xs4acdzzb5dapx8vs6m5py39n2wynw2qv4d2b0ylfw";
+    urls = [
+      "https://pari.math.u-bordeaux.fr/pub/pari/unix/${pname}-${version}.tar.gz"
+      # old versions are at the url below
+      "https://pari.math.u-bordeaux.fr/pub/pari/OLD/${lib.versions.majorMinor version}/${pname}-${version}.tar.gz"
+    ];
+    hash = "sha256-w1Rb/uDG37QLd/tLurr5mdguYAabn20ovLbPAEyMXA8=";
   };
 
-  buildInputs = [ gmp readline libX11 libpthreadstubs tex perl ];
+  buildInputs = [
+    gmp
+    libX11
+    perl
+    readline
+    tex
+  ] ++ lib.optionals withThread [
+    libpthreadstubs
+  ];
 
   configureScript = "./Configure";
-  configureFlags =
-    "--mt=pthread" +
-    "--with-gmp=${gmp.dev} " +
-    "--with-readline=${readline.dev}";
+  configureFlags = [
+    "--with-gmp=${lib.getDev gmp}"
+    "--with-readline=${lib.getDev readline}"
+  ]
+  ++ lib.optional withThread "--mt=pthread";
 
-  makeFlags = "all";
+  preConfigure = ''
+    export LD=$CC
+  '';
 
-  meta = with stdenv.lib; {
+  makeFlags = [ "all" ];
+
+  meta = with lib; {
+    homepage = "http://pari.math.u-bordeaux.fr";
     description = "Computer algebra system for high-performance number theory computations";
     longDescription = ''
        PARI/GP is a widely used computer algebra system designed for fast
@@ -36,21 +65,20 @@ stdenv.mkDerivation rec {
        Bordeaux I, France), PARI is now under the GPL and maintained by Karim
        Belabas with the help of many volunteer contributors.
 
-       - PARI is a C library, allowing fast computations.  
-       - gp is an easy-to-use interactive shell giving access to the
-          PARI functions.
+       - PARI is a C library, allowing fast computations.
+       - gp is an easy-to-use interactive shell giving access to the PARI
+         functions.
        - GP is the name of gp's scripting language.
-       - gp2c, the GP-to-C compiler, combines the best of both worlds 
-          by compiling GP scripts to the C language and transparently loading 
-          the resulting functions into gp. (gp2c-compiled scripts will typically
-          run 3 or 4 times faster.) gp2c currently only understands a subset
-           of the GP language.
+       - gp2c, the GP-to-C compiler, combines the best of both worlds by
+         compiling GP scripts to the C language and transparently loading the
+         resulting functions into gp. (gp2c-compiled scripts will typically run
+         3 or 4 times faster.) gp2c currently only understands a subset of the
+         GP language.
     '';
-    homepage    = "http://pari.math.u-bordeaux.fr/";
     downloadPage = "http://pari.math.u-bordeaux.fr/download.html";
-    license     = licenses.gpl2Plus;
-    maintainers = with maintainers; [ ertes raskin AndersonTorres ];
-    platforms   = platforms.linux;
-    updateWalker = true;
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ ertes ] ++ teams.sage.members;
+    platforms = platforms.linux ++ platforms.darwin;
+    mainProgram = "gp";
   };
 }

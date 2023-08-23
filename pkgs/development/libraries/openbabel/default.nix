@@ -1,23 +1,49 @@
-{stdenv, fetchurl, cmake, zlib, libxml2, eigen, python, cairo, pkgconfig }:
+{ stdenv, lib, fetchFromGitHub, cmake, zlib, libxml2, eigen, python, cairo, pcre, pkg-config, swig, rapidjson }:
 
 stdenv.mkDerivation rec {
-  name = "openbabel-2.3.2";
+  pname = "openbabel";
+  version = "3.1.1";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/openbabel/${name}.tar.gz";
-    sha256 = "122if0jkm71ngd1b0dic8k567b3j2hcikbwnpxgchv5ag5ka5b2f";
+  src = fetchFromGitHub {
+    owner = "openbabel";
+    repo = "openbabel";
+    rev = "openbabel-${lib.replaceStrings ["."] ["-"] version}";
+    sha256 = "sha256-wQpgdfCyBAoh4pmj9j7wPTlMtraJ62w/EShxi/olVMY=";
   };
 
-  # TODO : perl & python bindings;
-  # TODO : wxGTK: I have no time to compile
-  # TODO : separate lib and apps
-  buildInputs = [ zlib libxml2 eigen python cairo ];
+  postPatch = ''
+    sed '1i#include <ctime>' -i include/openbabel/obutil.h # gcc12
+  '';
 
-  nativeBuildInputs = [ cmake pkgconfig ];
+  buildInputs = [ zlib libxml2 eigen python cairo pcre swig rapidjson ];
 
-  meta = {
-    platforms = stdenv.lib.platforms.all;
-    maintainers = [ stdenv.lib.maintainers.urkud ];
-    broken = true; # doesn't build with GCC 5; fix in GitHub
+  nativeBuildInputs = [ cmake pkg-config ];
+
+  pythonMajorMinor = "${python.sourceVersion.major}.${python.sourceVersion.minor}";
+
+  cmakeFlags = [
+    "-DRUN_SWIG=ON"
+    "-DPYTHON_BINDINGS=ON"
+  ];
+
+  postFixup = ''
+    cat <<EOF > $out/lib/python$pythonMajorMinor/site-packages/setup.py
+    from distutils.core import setup
+
+    setup(
+        name = 'pyopenbabel',
+        version = '${version}',
+        packages = ['openbabel'],
+        package_data = {'openbabel' : ['_openbabel.so']}
+    )
+    EOF
+  '';
+
+  meta = with lib; {
+    description = "A toolbox designed to speak the many languages of chemical data";
+    homepage = "http://openbabel.org";
+    platforms = platforms.all;
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ danielbarter ];
   };
 }

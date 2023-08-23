@@ -1,24 +1,26 @@
-{ stdenv, fetchFromGitHub, cmake }:
+{ lib, stdenv, fetchFromGitHub
+}:
 
 stdenv.mkDerivation rec {
-  name = "opencl-headers-2.1.0";
+  pname = "opencl-headers";
+  version = "2023.02.06";
 
   src = fetchFromGitHub {
     owner = "KhronosGroup";
     repo = "OpenCL-Headers";
-    rev = "c1770dcc6cf1daadec1905e7393f3691c1dde200";
-    sha256 = "0m9fkblqja0686i2jjqiszvq3df95gp01a2674xknlmkd6525rck";
+    rev = "v${version}";
+    sha256 = "sha256-BJDaDokyHgmyl+bGqCwG1J7iOvu0E3P3iYZ1/krot8s=";
   };
 
   installPhase = ''
     mkdir -p $out/include/CL
-    cp * $out/include/CL
+    cp CL/* $out/include/CL
   '';
 
-  meta = with stdenv.lib; {
-    description = "Khronos OpenCL headers";
-    homepage = https://www.khronos.org/registry/cl/;
-    license = licenses.mit;
+  meta = with lib; {
+    description = "Khronos OpenCL headers version ${version}";
+    homepage = "https://www.khronos.org/registry/cl/";
+    license = licenses.asl20;
     platforms = platforms.unix;
   };
 }

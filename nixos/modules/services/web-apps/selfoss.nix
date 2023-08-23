@@ -4,7 +4,6 @@ let
   cfg = config.services.selfoss;
 
   poolName = "selfoss_pool";
-  phpfpmSocketName = "/var/run/phpfpm/${poolName}.sock";
 
   dataDir = "/var/lib/selfoss";
 
@@ -21,8 +20,8 @@ let
       db_database=${cfg.database.name}
       db_username=${cfg.database.user}
       db_password=${cfg.database.password}
-      db_port=${if (cfg.database.port != null) then cfg.database.port
-                    else default_port}
+      db_port=${toString (if (cfg.database.port != null) then cfg.database.port
+                    else default_port)}
     ''
     }
     ${cfg.extraConfig}
@@ -31,13 +30,12 @@ in
   {
     options = {
       services.selfoss = {
-        enable = mkEnableOption "selfoss";
+        enable = mkEnableOption (lib.mdDoc "selfoss");
 
         user = mkOption {
           type = types.str;
           default = "nginx";
-          example = "nginx";
-          description = ''
+          description = lib.mdDoc ''
             User account under which both the service and the web-application run.
           '';
         };
@@ -45,7 +43,7 @@ in
         pool = mkOption {
           type = types.str;
           default = "${poolName}";
-          description = ''
+          description = lib.mdDoc ''
             Name of existing phpfpm pool that is used to run web-application.
             If not specified a pool will be created automatically with
             default values.
@@ -56,7 +54,7 @@ in
         type = mkOption {
           type = types.enum ["pgsql" "mysql" "sqlite"];
           default = "sqlite";
-          description = ''
+          description = lib.mdDoc ''
             Database to store feeds. Supported are sqlite, pgsql and mysql.
           '';
         };
@@ -64,7 +62,7 @@ in
         host = mkOption {
           type = types.str;
           default = "localhost";
-          description = ''
+          description = lib.mdDoc ''
             Host of the database (has no effect if type is "sqlite").
           '';
         };
@@ -72,7 +70,7 @@ in
         name = mkOption {
           type = types.str;
           default = "tt_rss";
-          description = ''
+          description = lib.mdDoc ''
             Name of the existing database (has no effect if type is "sqlite").
           '';
         };
@@ -80,7 +78,7 @@ in
         user = mkOption {
           type = types.str;
           default = "tt_rss";
-          description = ''
+          description = lib.mdDoc ''
             The database user. The user must exist and has access to
             the specified database (has no effect if type is "sqlite").
           '';
@@ -89,7 +87,7 @@ in
         password = mkOption {
           type = types.nullOr types.str;
           default = null;
-          description = ''
+          description = lib.mdDoc ''
             The database user's password (has no effect if type is "sqlite").
           '';
         };
@@ -97,7 +95,7 @@ in
         port = mkOption {
           type = types.nullOr types.int;
           default = null;
-          description = ''
+          description = lib.mdDoc ''
             The database's port. If not set, the default ports will be
             provided (5432 and 3306 for pgsql and mysql respectively)
             (has no effect if type is "sqlite").
@@ -107,7 +105,7 @@ in
       extraConfig = mkOption {
         type = types.lines;
         default = "";
-        description = ''
+        description = lib.mdDoc ''
           Extra configuration added to config.ini
         '';
       };
@@ -115,22 +113,22 @@ in
   };
 
   config = mkIf cfg.enable {
-
-    services.phpfpm.poolConfigs = mkIf (cfg.pool == "${poolName}") {
-      "${poolName}" = ''
-        listen = "${phpfpmSocketName}";
-        listen.owner = nginx
-        listen.group = nginx
-        listen.mode = 0600
-        user = nginx
-        pm = dynamic
-        pm.max_children = 75
-        pm.start_servers = 10
-        pm.min_spare_servers = 5
-        pm.max_spare_servers = 20
-        pm.max_requests = 500
-        catch_workers_output = 1
-      '';
+    services.phpfpm.pools = mkIf (cfg.pool == "${poolName}") {
+      ${poolName} = {
+        user = "nginx";
+        settings = mapAttrs (name: mkDefault) {
+          "listen.owner" = "nginx";
+          "listen.group" = "nginx";
+          "listen.mode" = "0600";
+          "pm" = "dynamic";
+          "pm.max_children" = 75;
+          "pm.start_servers" = 10;
+          "pm.min_spare_servers" = 5;
+          "pm.max_spare_servers" = 20;
+          "pm.max_requests" = 500;
+          "catch_workers_output" = 1;
+        };
+      };
     };
 
     systemd.services.selfoss-config = {

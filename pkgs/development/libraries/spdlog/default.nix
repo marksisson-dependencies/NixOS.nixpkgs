@@ -1,36 +1,71 @@
-{ stdenv, fetchFromGitHub, cmake }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, fetchpatch
+, cmake
+# Although we include upstream patches that fix compilation with fmt_10, we
+# still use fmt_9 because this dependency is propagated, and many of spdlog's
+# reverse dependencies don't support fmt_10 yet.
+, fmt_9
+, staticBuild ? stdenv.hostPlatform.isStatic
+
+# tests
+, bear, tiledb
+}:
 
 stdenv.mkDerivation rec {
-  name = "spdlog-${version}";
-  version = stdenv.lib.strings.substring 0 7 rev;
-  rev = "292bdc5eb4929f183c78d2c67082b715306f81c9";
+  pname = "spdlog";
+  version = "1.11.0";
 
   src = fetchFromGitHub {
     owner = "gabime";
-    repo = "spdlog";
-    inherit rev;
-    sha256 = "1b6b0c81a8hisaibqlzj5mrk3snrfl8p5sqa056q2f02i62zksbn";
+    repo  = "spdlog";
+    rev   = "v${version}";
+    hash  = "sha256-kA2MAb4/EygjwiLEjF9EA7k8Tk//nwcKB1+HlzELakQ=";
   };
 
-  buildInputs = [ cmake ];
+  patches = [
+    # Fix compatiblity with fmt 10.0. Remove with the next release
+    (fetchpatch {
+      url = "https://github.com/gabime/spdlog/commit/0ca574ae168820da0268b3ec7607ca7b33024d05.patch";
+      hash = "sha256-cRsQilkyUQW47PFpDwKgU/pm+tOeLvwPx32gNOPAO1U=";
+    })
+    (fetchpatch {
+      url = "https://github.com/gabime/spdlog/commit/af1785b897c9d1098d4aa7213fad232be63c19b4.patch";
+      hash = "sha256-zpfLiBeDAOsvk4vrIyXC0kvFe2WkhAhersd+fhA8DFY=";
+    })
+  ];
 
-  # cmakeFlags = [ "-DSPDLOG_BUILD_EXAMPLES=ON" ];
+  nativeBuildInputs = [ cmake ];
+  propagatedBuildInputs = [ fmt_9 ];
 
-  outputs = [ "out" "doc" ];
+  cmakeFlags = [
+    "-DSPDLOG_BUILD_SHARED=${if staticBuild then "OFF" else "ON"}"
+    "-DSPDLOG_BUILD_STATIC=${if staticBuild then "ON" else "OFF"}"
+    "-DSPDLOG_BUILD_EXAMPLE=OFF"
+    "-DSPDLOG_BUILD_BENCH=OFF"
+    "-DSPDLOG_BUILD_TESTS=ON"
+    "-DSPDLOG_FMT_EXTERNAL=ON"
+  ];
+
+  outputs = [ "out" "doc" "dev" ] ;
 
   postInstall = ''
     mkdir -p $out/share/doc/spdlog
     cp -rv ../example $out/share/doc/spdlog
   '';
 
-  meta = with stdenv.lib; {
-    description    = "Very fast, header only, C++ logging library.";
-    homepage       = https://github.com/gabime/spdlog;
+  doCheck = true;
+
+  passthru.tests = {
+    inherit bear tiledb;
+  };
+
+  meta = with lib; {
+    description    = "Very fast, header only, C++ logging library";
+    homepage       = "https://github.com/gabime/spdlog";
     license        = licenses.mit;
     maintainers    = with maintainers; [ obadz ];
     platforms      = platforms.all;
-
-    # This is a header-only library, no point in hydra building it:
-    hydraPlatforms = [];
   };
 }

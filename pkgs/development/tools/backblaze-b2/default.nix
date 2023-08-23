@@ -1,37 +1,71 @@
-{ fetchFromGitHub, makeWrapper, pythonPackages, stdenv }:
+{ lib, python3Packages, fetchPypi }:
 
-pythonPackages.buildPythonApplication rec {
-  name = "backblaze-b2-${version}";
-  version = "0.6.2";
+python3Packages.buildPythonApplication rec {
+  pname = "backblaze-b2";
+  version = "3.7.0";
 
-  src = fetchFromGitHub {
-    owner = "Backblaze";
-    repo = "B2_Command_Line_Tool";
-    rev = "3a4cd3f0b5309f79f98c2e0d51afc19fb2fe4201";
-    sha256 = "1gl1z7zg3s1xgx45i6b1bvx9iwviiiinl4my00h66qkhrw7ag8p1";
+  src = fetchPypi {
+    inherit version;
+    pname = "b2";
+    sha256 = "sha256-sW6gaZWUh3WX+0+qHRlQ4gZzKU4bL8ePPNKWo9rdF84=";
   };
 
-  propagatedBuildInputs = with pythonPackages; [ futures requests2 six tqdm4 ];
-
-  checkPhase = ''
-    python test_b2_command_line.py test
+  postPatch = ''
+    substituteInPlace requirements.txt \
+      --replace 'phx-class-registry==4.0.5' 'phx-class-registry'
+    substituteInPlace requirements.txt \
+      --replace 'tabulate==0.8.10' 'tabulate'
+    substituteInPlace setup.py \
+      --replace 'setuptools_scm<6.0' 'setuptools_scm'
   '';
+
+  nativeBuildInputs = with python3Packages; [
+    setuptools-scm
+  ];
+
+  propagatedBuildInputs = with python3Packages; [
+    b2sdk
+    phx-class-registry
+    setuptools
+    docutils
+    rst2ansi
+    tabulate
+  ];
+
+  nativeCheckInputs = with python3Packages; [
+    backoff
+    more-itertools
+    pytestCheckHook
+  ];
+
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
+
+  disabledTests = [
+    # require network
+    "test_files_headers"
+    "test_integration"
+  ];
+
+  disabledTestPaths = [
+    # requires network
+    "test/integration/test_b2_command_line.py"
+  ];
 
   postInstall = ''
     mv "$out/bin/b2" "$out/bin/backblaze-b2"
 
-    sed 's/^have b2 \&\&$/have backblaze-b2 \&\&/'   -i contrib/bash_completion/b2
-    sed 's/^\(complete -F _b2\) b2/\1 backblaze-b2/' -i contrib/bash_completion/b2
+    sed 's/b2/backblaze-b2/' -i contrib/bash_completion/b2
 
-    mkdir -p "$out/etc/bash_completion.d"
-    cp contrib/bash_completion/b2 "$out/etc/bash_completion.d/backblaze-b2"
+    mkdir -p "$out/share/bash-completion/completions"
+    cp contrib/bash_completion/b2 "$out/share/bash-completion/completions/backblaze-b2"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Command-line tool for accessing the Backblaze B2 storage service";
-    homepage = https://github.com/Backblaze/B2_Command_Line_Tool;
+    homepage = "https://github.com/Backblaze/B2_Command_Line_Tool";
     license = licenses.mit;
-    maintainers = with maintainers; [ hrdinka kevincox ];
-    platforms = platforms.unix;
+    maintainers = with maintainers; [ hrdinka kevincox tomhoule ];
   };
 }

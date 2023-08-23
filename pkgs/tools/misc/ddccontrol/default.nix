@@ -1,41 +1,66 @@
-{ stdenv, fetchurl, autoreconfHook, intltool, perl, perlPackages, libxml2
-, pciutils, pkgconfig, gtk2, ddccontrol-db
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, intltool
+, libxml2
+, pciutils
+, pkg-config
+, gtk2
+, ddccontrol-db
 }:
 
-let version = "0.4.2"; in
-stdenv.mkDerivation {
-  name = "ddccontrol-${version}";
+stdenv.mkDerivation rec {
+  pname = "ddccontrol";
+  version = "0.6.1";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/ddccontrol/ddccontrol-${version}.tar.bz2";
-    sha1 = "fd5c53286315a61a18697a950e63ed0c8d5acff1";
+  src = fetchFromGitHub {
+    owner = "ddccontrol";
+    repo = "ddccontrol";
+    rev = version;
+    sha256 = "sha256-En2e0FDKLpMjuxa2aXuvI6h7d+D1D5x1dDg96924/qM=";
   };
 
-  nativeBuildInputs = [ autoreconfHook intltool pkgconfig ];
-
-  buildInputs = [
-    perl perlPackages.libxml_perl libxml2 pciutils gtk2 ddccontrol-db
+  nativeBuildInputs = [
+    autoreconfHook
+    intltool
+    pkg-config
   ];
 
-  patches = [ ./automake.patch ];
+  buildInputs = [
+    libxml2
+    pciutils
+    gtk2
+    ddccontrol-db
+  ];
 
-  hardeningDisable = [ "format" ];
+  configureFlags = [
+    "--with-systemdsystemunitdir=${placeholder "out"}/etc/systemd/system"
+  ];
 
   prePatch = ''
-      newPath=$(echo "${ddccontrol-db}/share/ddccontrol-db" | sed "s/\\//\\\\\\//g")
-      mv configure.ac configure.ac.old
-      oldPath="\$"
-      oldPath+="{datadir}\/ddccontrol-db"
-      sed "s/$oldPath/$newPath/" <configure.ac.old >configure.ac
-      rm configure.ac.old
+    substituteInPlace configure.ac              \
+      --replace                                 \
+      "\$""{datadir}/ddccontrol-db"             \
+      "${ddccontrol-db}/share/ddccontrol-db"
+
+    substituteInPlace src/ddcpci/Makefile.am    \
+       --replace "chmod 4711" "chmod 0711"
+  '' + lib.optionalString (lib.versionAtLeast "0.6.1" version) ''
+    # Upstream PR: https://github.com/ddccontrol/ddccontrol/pull/115
+    substituteInPlace src/lib/Makefile.am       \
+      --replace "/etc/" "\$""{sysconfdir}/"
   '';
 
-  meta = with stdenv.lib; {
+  preConfigure = ''
+    intltoolize --force
+  '';
+
+  meta = with lib; {
     description = "A program used to control monitor parameters by software";
-    homepage = "http://ddccontrol.sourceforge.net/";
-    license = licenses.gpl2;
+    homepage = "https://github.com/ddccontrol/ddccontrol";
+    license = licenses.gpl2Plus;
     platforms = platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.pakhfn ];
+    maintainers = with lib.maintainers; [ pakhfn ];
   };
 }
-

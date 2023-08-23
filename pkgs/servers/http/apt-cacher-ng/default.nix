@@ -1,22 +1,35 @@
-{ stdenv, fetchurl, cmake, doxygen, zlib, openssl, bzip2, pkgconfig, libpthreadstubs }:
+{ lib, stdenv
+, bzip2
+, cmake
+, doxygen
+, fetchurl
+, fuse
+, libevent
+, xz
+, openssl
+, pkg-config
+, systemd
+, tcp_wrappers
+, zlib
+, c-ares
+}:
 
 stdenv.mkDerivation rec {
-  name = "apt-cacher-ng-${version}";
-  version = "0.9.1";
+  pname = "apt-cacher-ng";
+  version = "3.7.4";
 
   src = fetchurl {
-    url = "http://ftp.debian.org/debian/pool/main/a/apt-cacher-ng/apt-cacher-ng_${version}.orig.tar.xz";
-    sha256 = "1d686knvig1niapc1ib2045f7jfad3m4jvz6gkwm276fqvm4p694";
+    url = "https://ftp.debian.org/debian/pool/main/a/apt-cacher-ng/apt-cacher-ng_${version}.orig.tar.xz";
+    sha256 = "0pwsj9rf6a6q7cnfbpcrfq2gjcy7sylqzqqr49g2zi39lrrh8533";
   };
 
-  NIX_LDFLAGS = "-lpthread";
-  nativeBuildInputs = [ cmake doxygen pkgconfig ];
-  buildInputs = [ zlib openssl bzip2 libpthreadstubs ];
+  nativeBuildInputs = [ cmake doxygen pkg-config ];
+  buildInputs = [ bzip2 fuse libevent xz openssl systemd tcp_wrappers zlib c-ares ];
 
-  meta = with stdenv.lib; {
-    description = "A caching proxy specialized for linux distribution files";
-    homepage = https://www.unix-ag.uni-kl.de/~bloch/acng/;
-    license = licenses.gpl2;
+  meta = with lib; {
+    description = "A caching proxy specialized for Linux distribution files";
+    homepage = "https://www.unix-ag.uni-kl.de/~bloch/acng/";
+    license = licenses.bsdOriginal;
     platforms = platforms.linux;
     maintainers = [ maintainers.makefu ];
   };

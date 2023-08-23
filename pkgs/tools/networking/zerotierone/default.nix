@@ -1,44 +1,102 @@
-{ stdenv, fetchurl, openssl, lzo, zlib, iproute, which, ronn }:
+{ lib
+, stdenv
+, rustPlatform
+, fetchFromGitHub
 
-stdenv.mkDerivation rec {
-  version = "1.1.12";
-  name = "zerotierone";
+, buildPackages
+, cargo
+, iproute2
+, lzo
+, openssl
+, pkg-config
+, ronn
+, rustc
+, zlib
+}:
 
-  src = fetchurl {
-    url = "https://github.com/zerotier/ZeroTierOne/archive/${version}.tar.gz";
-    sha256 = "0mji6bmxjvxy2mhvzfz4vpdz62n1wv6a02rapzbiad8zr2c869cm";
+let
+  pname = "zerotierone";
+  version = "1.10.6";
+
+  src = fetchFromGitHub {
+    owner = "zerotier";
+    repo = "ZeroTierOne";
+    rev = version;
+    sha256 = "sha256-mapFKeF+8jMGkxSuHaw5oUdTdSQgAdxEwF/S6iyVLbY=";
   };
 
-  preConfigure = ''
-      substituteInPlace ./osdep/LinuxEthernetTap.cpp \
-        --replace 'execlp("ip",' 'execlp("${iproute}/bin/ip",'
+in stdenv.mkDerivation {
+  inherit pname version src;
 
-      patchShebangs ./doc/build.sh
-      substituteInPlace ./doc/build.sh \
-        --replace '/usr/bin/ronn' '${ronn}/bin/ronn' \
-        --replace 'ronn -r' '${ronn}/bin/ronn -r'
+  cargoDeps = rustPlatform.importCargoLock {
+    lockFile = ./Cargo.lock;
+    outputHashes = {
+      "jwt-0.16.0" = "sha256-P5aJnNlcLe9sBtXZzfqHdRvxNfm6DPBcfcKOVeLZxcM=";
+    };
+  };
+  postPatch = "cp ${./Cargo.lock} Cargo.lock";
+
+  preConfigure = ''
+    cmp ./Cargo.lock ./zeroidc/Cargo.lock || {
+      echo 1>&2 "Please make sure that the derivation's Cargo.lock is identical to ./zeroidc/Cargo.lock!"
+      exit 1
+    }
+
+    patchShebangs ./doc/build.sh
+    substituteInPlace ./doc/build.sh \
+      --replace '/usr/bin/ronn' '${buildPackages.ronn}/bin/ronn' \
+
+    substituteInPlace ./make-linux.mk \
+      --replace '-march=armv6zk' "" \
+      --replace '-mcpu=arm1176jzf-s' ""
   '';
 
-  buildInputs = [ openssl lzo zlib iproute which ronn ];
+  nativeBuildInputs = [
+    pkg-config
+    ronn
+    rustPlatform.cargoSetupHook
+    cargo
+    rustc
+  ];
+  buildInputs = [
+    lzo
+    openssl
+    zlib
+  ] ++ lib.optional stdenv.isLinux [
+    iproute2
+  ];
 
-  installPhase = ''
-    install -Dt "$out/bin/" zerotier-one
-    ln -s $out/bin/zerotier-one $out/bin/zerotier-idtool
-    ln -s $out/bin/zerotier-one $out/bin/zerotier-cli
+  enableParallelBuilding = true;
 
-    mkdir -p $man/share/man/man8
-    for cmd in zerotier-one.8 zerotier-cli.1 zerotier-idtool.1; do
-      cat doc/$cmd | gzip -9 > $man/share/man/man8/$cmd.gz
-    done
+  buildFlags = [ "all" "selftest" ];
+
+  doCheck = stdenv.hostPlatform == stdenv.buildPlatform;
+  checkPhase = ''
+    runHook preCheck
+    ./zerotier-selftest
+    runHook postCheck
+  '';
+
+  installFlags = [ "DESTDIR=$$out/upstream" ];
+
+  postInstall = ''
+    mv $out/upstream/usr/sbin $out/bin
+
+    mkdir -p $man/share
+    mv $out/upstream/usr/share/man $man/share/man
+
+    rm -rf $out/upstream
   '';
 
   outputs = [ "out" "man" ];
 
-  meta = with stdenv.lib; {
+  passthru.updateScript = ./update.sh;
+
+  meta = with lib; {
     description = "Create flat virtual Ethernet networks of almost unlimited size";
-    homepage = https://www.zerotier.com;
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ sjmackenzie ];
-    platforms = platforms.allBut [ "i686-linux" ];
+    homepage = "https://www.zerotier.com";
+    license = licenses.bsl11;
+    maintainers = with maintainers; [ sjmackenzie zimbatm ehmry obadz danielfullmer ];
+    platforms = platforms.linux;
   };
 }

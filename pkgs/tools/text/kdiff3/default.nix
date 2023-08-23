@@ -1,22 +1,39 @@
-{ stdenv, fetchurl, automoc4, cmake, perl, pkgconfig
-, kdelibs, gettext
+{ mkDerivation
+, lib
+, fetchurl
+, extra-cmake-modules
+, kdoctools
+, wrapGAppsHook
+, boost
+, kcrash
+, kconfig
+, kinit
+, kparts
+, kiconthemes
 }:
 
-stdenv.mkDerivation rec {
-  name = "kdiff3-0.9.98";
+mkDerivation rec {
+  pname = "kdiff3";
+  version = "1.10.5";
+
   src = fetchurl {
-    url = "mirror://sourceforge/kdiff3/${name}.tar.gz";
-    sha256 = "0s6n1whkf5ck2r8782a9l8b736cj2p05and1vjjh7d02pax1lb40";
+    url = "https://download.kde.org/stable/${pname}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-2wMm0khBGnqaxBMBx/8O83ecvwQKMw/yhQDdwtTxjIw=";
   };
 
-  buildInputs = [ kdelibs ];
-  nativeBuildInputs = [ automoc4 cmake gettext perl pkgconfig ];
+  buildInputs = [ boost ];
 
-  meta = {
-    homepage = http://kdiff3.sourceforge.net/;
-    license = stdenv.lib.licenses.gpl2Plus;
+  nativeBuildInputs = [ extra-cmake-modules kdoctools wrapGAppsHook ];
+
+  propagatedBuildInputs = [ kconfig kcrash kinit kparts kiconthemes ];
+
+  cmakeFlags = [ "-Wno-dev" ];
+
+  meta = with lib; {
     description = "Compares and merges 2 or 3 files or directories";
-    maintainers = with stdenv.lib.maintainers; [viric urkud];
-    platforms = with stdenv.lib.platforms; linux;
+    homepage = "https://invent.kde.org/sdk/kdiff3";
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ peterhoeg ];
+    platforms = with platforms; linux;
   };
 }

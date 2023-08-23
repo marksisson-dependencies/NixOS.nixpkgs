@@ -1,25 +1,55 @@
-{ stdenv, fetchFromGitHub, cmake, zlib, expat, rpm, db }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, ninja
+, pkg-config
+, zlib
+, xz
+, bzip2
+, zchunk
+, zstd
+, expat
+, withRpm ? !stdenv.isDarwin
+, rpm
+, db
+}:
 
 stdenv.mkDerivation rec {
-  rev  = "0.6.23";
-  name = "libsolv-${rev}";
+  version = "0.7.24";
+  pname = "libsolv";
 
   src = fetchFromGitHub {
-    inherit rev;
-    owner  = "openSUSE";
-    repo   = "libsolv";
-    sha256 = "08ba7yx0br421lk6zf5mp0yl6nznkmc2vbka20qwm2lx5f0a25xg";
+    owner = "openSUSE";
+    repo = "libsolv";
+    rev = version;
+    sha256 = "sha256-UTVnGJO/9mQF9RwK75hh6IkoP1MwAlFaLCtdYU8uS34=";
   };
 
-  cmakeFlags = "-DENABLE_RPMMD=true -DENABLE_RPMDB=true -DENABLE_PUBKEY=true -DENABLE_RPMDB_BYRPMHEADER=true";
+  cmakeFlags = [
+    "-DENABLE_COMPLEX_DEPS=true"
+    "-DENABLE_LZMA_COMPRESSION=true"
+    "-DENABLE_BZIP2_COMPRESSION=true"
+    "-DENABLE_ZSTD_COMPRESSION=true"
+    "-DENABLE_ZCHUNK_COMPRESSION=true"
+    "-DWITH_SYSTEM_ZCHUNK=true"
+  ] ++ lib.optionals withRpm [
+    "-DENABLE_COMPS=true"
+    "-DENABLE_PUBKEY=true"
+    "-DENABLE_RPMDB=true"
+    "-DENABLE_RPMDB_BYRPMHEADER=true"
+    "-DENABLE_RPMMD=true"
+  ];
 
-  buildInputs = [ cmake zlib expat rpm db ];
+  nativeBuildInputs = [ cmake ninja pkg-config ];
+  buildInputs = [ zlib xz bzip2 zchunk zstd expat db ]
+    ++ lib.optional withRpm rpm;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A free package dependency solver";
-    license     = licenses.bsd3;
-    platforms   = platforms.linux;
+    homepage = "https://github.com/openSUSE/libsolv";
+    license = licenses.bsd3;
+    platforms = platforms.linux ++ platforms.darwin;
     maintainers = with maintainers; [ copumpkin ];
   };
 }
-

@@ -1,23 +1,23 @@
-{ stdenv, fetchurl, unzip, which, makeWrapper, jdk }:
+{ lib, stdenv, fetchurl, unzip, which, makeWrapper, jdk }:
 
 # at runtime, need jdk
 
 stdenv.mkDerivation rec {
-  name = "groovy-${version}";
-  version = "2.4.7";
+  pname = "groovy";
+  version = "3.0.11";
 
   src = fetchurl {
-    url = "http://dl.bintray.com/groovy/maven/apache-groovy-binary-${version}.zip";
-    sha256 = "1mgvpqxc99057szfhhjfirmf3xyhs0vmgb0jzy47wr2jh84xd3a3";
+    url = "mirror://apache/groovy/${version}/distribution/apache-groovy-binary-${version}.zip";
+    sha256 = "85abb44e81f94d794230cf5c2c7f1003e598a5f8a6ae04322f28c6f9efe395f6";
   };
 
-  buildInputs = [ unzip makeWrapper ];
+  nativeBuildInputs = [ makeWrapper unzip ];
 
   installPhase = ''
     mkdir -p $out
     mkdir -p $out/share/doc/groovy
     rm bin/*.bat
-    mv {bin,conf,embeddable,grooid,indy,lib} $out
+    mv {bin,conf,grooid,indy,lib} $out
     mv {licenses,LICENSE,NOTICE} $out/share/doc/groovy
 
     sed -i 's#which#${which}/bin/which#g' $out/bin/startGroovy
@@ -29,9 +29,9 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An agile dynamic language for the Java Platform";
-    homepage = http://groovy-lang.org/;
+    homepage = "http://groovy-lang.org/";
     license = licenses.asl20;
     maintainers = with maintainers; [ pSub ];
     platforms = with platforms; unix;

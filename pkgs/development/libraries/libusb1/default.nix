@@ -1,30 +1,60 @@
-{ stdenv, fetchurl, pkgconfig, systemd ? null, libobjc, IOKit }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, fetchpatch
+, autoreconfHook
+, pkg-config
+, enableUdev ? stdenv.isLinux && !stdenv.targetPlatform.isStatic
+, udev
+, libobjc
+, IOKit
+, Security
+, withExamples ? false
+, withStatic ? false
+}:
 
 stdenv.mkDerivation rec {
-  name = "libusb-1.0.20";
+  pname = "libusb";
+  version = "1.0.26";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/libusb/${name}.tar.bz2";
-    sha256 = "1zzp6hc7r7m3gl6zjbmzn92zkih4664cckaf49l1g5hapa8721fb";
+  src = fetchFromGitHub {
+    owner = "libusb";
+    repo = "libusb";
+    rev = "v${version}";
+    sha256 = "sha256-LEy45YiFbueCCi8d2hguujMsxBezaTUERHUpFsTKGZQ=";
   };
 
-  outputs = [ "out" "dev" ]; # get rid of propagating systemd closure
+  outputs = [ "out" "dev" ];
 
-  buildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config autoreconfHook ];
   propagatedBuildInputs =
-    stdenv.lib.optional stdenv.isLinux systemd ++
-    stdenv.lib.optionals stdenv.isDarwin [ libobjc IOKit ];
+    lib.optional enableUdev udev ++
+    lib.optionals stdenv.isDarwin [ libobjc IOKit Security ];
 
-  NIX_LDFLAGS = stdenv.lib.optionalString stdenv.isLinux "-lgcc_s";
+  dontDisableStatic = withStatic;
 
-  preFixup = stdenv.lib.optionalString stdenv.isLinux ''
-    sed 's,-ludev,-L${systemd.lib}/lib -ludev,' -i $out/lib/libusb-1.0.la
+  configureFlags =
+    lib.optional (!enableUdev) "--disable-udev"
+    ++ lib.optional (withExamples) "--enable-examples-build";
+
+  preFixup = lib.optionalString enableUdev ''
+    sed 's,-ludev,-L${lib.getLib udev}/lib -ludev,' -i $out/lib/libusb-1.0.la
   '';
 
-  meta = {
-    homepage = http://www.libusb.info;
-    description = "User-space USB library";
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.urkud ];
+  postInstall = lib.optionalString withExamples ''
+    mkdir -p $out/{bin,sbin,examples/bin}
+    cp -r examples/.libs/* $out/examples/bin
+    ln -s $out/examples/bin/fxload $out/sbin/fxload
+  '';
+
+  meta = with lib; {
+    homepage = "https://libusb.info/";
+    description = "cross-platform user-mode USB device library";
+    longDescription = ''
+      libusb is a cross-platform user-mode library that provides access to USB devices.
+    '';
+    platforms = platforms.all;
+    license = licenses.lgpl21Plus;
+    maintainers = with maintainers; [ prusnak realsnick ];
   };
 }

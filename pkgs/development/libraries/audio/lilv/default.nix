@@ -1,27 +1,36 @@
-{ stdenv, fetchurl, lv2, pkgconfig, python, serd, sord, sratom }:
+{ lib, stdenv, fetchurl, lv2, pkg-config, python3, serd, sord, sratom, wafHook
+
+# test derivations
+, pipewire
+}:
 
 stdenv.mkDerivation rec {
-  name = "lilv-${version}";
-  version = "0.20.0";
+  pname = "lilv";
+  version = "0.24.12";
+
+  outputs = [ "out" "dev" ];
 
   src = fetchurl {
-    url = "http://download.drobilla.net/${name}.tar.bz2";
-    sha256 = "0aj2plkx56iar8vzjbq2l7hi7sp0ml99m0h44rgwai2x4vqkk2j2";
+    url = "https://download.drobilla.net/${pname}-${version}.tar.bz2";
+    sha256 = "sha256-JqN3kIkMnB+DggO0f1sjIDNP6SwCpNJuu+Jmnb12kGE=";
   };
 
-  buildInputs = [ lv2 pkgconfig python serd sord sratom ];
+  patches = [ ./lilv-pkgconfig.patch ];
 
-  configurePhase = "python waf configure --prefix=$out";
+  nativeBuildInputs = [ pkg-config python3 wafHook ];
+  buildInputs = [ serd sord sratom ];
+  propagatedBuildInputs = [ lv2 ];
+  dontAddWafCrossFlags = true;
 
-  buildPhase = "python waf";
+  passthru.tests = {
+    inherit pipewire;
+  };
 
-  installPhase = "python waf install";
-
-  meta = with stdenv.lib; {
-    homepage = http://drobilla.net/software/lilv;
+  meta = with lib; {
+    homepage = "http://drobilla.net/software/lilv";
     description = "A C library to make the use of LV2 plugins";
     license = licenses.mit;
     maintainers = [ maintainers.goibhniu ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

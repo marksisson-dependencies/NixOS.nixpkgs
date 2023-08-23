@@ -19,11 +19,11 @@ in
 {
   options = {
     services.miniupnpd = {
-      enable = mkEnableOption "MiniUPnP daemon";
+      enable = mkEnableOption (lib.mdDoc "MiniUPnP daemon");
 
       externalInterface = mkOption {
         type = types.str;
-        description = ''
+        description = lib.mdDoc ''
           Name of the external interface.
         '';
       };
@@ -31,17 +31,17 @@ in
       internalIPs = mkOption {
         type = types.listOf types.str;
         example = [ "192.168.1.1/24" "enp1s0" ];
-        description = ''
+        description = lib.mdDoc ''
           The IP address ranges to listen on.
         '';
       };
 
-      natpmp = mkEnableOption "NAT-PMP support";
+      natpmp = mkEnableOption (lib.mdDoc "NAT-PMP support");
 
       upnp = mkOption {
         default = true;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           Whether to enable UPNP support.
         '';
       };
@@ -49,7 +49,7 @@ in
       appendConfig = mkOption {
         type = types.lines;
         default = "";
-        description = ''
+        description = lib.mdDoc ''
           Configuration lines appended to the MiniUPnP config.
         '';
       };
@@ -57,32 +57,12 @@ in
   };
 
   config = mkIf cfg.enable {
-    # from miniupnpd/netfilter/iptables_init.sh
     networking.firewall.extraCommands = ''
-      iptables -t nat -N MINIUPNPD
-      iptables -t nat -A PREROUTING -i ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t mangle -N MINIUPNPD
-      iptables -t mangle -A PREROUTING -i ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t filter -N MINIUPNPD
-      iptables -t filter -A FORWARD -i ${cfg.externalInterface} ! -o ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t nat -N MINIUPNPD-PCP-PEER
-      iptables -t nat -A POSTROUTING -o ${cfg.externalInterface} -j MINIUPNPD-PCP-PEER
+      ${pkgs.bash}/bin/bash -x ${pkgs.miniupnpd}/etc/miniupnpd/iptables_init.sh -i ${cfg.externalInterface}
     '';
 
-    # from miniupnpd/netfilter/iptables_removeall.sh
     networking.firewall.extraStopCommands = ''
-      iptables -t nat -F MINIUPNPD
-      iptables -t nat -D PREROUTING -i ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t nat -X MINIUPNPD
-      iptables -t mangle -F MINIUPNPD
-      iptables -t mangle -D PREROUTING -i ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t mangle -X MINIUPNPD
-      iptables -t filter -F MINIUPNPD
-      iptables -t filter -D FORWARD -i ${cfg.externalInterface} ! -o ${cfg.externalInterface} -j MINIUPNPD
-      iptables -t filter -X MINIUPNPD
-      iptables -t nat -F MINIUPNPD-PCP-PEER
-      iptables -t nat -D POSTROUTING -o ${cfg.externalInterface} -j MINIUPNPD-PCP-PEER
-      iptables -t nat -X MINIUPNPD-PCP-PEER
+      ${pkgs.bash}/bin/bash -x ${pkgs.miniupnpd}/etc/miniupnpd/iptables_removeall.sh -i ${cfg.externalInterface}
     '';
 
     systemd.services.miniupnpd = {
@@ -91,7 +71,7 @@ in
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         ExecStart = "${pkgs.miniupnpd}/bin/miniupnpd -f ${configFile}";
-        PIDFile = "/var/run/miniupnpd.pid";
+        PIDFile = "/run/miniupnpd.pid";
         Type = "forking";
       };
     };

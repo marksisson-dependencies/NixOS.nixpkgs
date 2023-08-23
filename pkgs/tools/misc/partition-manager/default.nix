@@ -1,39 +1,103 @@
-{ stdenv, fetchurl, pkgconfig, cmake, gettext, automoc4, perl
-, parted, libuuid, qt4, kdelibs, kde_baseapps, phonon, libatasmart
+{ mkDerivation
+, fetchurl
+, lib
+, extra-cmake-modules
+, kdoctools
+, wrapGAppsHook
+, kconfig
+, kcrash
+, kinit
+, kpmcore
+, polkit-qt
+, cryptsetup
+, lvm2
+, mdadm
+, smartmontools
+, systemdMinimal
+, util-linux
+, btrfs-progs
+, dosfstools
+, e2fsprogs
+, exfat
+, f2fs-tools
+, fatresize
+, hfsprogs
+, jfsutils
+, nilfs-utils
+, ntfs3g
+, reiser4progs
+, reiserfsprogs
+, udftools
+, xfsprogs
+, zfs
 }:
 
-stdenv.mkDerivation rec {
-  name = "partitionmanager-1.0.3_p20120804";
+let
+  # External programs are resolved by `partition-manager` and then
+  # invoked by `kpmcore_externalcommand` from `kpmcore` as root.
+  # So these packages should be in PATH of `partition-manager`.
+  # https://github.com/KDE/kpmcore/blob/06f15334ecfbe871730a90dbe2b694ba060ee998/src/util/externalcommand_whitelist.h
+  runtimeDeps = lib.makeBinPath [
+    cryptsetup
+    lvm2
+    mdadm
+    smartmontools
+    systemdMinimal
+    util-linux
 
-  src = fetchurl {
-    #url = "mirror://sourceforge/partitionman/${name}.tar.bz2";
-    # the upstream version is old and doesn't build
-    url = "http://dev.gentoo.org/~kensington/distfiles/${name}.tar.bz2";
-    sha256 = "1j6zpgj8xs98alzxvcibwch9yj8jsx0s7y864gbdx280jmj8c1np";
-  };
+    btrfs-progs
+    dosfstools
+    e2fsprogs
+    exfat
+    f2fs-tools
+    fatresize
+    hfsprogs
+    jfsutils
+    nilfs-utils
+    ntfs3g
+    reiser4progs
+    reiserfsprogs
+    udftools
+    xfsprogs
+    zfs
 
-  buildInputs = [
-    pkgconfig cmake gettext automoc4 perl
-    parted libuuid qt4 kdelibs kde_baseapps phonon libatasmart
+    # FIXME: Missing command: tune.exfat hfsck hformat fsck.nilfs2 {fsck,mkfs,debugfs,tunefs}.ocfs2
   ];
 
-  preConfigure = ''
-    export VERBOSE=1
-    cmakeFlagsArray=($cmakeFlagsArray -DGETTEXT_INCLUDE_DIR=${gettext}/include -DCMAKE_INCLUDE_PATH=${qt4}/include/QtGui )
+in
+mkDerivation rec {
+  pname = "partitionmanager";
+  # NOTE: When changing this version, also change the version of `kpmcore`.
+  version = "23.04.1";
+
+  src = fetchurl {
+    url = "mirror://kde/stable/release-service/${version}/src/${pname}-${version}.tar.xz";
+    hash = "sha256-iMf6/QOJIDTKHAsCg3ey4GX0QHwrYl2LcCWxZsolMl8=";
+  };
+
+  nativeBuildInputs = [ extra-cmake-modules kdoctools wrapGAppsHook ];
+
+  propagatedBuildInputs = [ kconfig kcrash kinit kpmcore polkit-qt ];
+
+  dontWrapGApps = true;
+  preFixup = ''
+    qtWrapperArgs+=(
+      "''${gappsWrapperArgs[@]}"
+      --prefix PATH : "${runtimeDeps}"
+    )
   '';
 
-  postInstall = ''
-    set -x
-    rpath=`patchelf --print-rpath $out/bin/partitionmanager-bin`:${qt4}/lib
-    for p in $out/bin/partitionmanager-bin; do
-      patchelf --set-rpath $rpath $p
-    done
-  '';
+  meta = with lib; {
+    description = "KDE Partition Manager";
+    longDescription = ''
+      KDE Partition Manager is a utility to help you manage the disks, partitions, and file systems on your computer.
+      It allows you to easily create, copy, move, delete, back up, restore, and resize them without losing data.
+      It supports a large number of file systems, including ext2/3/4, btrfs, reiserfs, NTFS, FAT16/32, JFS, XFS and more.
 
-  meta = {
-    description = "Utility program to help you manage the disk devices";
-    homepage = http://www.kde-apps.org/content/show.php/KDE+Partition+Manager?content=89595; # ?
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+      To install on NixOS, use the option `programs.partition-manager.enable = true`.
+    '';
+    license = with licenses; [ cc-by-40 cc0 gpl3Plus lgpl3Plus mit ];
+    homepage = "https://www.kde.org/applications/system/kdepartitionmanager/";
+    maintainers = with maintainers; [ peterhoeg oxalica ];
   };
 }

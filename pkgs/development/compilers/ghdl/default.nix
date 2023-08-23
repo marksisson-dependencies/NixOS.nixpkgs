@@ -1,44 +1,82 @@
-{ stdenv, fetchFromGitHub, gnat, zlib, llvm_35, ncurses, clang, flavour ? "mcode" }:
+{ stdenv
+, fetchFromGitHub
+, fetchpatch
+, callPackage
+, gnat
+, zlib
+, llvm
+, lib
+, backend ? "mcode"
+}:
 
-# mcode only works on x86, while the llvm flavour works on both x86 and x86_64.
+assert backend == "mcode" || backend == "llvm";
 
-
-assert flavour == "llvm" || flavour == "mcode";
-
-let
-  inherit (stdenv.lib) optional;
-  inherit (stdenv.lib) optionals;
-  version = "0.33";
-in
 stdenv.mkDerivation rec {
-  name = "ghdl-${flavour}-${version}";
+  pname = "ghdl-${backend}";
+  version = "2.0.0";
 
   src = fetchFromGitHub {
-    owner = "tgingold";
-    repo = "ghdl";
-    rev = "v${version}";
-    sha256 = "0g72rk2yzr0lrpncq2c1qcv71w3mi2hjq84r1yzgjr6d0qm87r2a";
+    owner  = "ghdl";
+    repo   = "ghdl";
+    rev    = "v${version}";
+    sha256 = "sha256-B/G3FGRzYy4Y9VNNB8yM3FohiIjPJhYSVbqsTN3cL5k=";
   };
 
-  buildInputs = [ gnat zlib ] ++ optionals (flavour == "llvm") [ clang ncurses ];
+  patches = [
+    # https://github.com/ghdl/ghdl/issues/2056
+    (fetchpatch {
+      name = "fix-build-gcc-12.patch";
+      url = "https://github.com/ghdl/ghdl/commit/f8b87697e8b893b6293ebbfc34670c32bfb49397.patch";
+      hash = "sha256-tVbMm8veFkNPs6WFBHvaic5Jkp1niyg0LfFufa+hT/E=";
+    })
+  ];
 
-  configureFlags = optional (flavour == "llvm") "--with-llvm=${llvm_35}";
+  LIBRARY_PATH = "${stdenv.cc.libc}/lib";
 
-  patchPhase = ''
-    # Disable warnings-as-errors, because there are warnings (unused things)
-    sed -i s/-gnatwae/-gnatwa/ Makefile.in ghdl.gpr.in
+  nativeBuildInputs = [
+    gnat
+  ];
+  buildInputs = [
+    zlib
+  ] ++ lib.optionals (backend == "llvm") [
+    llvm
+  ];
+  propagatedBuildInputs = [
+  ] ++ lib.optionals (backend == "llvm") [
+    zlib
+  ];
+
+  preConfigure = ''
+    # If llvm 7.0 works, 7.x releases should work too.
+    sed -i 's/check_version  7.0/check_version  7/g' configure
   '';
 
-  hardeningDisable = [ "all" ];
+  configureFlags = [
+    # See https://github.com/ghdl/ghdl/pull/2058
+    "--disable-werror"
+    "--enable-synth"
+  ] ++ lib.optionals (backend == "llvm") [
+    "--with-llvm-config=${llvm.dev}/bin/llvm-config"
+  ];
+
+  hardeningDisable = [ "format" ];
 
   enableParallelBuilding = true;
 
-  meta = {
-    homepage = "http://sourceforge.net/p/ghdl-updates/wiki/Home/";
-    description = "Free VHDL simulator";
-    maintainers = with stdenv.lib.maintainers; [viric];
-    platforms = with stdenv.lib.platforms; (if flavour == "llvm" then [ "i686-linux" "x86_64-linux" ]
-      else [ "i686-linux" ]);
-    license = stdenv.lib.licenses.gpl2Plus;
+  passthru = {
+    # run with either of
+    # nix-build -A ghdl-mcode.passthru.tests
+    # nix-build -A ghdl-llvm.passthru.tests
+    tests = {
+      simple = callPackage ./test-simple.nix { inherit backend; };
+    };
+  };
+
+  meta = with lib; {
+    homepage = "https://github.com/ghdl/ghdl";
+    description = "VHDL 2008/93/87 simulator";
+    maintainers = with maintainers; [ lucus16 thoughtpolice ];
+    platforms = platforms.linux;
+    license = licenses.gpl2;
   };
 }

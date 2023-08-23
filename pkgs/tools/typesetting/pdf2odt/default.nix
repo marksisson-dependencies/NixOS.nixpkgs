@@ -1,51 +1,60 @@
-{ stdenv, lib, makeWrapper, fetchFromGitHub
-, bc, coreutils, file, gawk, ghostscript, gnused, imagemagick, zip }:
+{ lib
+, resholve
+, fetchFromGitHub
+, bc
+, coreutils
+, file
+, gawk
+, ghostscript
+, gnused
+, imagemagick
+, zip
+, bash
+, findutils
+}:
 
-stdenv.mkDerivation rec {
-  version = "2014-12-17";
-  name = "pdf2odt-${version}";
+resholve.mkDerivation rec {
+  pname = "pdf2odt";
+  version = "20170207";
 
   src = fetchFromGitHub {
-    owner = "gutschke";
-    repo = "pdf2odt";
-    rev = "master";
+    owner  = "gutschke";
+    repo   = "pdf2odt";
+    rev    = "4533bd14306c30c085001db59dbb8114ea09c360";
     sha256 = "14f9r5f0g6jzanl54jv86ls0frvspka1p9c8dy3fnriqpm584j0r";
   };
-
-  dontStrip = true;
-
-  nativeBuildInputs = [ makeWrapper ];
-
-  path = lib.makeBinPath [
-    bc
-    coreutils
-    file
-    gawk
-    ghostscript
-    gnused
-    imagemagick
-    zip
-  ];
 
   patches = [ ./use_mktemp.patch ];
 
   installPhase = ''
-    mkdir -p $out/bin $out/share/doc
+    install -Dm0755 pdf2odt           -t $out/bin
+    install -Dm0644 README.md LICENSE -t $out/share/doc/pdf2odt
 
-    install -m0755 pdf2odt $out/bin/pdf2odt
     ln -rs $out/bin/pdf2odt $out/bin/pdf2ods
-
-    install -m0644 README.md LICENSE -t $out/share/doc
-
-    wrapProgram $out/bin/pdf2odt --prefix PATH : ${path}
   '';
+  solutions = {
+    default = {
+      scripts = [ "bin/pdf2odt" ];
+      interpreter = "${bash}/bin/bash";
+      inputs = [
+        coreutils
+        bc
+        file
+        imagemagick
+        gawk
+        gnused
+        ghostscript
+        zip
+        findutils
+      ];
+    };
+  };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "PDF to ODT format converter";
-    homepage = http://github.com/gutschke/pdf2odt;
-    license = licenses.mit;
-    platforms = platforms.all;
+    homepage    = "https://github.com/gutschke/pdf2odt";
+    license     = licenses.mit;
+    platforms   = platforms.all;
     maintainers = with maintainers; [ peterhoeg ];
-    inherit version;
   };
 }

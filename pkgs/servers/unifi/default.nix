@@ -1,32 +1,72 @@
-{ stdenv, fetchurl, unzip }:
+{ lib, stdenv, dpkg, fetchurl, zip, nixosTests }:
 
-stdenv.mkDerivation rec {
-  name = "unifi-controller-${version}";
-  version = "5.2.9";
+let
+  generic = { version, sha256, suffix ? "", ... } @ args:
+  stdenv.mkDerivation (args // {
+    pname = "unifi-controller";
 
-  src = fetchurl {
-    url = "https://dl.ubnt.com/unifi/${version}/UniFi.unix.zip";
-    sha256 = "1521c5jdk5s4r57i7ajzdfq2l4fmvylqlhvddnxllqm6s4yij7fk";
+    src = fetchurl {
+      url = "https://dl.ubnt.com/unifi/${version}${suffix}/unifi_sysvinit_all.deb";
+      inherit sha256;
+    };
+
+    nativeBuildInputs = [ dpkg ];
+
+    unpackPhase = ''
+      runHook preUnpack
+      dpkg-deb -x $src ./
+      runHook postUnpack
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+      cd ./usr/lib/unifi
+      cp -ar dl lib webapps $out
+
+      runHook postInstall
+    '';
+
+    passthru.tests = {
+      unifi = nixosTests.unifi;
+    };
+
+    meta = with lib; {
+      homepage = "http://www.ubnt.com/";
+      description = "Controller for Ubiquiti UniFi access points";
+      sourceProvenance = with sourceTypes; [ binaryBytecode ];
+      license = licenses.unfree;
+      platforms = platforms.unix;
+      maintainers = with maintainers; [ globin patryk27 ];
+    };
+  });
+
+in rec {
+  # see https://community.ui.com/releases / https://www.ui.com/download/unifi
+
+  unifiLTS = generic {
+    version = "5.6.42";
+    sha256 = "0wxkv774pw43c15jk0sg534l5za4j067nr85r5fw58iar3w2l84x";
   };
 
-  buildInputs = [ unzip ];
+  unifi5 = generic {
+    version = "5.14.23";
+    sha256 = "1aar05yjm3z5a30x505w4kakbyz35i7mk7xyg0wm4ml6h94d84pv";
 
-  doConfigure = false;
+    postInstall = ''
+      # Remove when log4j is updated to 2.12.2 or 2.16.0.
+      ${zip}/bin/zip -q -d $out/lib/log4j-core-*.jar org/apache/logging/log4j/core/lookup/JndiLookup.class
+    '';
+  };
 
-  buildPhase = ''
-    rm -rf bin conf readme.txt
-  '';
+  unifi6 = generic {
+    version = "6.5.55";
+    sha256 = "sha256-NUGRO+f6JzWvYPwiitZsgp+LQwnGSncnost03mgNVxA=";
+  };
 
-  installPhase = ''
-    mkdir -p $out
-    cp -ar * $out
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = http://www.ubnt.com/;
-    description = "Controller for Ubiquiti UniFi accesspoints";
-    license = licenses.unfree;
-    platforms = platforms.unix;
-    maintainers = with maintainers; [ wkennington ];
+  unifi7 = generic {
+    version = "7.4.156";
+    sha256 = "sha256-UJjzSC2qKi2ABwH5p0s/5fXfB3NVfYBb3wBfE/8NlK4=";
   };
 }

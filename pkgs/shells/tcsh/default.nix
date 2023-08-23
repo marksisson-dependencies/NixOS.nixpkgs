@@ -1,30 +1,41 @@
-{ stdenv, fetchurl
-, ncurses }:
+{ lib
+, stdenv
+, fetchurl
+, libxcrypt
+, ncurses
+, buildPackages
+}:
 
-stdenv.mkDerivation rec {
-  name = "tcsh-${version}";
-  version = "6.19.00";
-  
+stdenv.mkDerivation (finalAttrs: {
+  pname = "tcsh";
+  version = "6.24.10";
+
   src = fetchurl {
-    urls = [ 
-             "http://ftp.funet.fi/pub/mirrors/ftp.astron.com/pub/tcsh/${name}.tar.gz" 
-             "ftp://ftp.astron.com/pub/tcsh/${name}.tar.gz" 
-             "ftp://ftp.funet.fi/pub/unix/shells/tcsh/${name}.tar.gz"
-             ];
-    sha256 = "0jaw51382pqyb6d1kgfg8ir0wd3p5qr2bmg8svcmjhlyp3h73qhj";
+    url = "mirror://tcsh/tcsh-${finalAttrs.version}.tar.gz";
+    hash = "sha256-E0dcD763QTnTPteTvwD/u7KsLcn7HURGekEHYKujZmQ=";
   };
 
-  patches = [ ./avoid-gcc5-wrong-optimisation.patch ./tcsh.glibc-2.24.patch ];
-  
-  buildInputs = [ ncurses ];
+  strictDeps = true;
 
-  meta = with stdenv.lib;{
+  depsBuildBuild = [
+    buildPackages.stdenv.cc
+  ];
+
+  buildInputs = [
+    libxcrypt
+    ncurses
+  ];
+
+  passthru.shellPath = "/bin/tcsh";
+
+  meta = {
+    homepage = "https://www.tcsh.org/";
     description = "An enhanced version of the Berkeley UNIX C shell (csh)";
     longDescription = ''
-      tcsh is an enhanced but completely compatible version of the
-      Berkeley UNIX C shell, csh. It is a command language interpreter
-      usable both as an interactive login shell and a shell script
-      command processor.
+      tcsh is an enhanced but completely compatible version of the Berkeley UNIX
+      C shell, csh. It is a command language interpreter usable both as an
+      interactive login shell and a shell script command processor.
+
       It includes:
       - command-line editor
       - programmable word completion
@@ -32,13 +43,8 @@ stdenv.mkDerivation rec {
       - history mechanism
       - job control
     '';
-    homepage = http://www.tcsh.org/;
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ AndersonTorres ];
-    platforms = platforms.linux;
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    platforms = lib.platforms.unix;
   };
-
-  passthru = {
-    shellPath = "/bin/tcsh";
-  };
-}
+})

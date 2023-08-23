@@ -1,31 +1,69 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
-
-buildGoPackage rec {
-  name = "caddy-${version}";
-  version = "0.9.2";
-
-  goPackagePath = "github.com/mholt/caddy";
-
-  subPackages = [ "caddy" ];
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, nixosTests
+, caddy
+, testers
+, installShellFiles
+}:
+let
+  version = "2.7.4";
+  dist = fetchFromGitHub {
+    owner = "caddyserver";
+    repo = "dist";
+    rev = "v${version}";
+    hash = "sha256-8wdSRAONIPYe6kC948xgAGHm9cePbXsOBp9gzeDI0AI=";
+  };
+in
+buildGoModule {
+  pname = "caddy";
+  inherit version;
 
   src = fetchFromGitHub {
-    owner = "mholt";
+    owner = "caddyserver";
     repo = "caddy";
     rev = "v${version}";
-    sha256 = "1nmimyykbjfnwbrka50z15d11z0fc6abpkr0cjbj678d5r9wpz33";
+    hash = "sha256-oZSAY7vS8ersnj3vUtxj/qKlLvNvNL2RQHrNr4Cc60k=";
   };
 
-  buildFlagsArray = ''
-    -ldflags=
-      -X github.com/mholt/caddy/caddy/caddymain.gitTag=${version}
+  vendorHash = "sha256-CnWAVGPrHIjWJgh4LwJvrjQJp/Pz92QHdANXZIcIhg8=";
+
+  subPackages = [ "cmd/caddy" ];
+
+  ldflags = [
+    "-s" "-w"
+    "-X github.com/caddyserver/caddy/v2.CustomVersion=${version}"
+  ];
+
+  nativeBuildInputs = [ installShellFiles ];
+
+  postInstall = ''
+    install -Dm644 ${dist}/init/caddy.service ${dist}/init/caddy-api.service -t $out/lib/systemd/system
+
+    substituteInPlace $out/lib/systemd/system/caddy.service --replace "/usr/bin/caddy" "$out/bin/caddy"
+    substituteInPlace $out/lib/systemd/system/caddy-api.service --replace "/usr/bin/caddy" "$out/bin/caddy"
+
+    $out/bin/caddy manpage --directory manpages
+    installManPage manpages/*
+
+    installShellCompletion --cmd caddy \
+      --bash <($out/bin/caddy completion bash) \
+      --fish <($out/bin/caddy completion fish) \
+      --zsh <($out/bin/caddy completion zsh)
   '';
 
-  goDeps = ./deps.nix;
+  passthru.tests = {
+    inherit (nixosTests) caddy;
+    version = testers.testVersion {
+      command = "${caddy}/bin/caddy version";
+      package = caddy;
+    };
+  };
 
-  meta = with stdenv.lib; {
-    homepage = https://caddyserver.com;
-    description = "Fast, cross-platform HTTP/2 web server with automatic HTTPS";
+  meta = with lib; {
+    homepage = "https://caddyserver.com";
+    description = "Fast and extensible multi-platform HTTP/1-2-3 web server with automatic HTTPS";
     license = licenses.asl20;
-    maintainers = [ maintainers.rushmorem ];
+    maintainers = with maintainers; [ Br1ght0ne emilylange techknowlogick ];
   };
 }

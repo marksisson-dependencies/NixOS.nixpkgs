@@ -1,29 +1,48 @@
-{ stdenv, fetchurl, fetchpatch, libjpeg, autoreconfHook }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, pkg-config
+}:
 
 stdenv.mkDerivation rec {
-  name = "jasper-1.900.28";
+  pname = "jasper";
+  version = "2.0.32";
 
-  src = fetchurl {
-    # You can find this code on Github at https://github.com/mdadams/jasper
-    # however note at https://www.ece.uvic.ca/~frodo/jasper/#download
-    # not all tagged releases are for distribution.
-    url = "http://www.ece.uvic.ca/~mdadams/jasper/software/${name}.tar.gz";
-    sha256 = "0nsiblsfpfa0dahsk6hw9cd18fp9c8sk1z5hdp19m33c0bf92ip9";
+  src = fetchFromGitHub {
+    owner = "jasper-software";
+    repo = pname;
+    rev = "version-${version}";
+    hash = "sha256-Uwgtex0MWC/pOmEr8itHMIa4wxd97c/tsTzcLgV8D0I=";
   };
 
-  # newer reconf to recognize a multiout flag
-  nativeBuildInputs = [ autoreconfHook ];
-  propagatedBuildInputs = [ libjpeg ];
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+  ];
 
-  configureFlags = "--enable-shared";
+  meta = with lib; {
+    homepage = "https://jasper-software.github.io/jasper/";
+    description = "Image processing/coding toolkit";
+    longDescription = ''
+      JasPer is a software toolkit for the handling of image data. The software
+      provides a means for representing images, and facilitates the manipulation
+      of image data, as well as the import/export of such data in numerous
+      formats (e.g., JPEG-2000 JP2, JPEG, PNM, BMP, Sun Rasterfile, and
+      PGX). The import functionality supports the auto-detection (i.e.,
+      automatic determination) of the image format, eliminating the need to
+      explicitly identify the format of coded input data. A simple color
+      management engine is also provided in order to allow the accurate
+      representation of color. Partial support is included for the ICC color
+      profile file format, an industry standard for specifying color.
 
-  outputs = [ "bin" "dev" "out" "man" ];
-
-  enableParallelBuilding = true;
-
-  meta = {
-    homepage = https://www.ece.uvic.ca/~frodo/jasper/;
-    description = "JPEG2000 Library";
-    platforms = stdenv.lib.platforms.unix;
+      The JasPer software consists of a library and several application
+      programs. The code is written in the C programming language. This language
+      was chosen primarily due to the availability of C development environments
+      for most computing platforms when JasPer was first developed, circa 1999.
+    '';
+    license = licenses.free; # MIT-like
+    maintainers = with maintainers; [ AndersonTorres ];
+    platforms = platforms.unix;
   };
 }

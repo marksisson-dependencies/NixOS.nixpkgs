@@ -1,8 +1,8 @@
-{ stdenv, fetchurl, libtool }:
+{ lib, stdenv, fetchurl, libtool }:
 
 stdenv.mkDerivation rec {
   version = "1.3.2";
-  name = "libmaa-${version}";
+  pname = "libmaa";
 
   src = fetchurl {
     url = "mirror://sourceforge/dict/libmaa-${version}.tar.gz";
@@ -10,11 +10,13 @@ stdenv.mkDerivation rec {
   };
 
   buildInputs = [ libtool ];
-  # configureFlags = "--datadir=/var/run/current-system/share/dictd";
+  # configureFlags = [ "--datadir=/run/current-system/share/dictd" ];
 
-  meta = with stdenv.lib; {
+  env.NIX_CFLAGS_COMPILE = "-Wno-error=format-truncation";
+
+  meta = with lib; {
     description = "Dict protocol server and client";
-    maintainers = [ maintainers.mornfall ];
+    maintainers = [ ];
     platforms = platforms.linux;
   };
 }

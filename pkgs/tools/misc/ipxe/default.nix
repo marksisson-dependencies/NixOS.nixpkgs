@@ -1,52 +1,110 @@
-{ stdenv, fetchgit, perl, cdrkit, syslinux, xz, openssl }:
+{ stdenv, lib, fetchFromGitHub, unstableGitUpdater, buildPackages
+, gnu-efi, mtools, openssl, perl, xorriso, xz
+, syslinux ? null
+, embedScript ? null
+, additionalTargets ? {}
+, additionalOptions ? []
+}:
 
 let
-  date = "20160831";
-  rev = "827dd1bfee67daa683935ce65316f7e0f057fe1c";
+  targets = additionalTargets // lib.optionalAttrs stdenv.isx86_64 {
+    "bin-x86_64-efi/ipxe.efi" = null;
+    "bin-x86_64-efi/ipxe.efirom" = null;
+    "bin-x86_64-efi/ipxe.usb" = "ipxe-efi.usb";
+  } // lib.optionalAttrs stdenv.hostPlatform.isx86 {
+    "bin/ipxe.dsk" = null;
+    "bin/ipxe.usb" = null;
+    "bin/ipxe.iso" = null;
+    "bin/ipxe.lkrn" = null;
+    "bin/undionly.kpxe" = null;
+  } // lib.optionalAttrs stdenv.isAarch32 {
+    "bin-arm32-efi/ipxe.efi" = null;
+    "bin-arm32-efi/ipxe.efirom" = null;
+    "bin-arm32-efi/ipxe.usb" = "ipxe-efi.usb";
+  } // lib.optionalAttrs stdenv.isAarch64 {
+    "bin-arm64-efi/ipxe.efi" = null;
+    "bin-arm64-efi/ipxe.efirom" = null;
+    "bin-arm64-efi/ipxe.usb" = "ipxe-efi.usb";
+  };
 in
 
-stdenv.mkDerivation {
-  name = "ipxe-${date}-${builtins.substring 0 7 rev}";
+stdenv.mkDerivation rec {
+  pname = "ipxe";
+  version = "unstable-2023-07-19";
 
-  buildInputs = [ perl cdrkit syslinux xz openssl ];
+  nativeBuildInputs = [ gnu-efi mtools openssl perl xorriso xz ] ++ lib.optional stdenv.hostPlatform.isx86 syslinux;
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
 
-  src = fetchgit {
-    url = git://git.ipxe.org/ipxe.git;
-    sha256 = "11w8b0vln3skfn8r1cvzngslz12njdkwmnacyq3qffb96k2dn2ww";
-    inherit rev;
+  strictDeps = true;
+
+  src = fetchFromGitHub {
+    owner = "ipxe";
+    repo = "ipxe";
+    rev = "c1834f323f4f6b9b46cd5895b1457a117381363f";
+    hash = "sha256-fJeDgm+OaItshWFliq08Y0BPDD2FCkezeEp7trqWNjA=";
   };
+
+  postPatch = lib.optionalString stdenv.hostPlatform.isAarch64 ''
+    substituteInPlace src/util/genfsimg --replace "	syslinux " "	true "
+  ''; # calling syslinux on a FAT image isn't going to work
 
   # not possible due to assembler code
   hardeningDisable = [ "pic" "stackprotector" ];
 
-  NIX_CFLAGS_COMPILE = "-Wno-error";
+  env.NIX_CFLAGS_COMPILE = "-Wno-error";
 
   makeFlags =
     [ "ECHO_E_BIN_ECHO=echo" "ECHO_E_BIN_ECHO_E=echo" # No /bin/echo here.
-      "ISOLINUX_BIN_LIST=${syslinux}/share/syslinux/isolinux.bin"
-    ];
+      "CROSS=${stdenv.cc.targetPrefix}"
+    ] ++ lib.optional (embedScript != null) "EMBED=${embedScript}";
 
 
-  enabledOptions = [ "DOWNLOAD_PROTO_HTTPS" ];
+  enabledOptions = [
+    "PING_CMD"
+    "IMAGE_TRUST_CMD"
+    "DOWNLOAD_PROTO_HTTP"
+    "DOWNLOAD_PROTO_HTTPS"
+  ] ++ additionalOptions;
 
   configurePhase = ''
     runHook preConfigure
-    for opt in $enabledOptions; do echo "#define $opt" >> src/config/general.h; done
+    for opt in ${lib.escapeShellArgs enabledOptions}; do echo "#define $opt" >> src/config/general.h; done
+    substituteInPlace src/Makefile.housekeeping --replace '/bin/echo' echo
+  '' + lib.optionalString stdenv.hostPlatform.isx86 ''
+    substituteInPlace src/util/genfsimg --replace /usr/lib/syslinux ${syslinux}/share/syslinux
+  '' + ''
     runHook postConfigure
   '';
 
   preBuild = "cd src";
 
+  buildFlags = lib.attrNames targets;
+
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out
-    cp bin/ipxe.dsk bin/ipxe.usb bin/ipxe.iso bin/ipxe.lkrn bin/undionly.kpxe $out
+    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (from: to:
+      if to == null
+      then "cp -v ${from} $out"
+      else "cp -v ${from} $out/${to}") targets)}
+
+    # Some PXE constellations especially with dnsmasq are looking for the file with .0 ending
+    # let's provide it as a symlink to be compatible in this case.
+    ln -s undionly.kpxe $out/undionly.kpxe.0
+
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib;
+  enableParallelBuilding = true;
+
+  passthru.updateScript = unstableGitUpdater {};
+
+  meta = with lib;
     { description = "Network boot firmware";
-      homepage = http://ipxe.org/;
-      license = licenses.gpl2;
+      homepage = "https://ipxe.org/";
+      license = licenses.gpl2Only;
       maintainers = with maintainers; [ ehmry ];
-      platforms = platforms.all;
+      platforms = platforms.linux;
     };
 }

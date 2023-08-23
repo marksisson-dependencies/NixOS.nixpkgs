@@ -1,28 +1,45 @@
-{ stdenv, fetchurl, openssl }:
+{ lib
+, stdenv
+, fetchurl
+, openssl
+, getconf
+, util-linux
+}:
 
 stdenv.mkDerivation rec {
-  name = "scrypt-${version}";
-  version = "1.2.0";
+  pname = "scrypt";
+  version = "1.3.1";
 
   src = fetchurl {
-    url = "https://www.tarsnap.com/scrypt/${name}.tgz";
-    sha256 = "1m39hpfby0fdjam842773i5w7pa0qaj7f0r22jnchxsj824vqm0p";
+    url = "https://www.tarsnap.com/scrypt/${pname}-${version}.tgz";
+    sha256 = "1hnl0r6pmyxiy4dmafmqk1db7wpc0x9rqpzqcwr9d2cmghcj6byz";
   };
+
+  outputs = [ "out" "lib" "dev" ];
+
+  configureFlags = [ "--enable-libscrypt-kdf" ];
 
   buildInputs = [ openssl ];
 
+  nativeBuildInputs = [ getconf ];
+
   patchPhase = ''
-    substituteInPlace Makefile.in \
-      --replace "command -p mv" "mv"
-    substituteInPlace autocrap/Makefile.am \
-      --replace "command -p mv" "mv"
+    for f in Makefile.in autotools/Makefile.am libcperciva/cpusupport/Build/cpusupport.sh configure ; do
+      substituteInPlace $f --replace "command -p " ""
+    done
+
+    patchShebangs tests/test_scrypt.sh
   '';
 
-  meta = {
+  doCheck = true;
+  checkTarget = "test";
+  nativeCheckInputs = lib.optionals stdenv.isLinux [ util-linux ];
+
+  meta = with lib; {
     description = "Encryption utility";
-    homepage    = https://www.tarsnap.com/scrypt.html;
-    license     = stdenv.lib.licenses.bsd2;
-    platforms   = stdenv.lib.platforms.all;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    homepage    = "https://www.tarsnap.com/scrypt.html";
+    license     = licenses.bsd2;
+    platforms   = platforms.all;
+    maintainers = with maintainers; [ thoughtpolice ];
   };
 }

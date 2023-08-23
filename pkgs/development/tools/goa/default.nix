@@ -1,45 +1,26 @@
-{ stdenv, buildGoPackage, fetchFromGitHub, makeWrapper }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+}:
 
-buildGoPackage rec {
-  name = "goa-${version}";
-  version = "1.0.0";
-
-  goPackagePath = "github.com/goadesign/goa";
-  subPackages = [ "goagen" ];
+buildGoModule rec {
+  pname = "goa";
+  version = "3.12.3";
 
   src = fetchFromGitHub {
-    rev = "v${version}";
     owner = "goadesign";
     repo = "goa";
-    sha256 = "13401jf907z3qh11h9clb3z0i0fshwkmhx11fq9z6vx01x8x2in1";
+    rev = "v${version}";
+    sha256 = "sha256-OWYIfzJcR0V5GogVntzu5hOe3h3JO5FYWxSqYSxRp6A=";
   };
+  vendorHash = "sha256-Zt8Nzga9xRYuUv8ofCJa3yL2Kq+xvnqs3c0g2BnrgTo=";
 
-  buildInputs = [ makeWrapper ];
+  subPackages = [ "cmd/goa" ];
 
-  allowGoReference = true;
-
-  outputs = [ "out" ];
-
-  preInstall = ''
-    export bin=$out
-  '';
-
-  postInstall = ''
-    # goagen needs GOPATH to be set
-    wrapProgram $out/bin/goagen \
-      --prefix GOPATH ":" $out/share/go
-
-    # and it needs access to all its dependancies
-    mkdir -p $out/share/go
-    cp -Rv $NIX_BUILD_TOP/go/{pkg,src} $out/share/go/
-  '';
-
-  goDeps = ./deps.nix;
-
-  meta = with stdenv.lib; {
-    homepage = https://goa.design;
-    description = "A framework for building microservices in Go using a unique design-first approach";
+  meta = with lib; {
+    description = "Design-based APIs and microservices in Go";
+    homepage = "https://goa.design";
     license = licenses.mit;
-    maintainers = [ maintainers.rushmorem ];
+    maintainers = with maintainers; [ rushmorem ];
   };
 }

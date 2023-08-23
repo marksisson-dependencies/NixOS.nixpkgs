@@ -1,40 +1,67 @@
-{ stdenv, fetchurl, cmake, ccid, qttools, qttranslations, pkgconfig, pcsclite
-, hicolor_icon_theme, libdigidocpp, opensc, shared_mime_info, openldap
-, gettext, desktop_file_utils, makeWrapper }:
+{ lib
+, mkDerivation
+, fetchurl
+, cmake
+, gettext
+, pkg-config
+, libdigidocpp
+, opensc
+, openldap
+, openssl
+, pcsclite
+, qtbase
+, qttranslations
+, qtsvg
+}:
 
-stdenv.mkDerivation rec {
-
-  version = "3.12.0.1442";
-  name = "qdigidoc-${version}";
+mkDerivation rec {
+  pname = "qdigidoc";
+  version = "4.2.12";
 
   src = fetchurl {
-    url = "https://installer.id.ee/media/ubuntu/pool/main/q/qdigidoc/qdigidoc_3.12.0.1442.orig.tar.xz";
-    sha256 = "1a7nsi28q57ic99hrb6x83qlvpqvzvk6acbfl6ncny2j4yaxa4jl";
+    url =
+      "https://github.com/open-eid/DigiDoc4-Client/releases/download/v${version}/qdigidoc4-${version}.tar.gz";
+    hash = "sha256-6bso1qvhVhbBfrcTq4S+aHtHli7X2A926N4r45ztq4E=";
   };
 
-  patches = [ ./certs.patch ];
+  tsl = fetchurl {
+    url = "https://ec.europa.eu/tools/lotl/eu-lotl-pivot-300.xml";
+    sha256 = "1cikz36w9phgczcqnwk4k3mx3kk919wy2327jksmfa4cjfjq4a8d";
+  };
 
-  unpackPhase = ''
-    mkdir src
-    tar xf $src -C src
-    cd src
+  nativeBuildInputs = [ cmake gettext pkg-config ];
+
+  postPatch = ''
+    substituteInPlace client/CMakeLists.txt \
+      --replace $\{TSL_URL} file://${tsl}
   '';
 
-  postInstall = ''
-    wrapProgram $out/bin/qdigidocclient \
-      --prefix LD_LIBRARY_PATH : ${opensc}/lib/pkcs11/
-  '';
+  buildInputs = [
+    libdigidocpp
+    opensc
+    openldap
+    openssl
+    pcsclite
+    qtbase
+    qtsvg
+    qttranslations
+  ];
 
-  buildInputs = [ cmake ccid qttools pkgconfig pcsclite qttranslations
-                  hicolor_icon_theme libdigidocpp opensc shared_mime_info
-                  openldap gettext desktop_file_utils makeWrapper
-                ];
-  
-  meta = with stdenv.lib; {
-    description = "Qt based UI application for verifying and signing digital signatures";
-    homepage = "http://www.id.ee/";
-    license = licenses.lgpl2;
+  # qdigidoc4's `QPKCS11::reload()` dlopen()s "opensc-pkcs11.so" in QLibrary,
+  # i.e. OpenSC's module is searched for in libQt5Core's DT_RUNPATH and fixing
+  # qdigidoc4's DT_RUNPATH has no effect on Linux (at least OpenBSD's ld.so(1)
+  # searches the program's runtime path as well).
+  # LD_LIBRARY_PATH takes precedence for all calling objects, see dlopen(3).
+  # https://github.com/open-eid/cmake/pull/35 might be an alternative.
+  qtWrapperArgs = [
+    "--prefix LD_LIBRARY_PATH : ${opensc}/lib/pkcs11/"
+  ];
+
+  meta = with lib; {
+    description = "Qt-based UI for signing and verifying DigiDoc documents";
+    homepage = "https://www.id.ee/";
+    license = licenses.lgpl21Plus;
     platforms = platforms.linux;
-    maintainers = [ maintainers.jagajaga ];
+    maintainers = with maintainers; [ mmahut yana ];
   };
 }

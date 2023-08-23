@@ -1,17 +1,25 @@
-{stdenv, fetchurl, mpfr}:
+{lib, stdenv, fetchurl, autoreconfHook, texinfo, mpfr}:
 stdenv.mkDerivation rec {
-  name = "mpfi-${version}";
-  version = "1.5.1";
+  pname = "mpfi";
+  version = "1.5.4";
+  file_nr = "38111";
+
   src = fetchurl {
-    url = "https://gforge.inria.fr/frs/download.php/file/30129/mpfi-${version}.tar.bz2";
-    sha256 = "0vk9jfcfiqda0zksg1ffy36pdznpng9b4nl7pfzpz9hps4v6bk1z";
+    # NOTE: the file_nr is whats important here. The actual package name (including the version)
+    # is ignored. To find out the correct file_nr, go to https://gforge.inria.fr/projects/mpfi/
+    # and click on Download in the section "Latest File Releases".
+    url = "https://gforge.inria.fr/frs/download.php/file/${file_nr}/mpfi-${version}.tgz";
+    sha256 = "sha256-Ozk4WV1yCvF5c96vcnz8DdQcixbCCtwQOpcPSkOuOlY=";
   };
-  buildInputs = [mpfr];
+
+  nativeBuildInputs = [ autoreconfHook texinfo ];
+  buildInputs = [ mpfr ];
+
   meta = {
-    inherit version;
-    description = ''A multiple precision interval arithmetic library based on MPFR'';
-    license = stdenv.lib.licenses.lgpl21Plus;
-    maintainers = [stdenv.lib.maintainers.raskin];
-    platforms = stdenv.lib.platforms.linux;
+    description = "A multiple precision interval arithmetic library based on MPFR";
+    homepage = "https://gforge.inria.fr/projects/mpfi/";
+    license = lib.licenses.lgpl21Plus;
+    maintainers = [lib.maintainers.raskin];
+    platforms = lib.platforms.unix;
   };
 }

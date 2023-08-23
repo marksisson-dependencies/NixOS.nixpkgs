@@ -1,21 +1,25 @@
-{ stdenv, fetchurl, pythonPackages }:
+{ lib, fetchFromGitHub, python2Packages }:
 
-pythonPackages.buildPythonApplication rec {
-  name = "volatility-2.4";
+python2Packages.buildPythonApplication rec {
+  pname = "volatility";
+  version = "2.6.1";
 
-  src = fetchurl {
-    url = "http://downloads.volatilityfoundation.org/releases/2.4/${name}.tar.gz";
-    sha256 = "1wffrkvj2lrkqhwamyix9fy05y6g6w8h1sz2iqlm6i6ag7yxykv8";
+  src = fetchFromGitHub {
+    owner = "volatilityfoundation";
+    repo = pname;
+    rev = version;
+    sha256 = "1v92allp3cv3akk71kljcwxr27h1k067dsq7j9h8jnlwk9jxh6rf";
   };
 
   doCheck = false;
 
-  propagatedBuildInputs = [ pythonPackages.pycrypto ];
+  propagatedBuildInputs = with python2Packages; [ pycrypto distorm3 pillow ];
 
-  meta = with stdenv.lib; {
-    homepage = https://code.google.com/p/volatility;
+  meta = with lib; {
+    homepage = "https://www.volatilityfoundation.org/";
     description = "Advanced memory forensics framework";
     maintainers = with maintainers; [ bosu ];
-    license = stdenv.lib.licenses.gpl2Plus;
+    license = licenses.gpl2Plus;
+    broken = true;
   };
 }

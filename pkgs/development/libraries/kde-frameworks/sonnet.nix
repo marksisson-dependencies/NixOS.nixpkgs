@@ -1,11 +1,11 @@
-{ kdeFramework, lib
-, ecm
-, hunspell
+{ mkDerivation
+, extra-cmake-modules
+, aspell, qtbase, qttools
 }:
 
-kdeFramework {
-  name = "sonnet";
-  meta = { maintainers = [ lib.maintainers.ttuegel ]; };
-  nativeBuildInputs = [ ecm ];
-  buildInputs = [ hunspell ];
+mkDerivation {
+  pname = "sonnet";
+  nativeBuildInputs = [ extra-cmake-modules ];
+  buildInputs = [ aspell qttools ];
+  propagatedBuildInputs = [ qtbase ];
 }

@@ -1,47 +1,39 @@
-{ stdenv, fetchFromGitHub, gcc, gmp, libsigsegv, openssl, automake, autoconf, ragel,
-  cmake, re2c, libtool, ncurses, perl, zlib, python2 }:
+{ stdenv
+, lib
+, fetchzip
+}:
 
+let
+  os = if stdenv.isDarwin then "macos" else "linux";
+  arch = if stdenv.isAarch64 then "aarch64" else "x86_64";
+  platform = "${os}-${arch}";
+in
 stdenv.mkDerivation rec {
+  pname = "urbit";
+  version = "2.11";
 
-  name = "urbit-${version}";
-  version = "2016-06-02";
-
-  src = fetchFromGitHub {
-    owner = "urbit";
-    repo = "urbit";
-    rev = "8c113559872e4a97bce3f3ee5b370ad9545c7459";
-    sha256 = "055qdpp4gm0v04pddq4380pdsi0gp2ybgv1d2lchkhwsnjyl46jl";
+  src = fetchzip {
+    url = "https://github.com/urbit/vere/releases/download/vere-v${version}/${platform}.tgz";
+    sha256 = {
+      x86_64-linux = "sha256-k2zmcjZ9NXmwZf93LIAg1jx4IRprKUgdkvwzxEOKWDY=";
+      aarch64-linux = "sha256-atMBXyXwavpSDTZxUnXIq+NV4moKGRWLaFTM9Kuzt94=";
+      x86_64-darwin = "sha256-LSJ9jVY3fETlpRAkyUWa/2vZ5xAFmmMssvbzUfIBY/4=";
+      aarch64-darwin = "sha256-AViUt2N+YCgMWOcv3ZI0GfdYVOiRLbhseQ7TTq4zCiQ=";
+    }.${stdenv.hostPlatform.system} or (throw "unsupported system ${stdenv.hostPlatform.system}");
   };
 
-  buildInputs = with stdenv.lib; [
-    gcc gmp libsigsegv openssl automake autoconf ragel cmake re2c libtool
-    ncurses perl zlib python2
-  ];
-
-  # uses 'readdir_r' deprecated by glibc 2.24
-  NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-declarations";
-
-  configurePhase = ''
-    :
+  postInstall = ''
+    install -m755 -D vere-v${version}-${platform} $out/bin/urbit
   '';
 
-  buildPhase = ''
-    sed -i 's/-lcurses/-lncurses/' Makefile
-    mkdir -p $out
-    cp -r . $out/
-    cd $out
-    make
-  '';
+  passthru.updateScript = ./update-bin.sh;
 
-  installPhase = ''
-    :
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
+    homepage = "https://urbit.org";
     description = "An operating function";
-    homepage = http://urbit.org;
+    platforms = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
+    maintainers = [ maintainers.matthew-levan ];
     license = licenses.mit;
-    maintainers = with maintainers; [ mudri ];
-    platforms = with platforms; linux;
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
   };
 }

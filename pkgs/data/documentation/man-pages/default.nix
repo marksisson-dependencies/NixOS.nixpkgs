@@ -1,22 +1,31 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "man-pages-${version}";
-  version = "4.08";
+  pname = "man-pages";
+  version = "5.13";
 
   src = fetchurl {
-    url = "mirror://kernel/linux/docs/man-pages/${name}.tar.xz";
-    sha256 = "1d32ki8nkwd2xiln619jihqn7s15ydrg7386n4hxq530sys7svic";
+    url = "mirror://kernel/linux/docs/man-pages/${pname}-${version}.tar.xz";
+    sha256 = "sha256-YU2uPv59/UgJhnY6KiqBeSFQMqWkUmwL5eiZol8Ja4s=";
   };
 
-  makeFlags = [ "MANDIR=$(out)/share/man" ];
+  makeFlags = [ "prefix=$(out)" ];
+  postInstall = ''
+    # conflict with shadow-utils
+    rm $out/share/man/man5/passwd.5 \
+       $out/share/man/man3/getspnam.3
+
+    # The manpath executable looks up manpages from PATH. And this package won't
+    # appear in PATH unless it has a /bin folder
+    mkdir -p $out/bin
+  '';
   outputDocdev = "out";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Linux development manual pages";
-    homepage = http://www.kernel.org/doc/man-pages/;
-    repositories.git = http://git.kernel.org/pub/scm/docs/man-pages/man-pages;
-    maintainers = with maintainers; [ nckx ];
+    homepage = "https://www.kernel.org/doc/man-pages/";
+    license = licenses.gpl2Plus;
     platforms = with platforms; unix;
+    priority = 30; # if a package comes with its own man page, prefer it
   };
 }

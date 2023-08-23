@@ -1,20 +1,25 @@
-{ stdenv, lib, fetchurl }:
+{ stdenv, lib, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
-  name = "forkstat-${version}";
-  version = "0.01.14";
-  src = fetchurl {
-    url = "http://kernel.ubuntu.com/~cking/tarballs/forkstat/forkstat-${version}.tar.gz";
-    sha256 = "0yj3mhf9b2nm8fnz4vf2fqdd8417g30p2sgv3ilq3zwy4hbg9bav";
+  pname = "forkstat";
+  version = "0.03.01";
+
+  src = fetchFromGitHub {
+    owner = "ColinIanKing";
+    repo = pname;
+    rev = "V${version}";
+    hash = "sha256-T7O+PIWmFC4wi4nnmNsAH8H0SazixBoCx5ZdBV2wL+E=";
   };
-  installFlags = [ "DESTDIR=$(out)" ];
-  postInstall = ''
-    mv $out/usr/* $out
-    rm -r $out/usr
-  '';
+
+  installFlags = [
+    "BINDIR=${placeholder "out"}/bin"
+    "MANDIR=${placeholder "out"}/share/man/man8"
+    "BASHDIR=${placeholder "out"}/share/bash-completion/completions"
+  ];
+
   meta = with lib; {
     description = "Process fork/exec/exit monitoring tool";
-    homepage = http://kernel.ubuntu.com/~cking/forkstat/;
+    homepage = "https://github.com/ColinIanKing/forkstat";
     license = licenses.gpl2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ womfoo ];

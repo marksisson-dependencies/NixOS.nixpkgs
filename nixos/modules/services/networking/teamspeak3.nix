@@ -19,7 +19,7 @@ in
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Whether to run the Teamspeak3 voice communication server daemon.
         '';
       };
@@ -27,7 +27,7 @@ in
       dataDir = mkOption {
         type = types.path;
         default = "/var/lib/teamspeak3-server";
-        description = ''
+        description = lib.mdDoc ''
           Directory to store TS3 database and other state/data files.
         '';
       };
@@ -35,15 +35,16 @@ in
       logPath = mkOption {
         type = types.path;
         default = "/var/log/teamspeak3-server/";
-        description = ''
+        description = lib.mdDoc ''
           Directory to store log files in.
         '';
       };
 
       voiceIP = mkOption {
-        type = types.str;
-        default = "0.0.0.0";
-        description = ''
+        type = types.nullOr types.str;
+        default = null;
+        example = "[::]";
+        description = lib.mdDoc ''
           IP on which the server instance will listen for incoming voice connections. Defaults to any IP.
         '';
       };
@@ -51,15 +52,16 @@ in
       defaultVoicePort = mkOption {
         type = types.int;
         default = 9987;
-        description = ''
+        description = lib.mdDoc ''
           Default UDP port for clients to connect to virtual servers - used for first virtual server, subsequent ones will open on incrementing port numbers by default.
         '';
       };
 
       fileTransferIP = mkOption {
-        type = types.str;
-        default = "0.0.0.0";
-        description = ''
+        type = types.nullOr types.str;
+        default = null;
+        example = "[::]";
+        description = lib.mdDoc ''
           IP on which the server instance will listen for incoming file transfer connections. Defaults to any IP.
         '';
       };
@@ -67,15 +69,16 @@ in
       fileTransferPort = mkOption {
         type = types.int;
         default = 30033;
-        description = ''
+        description = lib.mdDoc ''
           TCP port opened for file transfers.
         '';
       };
 
       queryIP = mkOption {
-        type = types.str;
-        default = "0.0.0.0";
-        description = ''
+        type = types.nullOr types.str;
+        default = null;
+        example = "0.0.0.0";
+        description = lib.mdDoc ''
           IP on which the server instance will listen for incoming ServerQuery connections. Defaults to any IP.
         '';
       };
@@ -83,9 +86,21 @@ in
       queryPort = mkOption {
         type = types.int;
         default = 10011;
-        description = ''
+        description = lib.mdDoc ''
           TCP port opened for ServerQuery connections.
         '';
+      };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc "Open ports in the firewall for the TeamSpeak3 server.";
+      };
+
+      openFirewallServerQuery = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc "Open ports in the firewall for the TeamSpeak3 serverquery (administration) system. Requires openFirewall.";
       };
 
     };
@@ -108,28 +123,36 @@ in
       gid = config.ids.gids.teamspeak;
     };
 
+    systemd.tmpfiles.rules = [
+      "d '${cfg.logPath}' - ${user} ${group} - -"
+    ];
+
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts = [ cfg.fileTransferPort ] ++ optionals (cfg.openFirewallServerQuery) [ cfg.queryPort (cfg.queryPort + 11) ];
+      # subsequent vServers will use the incremented voice port, let's just open the next 10
+      allowedUDPPortRanges = [ { from = cfg.defaultVoicePort; to = cfg.defaultVoicePort + 10; } ];
+    };
+
     systemd.services.teamspeak3-server = {
       description = "Teamspeak3 voice communication server daemon";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
 
-      preStart = ''
-        mkdir -p ${cfg.logPath}
-        chown ${user}:${group} ${cfg.logPath}
-      '';
-
       serviceConfig = {
         ExecStart = ''
           ${ts3}/bin/ts3server \
             dbsqlpath=${ts3}/lib/teamspeak/sql/ logpath=${cfg.logPath} \
-            voice_ip=${cfg.voiceIP} default_voice_port=${toString cfg.defaultVoicePort} \
-            filetransfer_ip=${cfg.fileTransferIP} filetransfer_port=${toString cfg.fileTransferPort} \
-            query_ip=${cfg.queryIP} query_port=${toString cfg.queryPort}
+            ${optionalString (cfg.voiceIP != null) "voice_ip=${cfg.voiceIP}"} \
+            default_voice_port=${toString cfg.defaultVoicePort} \
+            ${optionalString (cfg.fileTransferIP != null) "filetransfer_ip=${cfg.fileTransferIP}"} \
+            filetransfer_port=${toString cfg.fileTransferPort} \
+            ${optionalString (cfg.queryIP != null) "query_ip=${cfg.queryIP}"} \
+            query_port=${toString cfg.queryPort} license_accepted=1
         '';
         WorkingDirectory = cfg.dataDir;
         User = user;
         Group = group;
-        PermissionsStartOnly = true;
+        Restart = "on-failure";
       };
     };
   };

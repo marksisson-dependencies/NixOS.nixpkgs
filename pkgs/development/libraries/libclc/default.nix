@@ -1,31 +1,54 @@
-{ stdenv, fetchFromGitHub, python, llvm, clang }:
+{ lib, stdenv, fetchFromGitHub, buildPackages, ninja, cmake, python3, llvm_14 }:
 
-stdenv.mkDerivation {
-  name = "libclc-2015-08-07";
+stdenv.mkDerivation rec {
+  pname = "libclc";
+  version = "16.0.3";
 
   src = fetchFromGitHub {
-    owner = "llvm-mirror";
-    repo = "libclc";
-    rev = "f97d9db40718f2e68b3f0b44200760d8e0d50532";
-    sha256 = "10n9qk1dild9yjkjjkzpmp9zid3ysdgvqrad554azcf755frch7g";
+    owner = "llvm";
+    repo = "llvm-project";
+    rev = "llvmorg-${version}";
+    hash = "sha256-paWwnoU3XMqreRgh9JbT1tDMTwq/ZL0ss3SJTteEGL0=";
   };
+  sourceRoot = "${src.name}/libclc";
 
-  buildInputs = [ python llvm clang ];
+  outputs = [ "out" "dev" ];
 
+  patches = [
+    ./libclc-gnu-install-dirs.patch
+  ];
+
+  # cmake expects all required binaries to be in the same place, so it will not be able to find clang without the patch
   postPatch = ''
-    sed -i 's,llvm_clang =.*,llvm_clang = "${clang}/bin/clang",' configure.py
-    sed -i 's,cxx_compiler =.*,cxx_compiler = "${clang}/bin/clang++",' configure.py
+    substituteInPlace CMakeLists.txt \
+      --replace 'find_program( LLVM_CLANG clang PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+                'find_program( LLVM_CLANG clang PATHS "${buildPackages.clang_14.cc}/bin" NO_DEFAULT_PATH )' \
+      --replace 'find_program( LLVM_AS llvm-as PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+                'find_program( LLVM_AS llvm-as PATHS "${buildPackages.llvm_14}/bin" NO_DEFAULT_PATH )' \
+      --replace 'find_program( LLVM_LINK llvm-link PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+                'find_program( LLVM_LINK llvm-link PATHS "${buildPackages.llvm_14}/bin" NO_DEFAULT_PATH )' \
+      --replace 'find_program( LLVM_OPT opt PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+                'find_program( LLVM_OPT opt PATHS "${buildPackages.llvm_14}/bin" NO_DEFAULT_PATH )' \
+      --replace 'find_program( LLVM_SPIRV llvm-spirv PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+                'find_program( LLVM_SPIRV llvm-spirv PATHS "${buildPackages.spirv-llvm-translator}/bin" NO_DEFAULT_PATH )'
+  '' + lib.optionalString (stdenv.hostPlatform != stdenv.buildPlatform) ''
+    substituteInPlace CMakeLists.txt \
+      --replace 'COMMAND prepare_builtins' 'COMMAND ${buildPackages.libclc.dev}/bin/prepare_builtins'
   '';
 
-  configurePhase = ''
-    python2 ./configure.py --prefix=$out
+  nativeBuildInputs = [ cmake ninja python3 ];
+  buildInputs = [ llvm_14 ];
+  strictDeps = true;
+
+  postInstall = ''
+    install -Dt $dev/bin prepare_builtins
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://libclc.llvm.org/;
+  meta = with lib; {
+    broken = stdenv.isDarwin;
+    homepage = "http://libclc.llvm.org/";
     description = "Implementation of the library requirements of the OpenCL C programming language";
     license = licenses.mit;
     platforms = platforms.all;
-    maintainers = with maintainers; [ wkennington ];
   };
 }

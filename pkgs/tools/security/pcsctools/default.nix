@@ -1,40 +1,57 @@
-{ stdenv, lib, fetchurl, makeWrapper, pkgconfig, udev, dbus_libs, pcsclite
-, wget, coreutils
-, perl, pcscperl, Glib, Gtk2, Pango
+{ stdenv
+, lib
+, fetchFromGitHub
+, autoreconfHook
+, makeWrapper
+, pkg-config
+, systemd
+, dbus
+, pcsclite
+, wget
+, coreutils
+, perlPackages
 }:
 
-let deps = lib.makeBinPath [ wget coreutils ];
+stdenv.mkDerivation rec {
+  pname = "pcsc-tools";
+  version = "1.6.2";
 
-in stdenv.mkDerivation rec {
-  name = "pcsc-tools-1.4.25";
-
-  src = fetchurl {
-    url = "http://ludovic.rousseau.free.fr/softwares/pcsc-tools/${name}.tar.gz";
-    sha256 = "0iqcy28pb963ds4pjrpi37577vm6nkgf3i0b3rr978jy9qi1bix9";
+  src = fetchFromGitHub {
+    owner = "LudovicRousseau";
+    repo = pname;
+    rev = version;
+    sha256 = "sha256-c7md8m1llvz0EQqA0qY4aGb3guGFoj+8uS4hUTzie5o=";
   };
 
-  buildInputs = [ udev dbus_libs perl pcsclite ];
+  postPatch = ''
+    substituteInPlace ATR_analysis \
+      --replace /usr/local/pcsc /etc/pcsc \
+      --replace /usr/share/pcsc $out/share/pcsc
+  '';
 
-  makeFlags = [ "DESTDIR=$(out)" ];
+  buildInputs = [ dbus perlPackages.perl pcsclite ]
+    ++ lib.optional stdenv.isLinux systemd;
 
-  nativeBuildInputs = [ makeWrapper pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook makeWrapper pkg-config ];
 
   postInstall = ''
     wrapProgram $out/bin/scriptor \
-      --set PERL5LIB "${lib.makePerlPath [ pcscperl ]}"
+      --set PERL5LIB "${with perlPackages; makePerlPath [ pcscperl ]}"
     wrapProgram $out/bin/gscriptor \
-      --set PERL5LIB "${lib.makePerlPath [ pcscperl Glib Gtk2 Pango ]}"
+      --set PERL5LIB "${with perlPackages; makePerlPath [ pcscperl GlibObjectIntrospection Glib Gtk3 Pango Cairo CairoGObject ]}"
     wrapProgram $out/bin/ATR_analysis \
-      --set PERL5LIB "${lib.makePerlPath [ pcscperl ]}"
+      --set PERL5LIB "${with perlPackages; makePerlPath [ pcscperl ]}"
     wrapProgram $out/bin/pcsc_scan \
-      --set PATH "$out/bin:${deps}"
+      --prefix PATH : "$out/bin:${lib.makeBinPath [ coreutils wget ]}"
+
+    install -Dm444 -t $out/share/pcsc smartcard_list.txt
   '';
 
   meta = with lib; {
     description = "Tools used to test a PC/SC driver, card or reader";
-    homepage = http://ludovic.rousseau.free.fr/softwares/pcsc-tools/;
+    homepage = "https://pcsc-tools.apdu.fr/";
     license = licenses.gpl2Plus;
-    maintainers = with maintainers; [ viric ];
+    maintainers = with maintainers; [ peterhoeg ];
     platforms = platforms.linux;
   };
 }

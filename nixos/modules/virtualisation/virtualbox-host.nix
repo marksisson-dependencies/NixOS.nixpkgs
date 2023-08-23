@@ -5,8 +5,9 @@ with lib;
 let
   cfg = config.virtualisation.virtualbox.host;
 
-  virtualbox = pkgs.virtualbox.override {
-    inherit (cfg) enableHardening headless;
+  virtualbox = cfg.package.override {
+    inherit (cfg) enableHardening headless enableWebService;
+    extensionPack = if cfg.enableExtensionPack then pkgs.virtualboxExtpack else null;
   };
 
   kernelModules = config.boot.kernelPackages.virtualbox.override {
@@ -17,23 +18,41 @@ in
 
 {
   options.virtualisation.virtualbox.host = {
-    enable = mkOption {
-      type = types.bool;
-      default = false;
-      description = ''
+    enable = mkEnableOption (lib.mdDoc "VirtualBox") // {
+      description = lib.mdDoc ''
         Whether to enable VirtualBox.
 
-        <note><para>
-          In order to pass USB devices from the host to the guests, the user
-          needs to be in the <literal>vboxusers</literal> group.
-        </para></note>
+        ::: {.note}
+        In order to pass USB devices from the host to the guests, the user
+        needs to be in the `vboxusers` group.
+        :::
+      '';
+    };
+
+    enableExtensionPack = mkEnableOption (lib.mdDoc "VirtualBox extension pack") // {
+      description = lib.mdDoc ''
+        Whether to install the Oracle Extension Pack for VirtualBox.
+
+        ::: {.important}
+        You must set `nixpkgs.config.allowUnfree = true` in
+        order to use this.  This requires you accept the VirtualBox PUEL.
+        :::
+      '';
+    };
+
+    package = mkOption {
+      type = types.package;
+      default = pkgs.virtualbox;
+      defaultText = literalExpression "pkgs.virtualbox";
+      description = lib.mdDoc ''
+        Which VirtualBox package to use.
       '';
     };
 
     addNetworkInterface = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Automatically set up a vboxnet0 host-only network interface.
       '';
     };
@@ -41,52 +60,64 @@ in
     enableHardening = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Enable hardened VirtualBox, which ensures that only the binaries in the
         system path get access to the devices exposed by the kernel modules
         instead of all users in the vboxusers group.
 
-        <important><para>
-          Disabling this can put your system's security at risk, as local users
-          in the vboxusers group can tamper with the VirtualBox device files.
-        </para></important>
+        ::: {.important}
+        Disabling this can put your system's security at risk, as local users
+        in the vboxusers group can tamper with the VirtualBox device files.
+        :::
       '';
     };
 
     headless = mkOption {
       type = types.bool;
       default = false;
-      description = ''
+      description = lib.mdDoc ''
         Use VirtualBox installation without GUI and Qt dependency. Useful to enable on servers
         and when virtual machines are controlled only via SSH.
+      '';
+    };
+
+    enableWebService = mkOption {
+      type = types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        Build VirtualBox web service tool (vboxwebsrv) to allow managing VMs via other webpage frontend tools. Useful for headless servers.
       '';
     };
   };
 
   config = mkIf cfg.enable (mkMerge [{
+    warnings = mkIf (config.nixpkgs.config.virtualbox.enableExtensionPack or false)
+      ["'nixpkgs.virtualbox.enableExtensionPack' has no effect, please use 'virtualisation.virtualbox.host.enableExtensionPack'"];
     boot.kernelModules = [ "vboxdrv" "vboxnetadp" "vboxnetflt" ];
     boot.extraModulePackages = [ kernelModules ];
     environment.systemPackages = [ virtualbox ];
 
-    security.setuidOwners = let
+    security.wrappers = let
       mkSuid = program: {
-        inherit program;
         source = "${virtualbox}/libexec/virtualbox/${program}";
         owner = "root";
         group = "vboxusers";
         setuid = true;
       };
-    in mkIf cfg.enableHardening (map mkSuid [
-      "VBoxHeadless"
-      "VBoxNetAdpCtl"
-      "VBoxNetDHCP"
-      "VBoxNetNAT"
-      "VBoxSDL"
-      "VBoxVolInfo"
-      "VirtualBox"
-    ]);
+      executables = [
+        "VBoxHeadless"
+        "VBoxNetAdpCtl"
+        "VBoxNetDHCP"
+        "VBoxNetNAT"
+        "VBoxVolInfo"
+      ] ++ (lib.optionals (!cfg.headless) [
+        "VBoxSDL"
+        "VirtualBoxVM"
+      ]);
+    in mkIf cfg.enableHardening
+      (builtins.listToAttrs (map (x: { name = x; value = mkSuid x; }) executables));
 
-    users.extraGroups.vboxusers.gid = config.ids.gids.vboxusers;
+    users.groups.vboxusers.gid = config.ids.gids.vboxusers;
 
     services.udev.extraRules =
       ''
@@ -99,9 +130,9 @@ in
         SUBSYSTEM=="usb", ACTION=="remove", ENV{DEVTYPE}=="usb_device", RUN+="${virtualbox}/libexec/virtualbox/VBoxCreateUSBNode.sh --remove $major $minor"
       '';
 
-    # Since we lack the right setuid binaries, set up a host-only network by default.
+    # Since we lack the right setuid/setcap binaries, set up a host-only network by default.
   } (mkIf cfg.addNetworkInterface {
-    systemd.services."vboxnet0" =
+    systemd.services.vboxnet0 =
       { description = "VirtualBox vboxnet0 Interface";
         requires = [ "dev-vboxnetctl.device" ];
         after = [ "dev-vboxnetctl.device" ];
@@ -124,9 +155,16 @@ in
           '';
       };
 
-    networking.interfaces.vboxnet0.ip4 = [ { address = "192.168.56.1"; prefixLength = 24; } ];
+    networking.interfaces.vboxnet0.ipv4.addresses = [{ address = "192.168.56.1"; prefixLength = 24; }];
     # Make sure NetworkManager won't assume this interface being up
     # means we have internet access.
     networking.networkmanager.unmanaged = ["vboxnet0"];
-  })]);
+  }) (mkIf config.networking.useNetworkd {
+    systemd.network.networks."40-vboxnet0".extraConfig = ''
+      [Link]
+      RequiredForOnline=no
+    '';
+  })
+
+]);
 }

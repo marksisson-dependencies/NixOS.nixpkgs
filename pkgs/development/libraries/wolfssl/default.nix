@@ -1,19 +1,55 @@
-{ stdenv, fetchFromGitHub, autoreconfHook }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, Security
+, autoreconfHook
+, openssl
+}:
 
 stdenv.mkDerivation rec {
-  name = "wolfssl-${version}";
-  version = "3.9.10b";
+  pname = "wolfssl";
+  version = "5.5.4";
 
   src = fetchFromGitHub {
     owner = "wolfSSL";
     repo = "wolfssl";
-    rev = "v${version}";
-    sha256 = "1hx543kxi4fpxww0y2c05kaav99zmnxm81rq7v7d87qzmvw2g4gx";
+    rev = "v${version}-stable";
+    hash = "sha256-sR/Gjk50kLej5oJzDH1I6/V+7OIRiwtyeg5tEE3fmHk=";
   };
 
-  outputs = [ "out" "dev" "doc" "lib" ];
+  postPatch = ''
+    patchShebangs ./scripts
+    # ocsp tests require network access
+    sed -i -e '/ocsp\.test/d' -e '/ocsp-stapling\.test/d' scripts/include.am
+    # ensure test detects musl-based systems too
+    substituteInPlace scripts/ocsp-stapling2.test \
+      --replace '"linux-gnu"' '"linux-"'
+  '';
 
-  nativeBuildInputs = [ autoreconfHook ];
+  # Almost same as Debian but for now using --enable-all --enable-reproducible-build instead of --enable-distro to ensure options.h gets installed
+  configureFlags = [
+    "--enable-all"
+    "--enable-base64encode"
+    "--enable-pkcs11"
+    "--enable-writedup"
+    "--enable-reproducible-build"
+    "--enable-tls13"
+  ];
+
+  outputs = [
+    "dev"
+    "doc"
+    "lib"
+    "out"
+  ];
+
+  propagatedBuildInputs = [ ] ++ lib.optionals stdenv.isDarwin [ Security ];
+  nativeBuildInputs = [
+    autoreconfHook
+  ];
+
+  doCheck = true;
+  nativeCheckInputs = [ openssl ];
 
   postInstall = ''
      # fix recursive cycle:
@@ -23,10 +59,11 @@ stdenv.mkDerivation rec {
      mkdir -p "$out"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A small, fast, portable implementation of TLS/SSL for embedded devices";
-    homepage    = "https://www.wolfssl.com/";
-    platforms   = platforms.all;
-    maintainers = with maintainers; [ mcmtroffaes ];
+    homepage = "https://www.wolfssl.com/";
+    platforms = platforms.all;
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ fab ];
   };
 }

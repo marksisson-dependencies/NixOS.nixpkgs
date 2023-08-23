@@ -1,27 +1,42 @@
-{ stdenv, fetchurl, SDL, libxml2, SDL_image, libjpeg, libpng, mesa, zlib }:
+{ lib, stdenv, fetchurl
+, pkg-config, SDL, libxml2, SDL_image, libjpeg, libpng, libGLU, libGL, zlib
+, dedicatedServer ? false }:
 
 let
-  versionMajor = "0.2.8";
-  versionMinor = "3.3";
+  versionMajor = "0.2.9";
+  versionMinor = "1.0";
   version = "${versionMajor}.${versionMinor}";
 in
-
 stdenv.mkDerivation {
-  name = "armagetron-${version}";
+  pname = if dedicatedServer then "armagetronad-dedicated" else "armagetronad";
+  inherit version;
   src = fetchurl {
-    url = "https://launchpad.net/armagetronad/${versionMajor}/0.2.8.3.x/+download/armagetronad-${version}.src.tar.bz2";
-    sha256 = "1s55irhg60fpmhy8wwxpdq7c45r1mqch6zpicyb2wf9ln60xgwnx";
+    url = "https://launchpad.net/armagetronad/${versionMajor}/${version}/+download/armagetronad-${version}.tbz";
+    sha256 = "sha256-WbbHwBzj+MylQ34z+XSmN1KVQaEapPUsGlwXSZ4m9qE";
   };
 
-  NIX_LDFLAGS = [ "-lSDL_image" ];
+  enableParallelBuilding = true;
 
-  configureFlags = [ "--disable-etc" ];
-  buildInputs = [ SDL SDL_image libxml2 libjpeg libpng mesa zlib ];
+  configureFlags = [
+    "--enable-memmanager"
+    "--enable-automakedefaults"
+    "--disable-useradd"
+    "--disable-initscripts"
+    "--disable-etc"
+    "--disable-uninstall"
+    "--disable-sysinstall"
+  ] ++ lib.optional dedicatedServer "--enable-dedicated";
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [ pkg-config ];
+
+  buildInputs = [ libxml2 zlib ]
+    ++ lib.optionals (!dedicatedServer) [ SDL SDL_image libxml2 libjpeg libpng libGLU libGL ];
+
+  meta = with lib; {
     homepage = "http://armagetronad.org";
-    description = "An multiplayer networked arcade racing game in 3D similar to Tron";
-    license = licenses.gpl2;
+    description = "A multiplayer networked arcade racing game in 3D similar to Tron";
+    maintainers = with maintainers; [ numinit ];
+    license = licenses.gpl2Plus;
     platforms = platforms.linux;
   };
 }

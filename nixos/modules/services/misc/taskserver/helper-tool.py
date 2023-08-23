@@ -13,6 +13,7 @@ from tempfile import NamedTemporaryFile
 
 import click
 
+IS_AUTO_CONFIG = @isAutoConfig@ # NOQA
 CERTTOOL_COMMAND = "@certtool@"
 CERT_BITS = "@certBits@"
 CLIENT_EXPIRATION = "@clientExpiration@"
@@ -89,7 +90,7 @@ def certtool_cmd(*args, **kwargs):
     """
     return subprocess.check_output(
         [CERTTOOL_COMMAND] + list(args),
-        preexec_fn=lambda: os.umask(0077),
+        preexec_fn=lambda: os.umask(0o077),
         stderr=subprocess.STDOUT,
         **kwargs
     )
@@ -149,6 +150,12 @@ def create_template(contents):
 
 
 def generate_key(org, user):
+    if not IS_AUTO_CONFIG:
+        msg = "Automatic PKI handling is disabled, you need to " \
+              "manually issue a client certificate for user {}.\n"
+        sys.stderr.write(msg.format(user))
+        return
+
     basedir = os.path.join(TASKD_DATA_DIR, "keys", org, user)
     if os.path.exists(basedir):
         raise OSError("Keyfile directory for {} already exists.".format(user))
@@ -157,7 +164,7 @@ def generate_key(org, user):
     pubcert = os.path.join(basedir, "public.cert")
 
     try:
-        os.makedirs(basedir, mode=0700)
+        os.makedirs(basedir, mode=0o700)
 
         certtool_cmd("-p", "--bits", CERT_BITS, "--outfile", privkey)
 
@@ -243,26 +250,32 @@ class User(object):
         self.key = key
 
     def export(self):
-        pubcert = getkey(self.__org, self.name, "public.cert")
-        privkey = getkey(self.__org, self.name, "private.key")
-        cacert = getkey("ca.cert")
-
-        keydir = "${TASKDATA:-$HOME/.task}/keys"
-
         credentials = '/'.join([self.__org, self.name, self.key])
         allow_unquoted = string.ascii_letters + string.digits + "/-_."
         if not all((c in allow_unquoted) for c in credentials):
             credentials = "'" + credentials.replace("'", r"'\''") + "'"
 
-        script = [
-            "umask 0077",
-            'mkdir -p "{}"'.format(keydir),
-            mktaskkey("certificate", os.path.join(keydir, "public.cert"),
-                      pubcert),
-            mktaskkey("key", os.path.join(keydir, "private.key"), privkey),
-            mktaskkey("ca", os.path.join(keydir, "ca.cert"), cacert),
+        script = []
+
+        if IS_AUTO_CONFIG:
+            pubcert = getkey(self.__org, self.name, "public.cert")
+            privkey = getkey(self.__org, self.name, "private.key")
+            cacert = getkey("ca.cert")
+
+            keydir = "${TASKDATA:-$HOME/.task}/keys"
+
+            script += [
+                "umask 0077",
+                'mkdir -p "{}"'.format(keydir),
+                mktaskkey("certificate", os.path.join(keydir, "public.cert"),
+                          pubcert),
+                mktaskkey("key", os.path.join(keydir, "private.key"), privkey),
+                mktaskkey("ca", os.path.join(keydir, "ca.cert"), cacert)
+            ]
+
+        script.append(
             "task config taskd.credentials -- {}".format(credentials)
-        ]
+        )
 
         return "\n".join(script) + "\n"
 
@@ -288,7 +301,7 @@ class Organisation(object):
             return None
         if name not in self.users.keys():
             output = taskd_cmd("add", "user", self.name, name,
-                               capture_stdout=True)
+                               capture_stdout=True, encoding='utf-8')
             key = RE_USERKEY.search(output)
             if key is None:
                 msg = "Unable to find key while creating user {}."
@@ -399,9 +412,9 @@ class Manager(object):
         if org is not None:
             if self.ignore_imperative and is_imperative(name):
                 return
-            for user in org.users.keys():
+            for user in list(org.users.keys()):
                 org.del_user(user)
-            for group in org.groups.keys():
+            for group in list(org.groups.keys()):
                 org.del_group(group)
             taskd_cmd("remove", "org", name)
             del self._lazy_orgs[name]
@@ -435,6 +448,8 @@ def cli(ctx):
     """
     Manage Taskserver users and certificates
     """
+    if not IS_AUTO_CONFIG:
+        return
     for path in (CA_KEY, CA_CERT, CRL_FILE):
         if not os.path.exists(path):
             msg = "CA setup not done or incomplete, missing file {}."
@@ -526,7 +541,7 @@ def export_user(organisation, user):
     userobj = organisation.get_user(user)
     if userobj is None:
         msg = "User {} doesn't exist in organisation {}."
-        sys.exit(msg.format(userobj.name, organisation.name))
+        sys.exit(msg.format(user, organisation.name))
 
     sys.stdout.write(userobj.export())
 

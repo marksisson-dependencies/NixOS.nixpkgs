@@ -1,23 +1,29 @@
-{ fetchurl, stdenv, ncurses }:
+{ fetchurl, lib, stdenv, ncurses }:
 
-stdenv.mkDerivation rec {
-  name = "readline-6.3p08";
+stdenv.mkDerivation {
+  pname = "readline";
+  version = "6.3p08";
 
   src = fetchurl {
     url = "mirror://gnu/readline/readline-6.3.tar.gz";
     sha256 = "0hzxr9jxqqx5sxsv9vmlxdnvlr9vi4ih1avjb869hbs6p5qn1fjn";
   };
 
-  outputs = [ "out" "dev" "doc" ];
+  outputs = [ "out" "dev" "man" "doc" "info" ];
 
-  propagatedBuildInputs = [ncurses];
+  strictDeps = true;
+  propagatedBuildInputs = [ ncurses ];
 
-  patchFlags = "-p0";
+  patchFlags = [ "-p0" ];
+
+  configureFlags = lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
+    # This test requires running host code
+    "bash_cv_wcwidth_broken=no";
 
   patches =
     [ ./link-against-ncurses.patch
       ./no-arch_only-6.3.patch
-    ]
+    ] ++ lib.optional stdenv.hostPlatform.useAndroidPrebuilt ./android.patch
     ++
     (let
        patch = nr: sha256:
@@ -28,11 +34,7 @@ stdenv.mkDerivation rec {
      in
        import ./readline-6.3-patches.nix patch);
 
-  # Don't run the native `strip' when cross-compiling.
-  dontStrip = stdenv ? cross;
-  bash_cv_func_sigsetjmp = if stdenv.isCygwin then "missing" else null;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Library for interactive line editing";
 
     longDescription = ''
@@ -50,7 +52,7 @@ stdenv.mkDerivation rec {
       desire its capabilities.
     '';
 
-    homepage = http://savannah.gnu.org/projects/readline/;
+    homepage = "https://savannah.gnu.org/projects/readline/";
 
     license = licenses.gpl3Plus;
 

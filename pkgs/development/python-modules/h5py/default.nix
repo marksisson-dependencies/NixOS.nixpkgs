@@ -1,43 +1,80 @@
-{ stdenv, fetchurl, python, buildPythonPackage
-, numpy, hdf5, cython, six, pkgconfig
-, mpi4py ? null }:
+{ lib
+, fetchPypi
+, buildPythonPackage
+, pythonOlder
+, oldest-supported-numpy
+, setuptools
+, wheel
+, numpy
+, hdf5
+, cython
+, pkgconfig
+, mpi4py ? null
+, openssh
+, pytestCheckHook
+, cached-property
+}:
 
 assert hdf5.mpiSupport -> mpi4py != null && hdf5.mpi == mpi4py.mpi;
-
-with stdenv.lib;
 
 let
   mpi = hdf5.mpi;
   mpiSupport = hdf5.mpiSupport;
-
 in buildPythonPackage rec {
-  name = "h5py-${version}";
-  version = "2.6.0";
+  version = "3.8.0";
+  pname = "h5py";
+  format = "pyproject";
 
-  src = fetchurl {
-    url = "mirror://pypi/h/h5py/${name}.tar.gz";
-    sha256 = "0df46dg7i7xfking9lp221bfm8dbl974yvlrbi1w7r6m61ac7bxj";
+  disabled = pythonOlder "3.7";
+
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-b+rYLwxAAM841T+cAweA2Bv6AiAhiu4TuQt3Ack32V8=";
   };
 
-  configure_flags = "--hdf5=${hdf5}" + optionalString mpiSupport " --mpi";
-
-  postConfigure = ''
-    ${python.executable} setup.py configure ${configure_flags}
+  # avoid strict pinning of numpy
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "mpi4py ==" "mpi4py >="
   '';
 
-  preBuild = if mpiSupport then "export CC=${mpi}/bin/mpicc" else "";
+  HDF5_DIR = "${hdf5}";
+  HDF5_MPI = if mpiSupport then "ON" else "OFF";
 
-  buildInputs = [ hdf5 cython pkgconfig ]
-    ++ optional mpiSupport mpi
-    ;
-  propagatedBuildInputs = [ numpy six]
-    ++ optional mpiSupport mpi4py
-    ;
+  postConfigure = ''
+    # Needed to run the tests reliably. See:
+    # https://bitbucket.org/mpi4py/mpi4py/issues/87/multiple-test-errors-with-openmpi-30
+    ${lib.optionalString mpiSupport "export OMPI_MCA_rmaps_base_oversubscribe=yes"}
+  '';
 
-  meta = {
-    description =
-      "Pythonic interface to the HDF5 binary data format";
+  preBuild = lib.optionalString mpiSupport "export CC=${mpi}/bin/mpicc";
+
+  nativeBuildInputs = [
+    cython
+    oldest-supported-numpy
+    pkgconfig
+    setuptools
+    wheel
+  ];
+
+  buildInputs = [ hdf5 ]
+    ++ lib.optional mpiSupport mpi;
+
+  propagatedBuildInputs = [ numpy ]
+    ++ lib.optionals mpiSupport [ mpi4py openssh ]
+    ++ lib.optionals (pythonOlder "3.8") [ cached-property ];
+
+  # tests now require pytest-mpi, which isn't available and difficult to package
+  doCheck = false;
+  nativeCheckInputs = [ pytestCheckHook openssh ];
+
+  pythonImportsCheck = [ "h5py" ];
+
+  meta = with lib; {
+    changelog = "https://github.com/h5py/h5py/blob/${version}/docs/whatsnew/${lib.versions.majorMinor version}.rst";
+    description = "Pythonic interface to the HDF5 binary data format";
     homepage = "http://www.h5py.org/";
-    license = stdenv.lib.licenses.bsd2;
+    license = licenses.bsd3;
+    maintainers = [ ];
   };
 }

@@ -1,44 +1,54 @@
-{ stdenv, fetchurl, makeWrapper }:
+{ lib, stdenv, fetchurl, makeWrapper }:
 
 let
   options = rec {
-    x86_64-darwin = rec {
-      version = "1.1.8";
+    aarch64-darwin = {
+      version = "2.1.2";
+      system = "arm64-darwin";
+      sha256 = "sha256-H0ALigXcWIypdA+fTf7jERscwbb7QIAfcoxCtGDh0RU=";
+    };
+    x86_64-darwin = {
+      version = "2.2.9";
       system = "x86-64-darwin";
-      sha256 = "006pr88053wclvbjfjdypnbiw8wymbzdzi7a6kbkpdfn4zf5943j";
+      sha256 = "sha256-b1BLkoLIOELAYBYA9eBmMgm1OxMxJewzNP96C9ADfKY=";
     };
-    x86_64-linux = rec {
-      version = "1.2.15";
+    x86_64-linux = {
+      version = "1.3.16";
       system = "x86-64-linux";
-      sha256 = "1bpbfz9x2w73hy2kh8p0kd4m1p6pin90h2zycq52r3bbz8yv47aw";
+      sha256 = "0sq2dylwwyqfwkbdvcgqwz3vay9v895zpb0fyzsiwy31d1x9pr2s";
     };
-    i686-linux = rec {
+    i686-linux = {
       version = "1.2.7";
       system = "x86-linux";
       sha256 = "07f3bz4br280qvn85i088vpzj9wcz8wmwrf665ypqx181pz2ai3j";
     };
-    armv7l-linux = rec {
+    aarch64-linux = {
+      version = "1.3.16";
+      system = "arm64-linux";
+      sha256 = "0q1brz9c49xgdljzfx8rpxxnlwhadxkcy5kg0mcd9wnxygind1cl";
+    };
+    armv7l-linux = {
       version = "1.2.14";
       system = "armhf-linux";
       sha256 = "0sp5445rbvms6qvzhld0kwwvydw51vq5iaf4kdqsf2d9jvaz3yx5";
     };
     armv6l-linux = armv7l-linux;
-    x86_64-freebsd = rec {
+    x86_64-freebsd = {
       version = "1.2.7";
       system = "x86-64-freebsd";
       sha256 = "14k42xiqd2rrim4pd5k5pjcrpkac09qnpynha8j1v4jngrvmw7y6";
     };
-    x86_64-solaris = rec {
+    x86_64-solaris = {
       version = "1.2.7";
       system = "x86-64-solaris";
       sha256 = "05c12fmac4ha72k1ckl6i780rckd7jh4g5s5hiic7fjxnf1kx8d0";
     };
   };
-  cfg = options.${stdenv.system};
+  cfg = options.${stdenv.hostPlatform.system};
 in
-assert builtins.hasAttr stdenv.system options;
+assert builtins.hasAttr stdenv.hostPlatform.system options;
 stdenv.mkDerivation rec {
-  name    = "sbcl-bootstrap-${version}";
+  pname = "sbcl-bootstrap";
   version = cfg.version;
 
   src = fetchurl {
@@ -46,7 +56,7 @@ stdenv.mkDerivation rec {
     sha256 = cfg.sha256;
   };
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     mkdir -p $out/bin
@@ -60,15 +70,15 @@ stdenv.mkDerivation rec {
       --add-flags "--core $out/share/sbcl/sbcl.core"
   '';
 
-  postFixup = stdenv.lib.optionalString (!stdenv.isArm && stdenv.isLinux) ''
+  postFixup = lib.optionalString (!stdenv.isAarch32 && stdenv.isLinux) ''
     patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) $out/share/sbcl/sbcl
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Lisp compiler";
     homepage = "http://www.sbcl.org";
     license = licenses.publicDomain; # and FreeBSD
-    maintainers = [maintainers.raskin maintainers.tohl];
+    maintainers = lib.teams.lisp.members;
     platforms = attrNames options;
   };
 }

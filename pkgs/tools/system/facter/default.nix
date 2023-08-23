@@ -1,26 +1,38 @@
-{ stdenv, fetchurl, boost, cmake, cpp-hocon, curl, leatherman, libyamlcpp, openssl, ruby, utillinux }:
+{ lib, stdenv, fetchFromGitHub, boost, cmake, cpp-hocon, curl, leatherman, libwhereami, yaml-cpp, openssl, ruby, util-linux }:
 
 stdenv.mkDerivation rec {
-  name = "facter-${version}";
-  version = "3.4.1";
-  src = fetchurl {
-    url = "https://downloads.puppetlabs.com/facter/${name}.tar.gz";
-    sha256 = "1vvvqni68l3hmnxi8jp0n2rwzxyh1vmgv6xa2954h94dfax6dmcj";
+  pname = "facter";
+  version = "3.14.17";
+
+  src = fetchFromGitHub {
+    sha256 = "sha256-RvsUt1DyN8Xr+Xtz84mbKlDwxLewgK6qklYVdQHu6q0=";
+    rev = version;
+    repo = pname;
+    owner = "puppetlabs";
   };
 
-  cmakeFlags = [ "-DFACTER_RUBY=${ruby}/lib/libruby.so" ];
+  postPatch = ''
+    sed '1i#include <array>' -i lib/src/facts/glib/load_average_resolver.cc # gcc12
+  '';
 
-  # since we cant expand $out in cmakeFlags
-  preConfigure = "cmakeFlags+=\" -DRUBY_LIB_INSTALL=$out/lib/ruby\"";
+  CXXFLAGS = lib.optionalString stdenv.cc.isGNU "-fpermissive -Wno-error=catch-value";
+  NIX_LDFLAGS = lib.optionalString stdenv.isLinux "-lblkid";
 
-  buildInputs = [ boost cmake cpp-hocon curl leatherman libyamlcpp openssl ruby utillinux ];
+  cmakeFlags = [
+    "-DFACTER_RUBY=${ruby}/lib/libruby${stdenv.hostPlatform.extensions.sharedLibrary}"
+    "-DRUBY_LIB_INSTALL=${placeholder "out"}/lib/ruby"
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/puppetlabs/facter;
+  env.NIX_CFLAGS_COMPILE = "-Wno-error";
+
+  nativeBuildInputs = [ cmake ];
+  buildInputs = [ boost cpp-hocon curl leatherman libwhereami yaml-cpp openssl ruby util-linux ];
+
+  meta = with lib; {
+    homepage = "https://github.com/puppetlabs/facter";
     description = "A system inventory tool";
     license = licenses.asl20;
     maintainers = [ maintainers.womfoo ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
-
 }

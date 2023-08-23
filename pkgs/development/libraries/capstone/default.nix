@@ -1,25 +1,35 @@
-{ stdenv, fetchurl, bash }:
+{ lib
+, stdenv
+, cmake
+, fetchFromGitHub
+, fixDarwinDylibNames
+}:
 
 stdenv.mkDerivation rec {
-  name    = "capstone-${version}";
-  version = "3.0.4";
+  pname = "capstone";
+  version = "4.0.2";
 
-  src = fetchurl {
-    url    = "https://github.com/aquynh/capstone/archive/${version}.tar.gz";
-    sha256 = "1whl5c8j6vqvz2j6ay2pyszx0jg8d3x8hq66cvgghmjchvsssvax";
+  src = fetchFromGitHub {
+    owner = "aquynh";
+    repo = "capstone";
+    rev = version;
+    sha256 = "sha256-XMwQ7UaPC8YYu4yxsE4bbR3leYPfBHu5iixSLz05r3g=";
   };
 
-  configurePhase = '' patchShebangs make.sh '';
-  buildPhase = '' ./make.sh '';
-  installPhase = '' env PREFIX=$out ./make.sh install '';
+  nativeBuildInputs = [
+    cmake
+  ] ++ lib.optionals stdenv.isDarwin [
+    fixDarwinDylibNames
+  ];
 
-  enableParallelBuilding = true;
+  doCheck = true;
 
   meta = {
     description = "Advanced disassembly library";
     homepage    = "http://www.capstone-engine.org";
-    license     = stdenv.lib.licenses.bsd3;
-    platforms   = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    license     = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ thoughtpolice ris ];
+    mainProgram = "cstool";
+    platforms   = lib.platforms.unix;
   };
 }

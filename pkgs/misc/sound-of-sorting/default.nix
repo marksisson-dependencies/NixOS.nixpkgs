@@ -1,28 +1,38 @@
-{ stdenv, fetchurl
-, SDL2, wxGTK
+{ lib
+, stdenv
+, fetchFromGitHub
+, pkg-config
+, SDL2
+, wxGTK32
+, darwin
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
+  pname = "sound-of-sorting";
+  version = "unstable-2022-10-12";
 
-  name = "sound-of-sorting-${version}";
-  version = "0.6.5";
-
-  src = fetchurl {
-    url = "https://github.com/bingmann/sound-of-sorting/archive/${name}.tar.gz";
-    sha256 = "1524bhmy5067z9bjc15hvqslw43adgpdn4272iymq09ahja4x76b";
+  src = fetchFromGitHub {
+    owner = "bingmann";
+    repo = "sound-of-sorting";
+    rev = "5cfcaf752593c8cbcf52555dd22745599a7d8b1b";
+    hash = "sha256-cBrTvFoz6WZIsh5qPPiWxQ338Z0OfcIefiI8CZF6nn8=";
   };
 
-  buildInputs = with stdenv.lib;
-  [ wxGTK SDL2 ];
+  nativeBuildInputs = [
+    pkg-config
+  ];
 
-  preConfigure = ''
-    export SDL_CONFIG=${SDL2}/bin/sdl2-config
-  '';
+  buildInputs = [
+    wxGTK32
+    SDL2
+  ]
+  ++ lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Cocoa ;
 
-  meta = with stdenv.lib;{
+  meta = {
     description = "Audibilization and Visualization of Sorting Algorithms";
-    homepage = http://panthema.net/2013/sound-of-sorting/;
-    license = licenses.gpl3;
-    maintainers = [ maintainers.AndersonTorres ];
+    homepage = "https://panthema.net/2013/sound-of-sorting/";
+    license = lib.licenses.gpl3Plus;
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    platforms = lib.platforms.unix;
   };
 }

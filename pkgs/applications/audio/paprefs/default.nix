@@ -1,23 +1,40 @@
-{ fetchurl, stdenv, pkgconfig, libpulseaudio, gtkmm2, libglademm
-, dbus_glib, GConf, gconfmm, intltool }:
+{ fetchurl
+, lib
+, stdenv
+, meson
+, ninja
+, gettext
+, pkg-config
+, pulseaudioFull
+, glibmm
+, gtkmm3
+, wrapGAppsHook
+}:
 
 stdenv.mkDerivation rec {
-  name = "paprefs-0.9.10";
+  pname = "paprefs";
+  version = "1.2";
 
   src = fetchurl {
-    url = "http://freedesktop.org/software/pulseaudio/paprefs/${name}.tar.xz";
-    sha256 = "1c5b3sb881szavly220q31g7rvpn94wr7ywlk00hqb9zaikml716";
+    url = "https://freedesktop.org/software/pulseaudio/paprefs/paprefs-${version}.tar.xz";
+    sha256 = "sha256-s/IeQNw5NtFeP/yRD7DAfBS4jowodxW0VqlIwXY49jM=";
   };
 
-  buildInputs = [ libpulseaudio gtkmm2 libglademm dbus_glib gconfmm ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    gettext
+    pkg-config
+    wrapGAppsHook
+  ];
 
-  nativeBuildInputs = [ pkgconfig intltool ];
+  buildInputs = [
+    pulseaudioFull
+    glibmm
+    gtkmm3
+  ];
 
-  propagatedUserEnvPkgs = [ GConf ];
-
-  configureFlags = [ "--disable-lynx" ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "PulseAudio Preferences";
 
     longDescription = ''

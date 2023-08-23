@@ -1,46 +1,100 @@
-{ stdenv, fetchurl, fetchpatch, runCommand, zlib }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, substituteAll
+, binutils
+, asciidoctor
+, cmake
+, perl
+, zstd
+, bashInteractive
+, xcodebuild
+, makeWrapper
+, nix-update-script
+}:
 
-let ccache = stdenv.mkDerivation rec {
-  name = "ccache-${version}";
-  version = "3.2.5";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "ccache";
+  version = "4.8.2";
 
-  src = fetchurl {
-    sha256 = "11db1g109g0g5si0s50yd99ja5f8j4asxb081clvx78r9d9i2w0i";
-    url = "mirror://samba/ccache/${name}.tar.xz";
+  src = fetchFromGitHub {
+    owner = "ccache";
+    repo = "ccache";
+    rev = "refs/tags/v${finalAttrs.version}";
+    sha256 = "sha256-wft9T0XzTJhN/85kV+pIAUqTvcIBClbj+nHPQK0ncVE=";
   };
 
-  buildInputs = [ zlib ];
+  outputs = [ "out" "man" ];
 
-  postPatch = ''
-    substituteInPlace Makefile.in --replace 'objs) $(extra_libs)' 'objs)'
-  '';
+  patches = [
+    # When building for Darwin, test/run uses dwarfdump, whereas on
+    # Linux it uses objdump. We don't have dwarfdump packaged for
+    # Darwin, so this patch updates the test to also use objdump on
+    # Darwin.
+    # Additionally, when cross compiling, the correct target prefix
+    # needs to be set.
+    (substituteAll {
+      src = ./fix-objdump-path.patch;
+      objdump = "${binutils.bintools}/bin/${binutils.targetPrefix}objdump";
+    })
+  ];
 
-  doCheck = !stdenv.isDarwin;
+  nativeBuildInputs = [ asciidoctor cmake perl ];
+  buildInputs = [ zstd ];
 
-  passthru = let
-      unwrappedCC = stdenv.cc.cc;
-    in {
+  cmakeFlags = [
+    # Build system does not autodetect redis library presence.
+    # Requires explicit flag.
+    "-DREDIS_STORAGE_BACKEND=OFF"
+  ];
+
+  doCheck = true;
+  nativeCheckInputs = [
+    # test/run requires the compgen function which is available in
+    # bashInteractive, but not bash.
+    bashInteractive
+  ] ++ lib.optional stdenv.isDarwin xcodebuild;
+
+  checkPhase =
+    let
+      badTests = [
+        "test.trim_dir" # flaky on hydra (possibly filesystem-specific?)
+      ] ++ lib.optionals stdenv.isDarwin [
+        "test.basedir"
+        "test.fileclone" # flaky on hydra (possibly filesystem-specific?)
+        "test.multi_arch"
+        "test.nocpp2"
+      ];
+    in
+    ''
+      runHook preCheck
+      export HOME=$(mktemp -d)
+      ctest --output-on-failure -E '^(${lib.concatStringsSep "|" badTests})$'
+      runHook postCheck
+    '';
+
+  passthru = {
     # A derivation that provides gcc and g++ commands, but that
     # will end up calling ccache for the given cacheDir
-    links = extraConfig: stdenv.mkDerivation rec {
-      name = "ccache-links";
+    links = { unwrappedCC, extraConfig }: stdenv.mkDerivation {
+      pname = "ccache-links";
+      inherit (finalAttrs) version;
       passthru = {
         isClang = unwrappedCC.isClang or false;
         isGNU = unwrappedCC.isGNU or false;
+        isCcache = true;
       };
       inherit (unwrappedCC) lib;
+      nativeBuildInputs = [ makeWrapper ];
       buildCommand = ''
         mkdir -p $out/bin
 
         wrap() {
           local cname="$1"
           if [ -x "${unwrappedCC}/bin/$cname" ]; then
-            cat > $out/bin/$cname << EOF
-        #!/bin/sh
-        ${extraConfig}
-        exec ${ccache}/bin/ccache ${unwrappedCC}/bin/$cname "\$@"
-        EOF
-            chmod +x $out/bin/$cname
+            makeWrapper ${finalAttrs.finalPackage}/bin/ccache $out/bin/$cname \
+              --run ${lib.escapeShellArg extraConfig} \
+              --add-flags ${unwrappedCC}/bin/$cname
           fi
         }
 
@@ -61,15 +115,19 @@ let ccache = stdenv.mkDerivation rec {
         done
       '';
     };
+
+    updateScript = nix-update-script { };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Compiler cache for fast recompilation of C/C++ code";
-    homepage = http://ccache.samba.org/;
-    downloadPage = https://ccache.samba.org/download.html;
+    homepage = "https://ccache.dev";
+    downloadPage = "https://ccache.dev/download.html";
+    changelog = "https://ccache.dev/releasenotes.html#_ccache_${
+      builtins.replaceStrings [ "." ] [ "_" ] finalAttrs.version
+    }";
     license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ nckx ];
+    maintainers = with maintainers; [ kira-bruneau r-burns ];
     platforms = platforms.unix;
   };
-};
-in ccache
+})

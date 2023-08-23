@@ -1,19 +1,35 @@
-{ stdenv, fetchzip, ocaml, findlib, ocamlbuild, camomile, ocaml_react }:
+{ lib, buildDunePackage, fetchFromGitHub, ocaml, react, charInfo_width, result, uchar, uutf, uucp, uuseg }:
 
-stdenv.mkDerivation rec {
-  version = "1.4";
-  name = "ocaml-zed-${version}";
+let
+  switch =
+    if lib.versionAtLeast ocaml.version "4.08"
+    then
+      {
+        version = "3.2.0";
+        sha256 = "sha256-6yKHE30nVFXo8hGdCx+GO4VYYGbi802aMdN2XuYMJ7w=";
+        propagatedBuildInputs = [ react result uchar uutf uucp uuseg ];
+      }
+    else
+      {
+        version = "3.1.0";
+        sha256 = "04vr1a94imsghm98iigc35rhifsz0rh3qz2qm0wam2wvp6vmrx0p";
+        propagatedBuildInputs = [ charInfo_width react ];
+      };
+in
 
-  src = fetchzip {
-    url = "https://github.com/diml/zed/archive/${version}.tar.gz";
-    sha256 = "0d8qfy0qiydrrqi8qc9rcwgjigql6vx9gl4zp62jfz1lmjgb2a3w";
+buildDunePackage rec {
+  pname = "zed";
+
+  inherit (switch) version propagatedBuildInputs;
+
+  duneVersion = "3";
+
+  src = fetchFromGitHub {
+    owner = "ocaml-community";
+    repo = pname;
+    rev = version;
+    sha256 = switch.sha256;
   };
-
-  buildInputs = [ ocaml findlib ocamlbuild ocaml_react ];
-
-  propagatedBuildInputs = [ camomile ];
-
-  createFindlibDestdir = true;
 
   meta = {
     description = "Abstract engine for text edition in OCaml";
@@ -24,11 +40,10 @@ stdenv.mkDerivation rec {
 
     To support efficient text edition capabilities, Zed provides macro recording and cursor management facilities.
     '';
-    homepage = https://github.com/diml/zed;
-    license = stdenv.lib.licenses.bsd3;
-    platforms = ocaml.meta.platforms or [];
+    inherit (src.meta) homepage;
+    license = lib.licenses.bsd3;
     maintainers = [
-      stdenv.lib.maintainers.gal_bolle
+      lib.maintainers.gal_bolle
     ];
   };
 }

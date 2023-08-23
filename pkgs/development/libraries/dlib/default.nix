@@ -1,45 +1,40 @@
-{ stdenv, fetchurl, cmake, xlibsWrapper }:
+{ stdenv, lib, fetchFromGitHub, cmake, pkg-config, libpng, libjpeg
+, guiSupport ? false, libX11
+
+  # see http://dlib.net/compile.html
+, sse4Support ? stdenv.hostPlatform.sse4_1Support
+, avxSupport ? stdenv.hostPlatform.avxSupport
+, cudaSupport ? true
+}:
 
 stdenv.mkDerivation rec {
-  version = "18.10";
-  name = "dlib-${version}";
+  pname = "dlib";
+  version = "19.24.2";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/dclib/dlib/${name}.tar.bz2";
-    sha256 = "1g3v13azc29m5r7zqs3x0g731hny6spb66cxnra7f167z31ka3s7";
+  src = fetchFromGitHub {
+    owner = "davisking";
+    repo = "dlib";
+    rev ="v${version}";
+    sha256 = "sha256-Z1fScuaIHjj2L1uqLIvsZ7ARKNjM+iaA8SAtWUTPFZk=";
   };
 
-  # The supplied CMakeLists.txt does not have any install targets.
-  sources_var = "\$\{sources\}";
-  headers_var = "\$\{hearders\}";
-  preConfigure = ''
-    cat << EOF > CMakeLists.txt
-    cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
-    project(dlib)
+  postPatch = ''
+    rm -rf dlib/external
+  '';
 
-    include_directories(./)
+  cmakeFlags = [
+    "-DUSE_DLIB_USE_CUDA=${if cudaSupport then "1" else "0"}"
+    "-DUSE_SSE4_INSTRUCTIONS=${if sse4Support then "yes" else "no"}"
+    "-DUSE_AVX_INSTRUCTIONS=${if avxSupport then "yes" else "no"}" ];
 
-    file(GLOB sources ./dlib/all/*.cpp)
-    file(GLOB headers ./dlib/*.h)
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ libpng libjpeg ] ++ lib.optional guiSupport libX11;
 
-    SET(LIBRARY_OUTPUT_PATH ".")
-    add_library(dlib "SHARED" dlib/all/source.cpp ${sources_var} ${headers_var})
-
-    install(TARGETS dlib DESTINATION lib)
-    install(DIRECTORY dlib/ DESTINATION include/dlib FILES_MATCHING PATTERN "*.h")
-    EOF
-  '';   
-
-  enableParallelBuilding = true;
-  buildInputs = [ cmake xlibsWrapper ];
-  propagatedBuildInputs = [ xlibsWrapper ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A general purpose cross-platform C++ machine learning library";
-    homepage = http://www.dlib.net;
-    license = stdenv.lib.licenses.boost;
-    maintainers = with maintainers; [ christopherpoole ];
-    platforms = stdenv.lib.platforms.all;
+    homepage = "http://www.dlib.net";
+    license = licenses.boost;
+    maintainers = with maintainers; [ christopherpoole ma27 ];
+    platforms = platforms.unix;
   };
 }
-

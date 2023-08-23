@@ -1,17 +1,21 @@
-{ stdenv, fetchFromGitHub }:
+{ lib, stdenv, fetchFromGitHub
+, supportCompressedPackets ? true, zlib, bzip2
+}:
 
 stdenv.mkDerivation rec {
-  name = "pgpdump-${version}";
-  version = "0.31";
+  pname = "pgpdump";
+  version = "0.35";
 
   src = fetchFromGitHub {
     owner = "kazu-yamamoto";
     repo = "pgpdump";
     rev = "v${version}";
-    sha256 = "05ywdgxzq3976dsy95vgdx3nnhd9i9vypzyrkabpmnxphfnjfrb4";
+    sha256 = "sha256-GjPy/feF437WtDqbEn1lGwWayWtvKhqsyJFMuH3IFl4=";
   };
 
-  meta = with stdenv.lib; {
+  buildInputs = lib.optionals supportCompressedPackets [ zlib bzip2 ];
+
+  meta = with lib; {
     description = "A PGP packet visualizer";
     longDescription = ''
       pgpdump is a PGP packet visualizer which displays the packet format of
@@ -19,8 +23,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = "http://www.mew.org/~kazu/proj/pgpdump/en/";
     license = licenses.bsd3;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
     maintainers = with maintainers; [ primeos ];
   };
 }
-

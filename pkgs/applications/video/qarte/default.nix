@@ -1,37 +1,46 @@
-{ stdenv, fetchbzr, python3, rtmpdump, makeWrapper }:
+{ mkDerivation, lib, fetchbzr, python3, rtmpdump }:
 
 let
-  pythonEnv = python3.withPackages (ps: with ps; [ pyqt5 sip ]);
-in stdenv.mkDerivation {
-  name = "qarte-3.2.0";
+  pythonEnv = python3.withPackages (ps: with ps; [ m3u8 pyqt5_with_qtmultimedia ]);
+in mkDerivation {
+  pname = "qarte";
+  version = "4.17.1";
+
   src = fetchbzr {
-    url = http://bazaar.launchpad.net/~vincent-vandevyvre/qarte/qarte-3;
-    rev = "146";
-    sha256 = "0dvl38dknmnj2p4yr25p88kw3mh502c6qdp2bd43bhd2sqc3b0v0";
+    url = "http://bazaar.launchpad.net/~vincent-vandevyvre/qarte/qarte-4";
+    rev = "74";
+    sha256 = "sha256:18ky9qwfvbifd0xrbmnfm3cm2vyy5jgf9rrca2hby46sjf2745h4";
   };
 
-  buildInputs = [ makeWrapper pythonEnv ];
+  buildInputs = [ pythonEnv ];
 
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out/bin
     mv qarte $out/bin/
     substituteInPlace $out/bin/qarte \
       --replace '/usr/share' "$out/share"
-    wrapProgram $out/bin/qarte \
-      --prefix PATH : "${rtmpdump}/bin"
 
     mkdir -p $out/share/man/man1/
     mv qarte.1 $out/share/man/man1/
 
     mkdir -p $out/share/qarte
     mv * $out/share/qarte/
+
+    runHook postInstall
   '';
 
-  meta = {
-    homepage = https://launchpad.net/qarte;
+  postFixup = ''
+    wrapQtApp $out/bin/qarte \
+      --prefix PATH : ${rtmpdump}/bin
+  '';
+
+  meta = with lib; {
+    homepage = "https://launchpad.net/qarte";
     description = "A recorder for Arte TV Guide and Arte Concert";
-    license = stdenv.lib.licenses.gpl3;
-    maintainers = with stdenv.lib.maintainers; [ vbgl ];
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl3;
+    maintainers = with maintainers; [ vbgl ];
+    platforms = platforms.linux;
   };
 }

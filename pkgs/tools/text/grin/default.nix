@@ -1,21 +1,23 @@
-{ stdenv, fetchurl, python2Packages }:
+{ lib, fetchFromGitHub, python3Packages }:
 
-python2Packages.buildPythonApplication rec {
-  name = "grin-1.2.1";
+python3Packages.buildPythonApplication rec {
+  pname = "grin";
+  version = "1.3.0";
   namePrefix = "";
 
-  src = fetchurl {
-    url = "mirror://pypi/g/grin/${name}.tar.gz";
-    sha256 = "1swzwb17wibam8jszdv98h557hlx44pg6psv6rjz7i33qlxk0fdz";
+  src = fetchFromGitHub {
+    owner = "matthew-brett";
+    repo = pname;
+    rev = "1.3.0";
+    sha256 = "057d05vzx4sf415vnh3qj2g351xhb3illjxjs9mdl3nsnb5r84kv";
   };
 
-  buildInputs = with python2Packages; [ nose ];
-  propagatedBuildInputs = with python2Packages; [ argparse ];
+  buildInputs = with python3Packages; [ nose ];
 
   meta = {
-    homepage = https://pypi.python.org/pypi/grin;
+    homepage = "https://github.com/matthew-brett/grin";
     description = "A grep program configured the way I like it";
-    platform = stdenv.lib.platforms.all;
-    maintainers = [ stdenv.lib.maintainers.sjagoe ];
+    platforms = lib.platforms.all;
+    maintainers = [ lib.maintainers.sjagoe ];
   };
 }

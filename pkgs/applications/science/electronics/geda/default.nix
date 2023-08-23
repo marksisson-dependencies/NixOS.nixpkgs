@@ -1,20 +1,25 @@
-{ stdenv, fetchurl, pkgconfig, guile, gtk2, flex, gawk, perl }:
+{ lib, stdenv, fetchurl, groff, pkg-config, python2, guile, gtk2, flex, gawk, perl }:
 
 stdenv.mkDerivation rec {
-  name = "geda-${version}";
-  version = "1.8.2-20130925";
+  pname = "geda";
+  version = "1.10.2";
 
   src = fetchurl {
-    url = "http://ftp.geda-project.org/geda-gaf/stable/v1.8/1.8.2/geda-gaf-1.8.2.tar.gz";
-    sha256 = "08dpa506xk4gjbbi8vnxcb640wq4ihlgmhzlssl52nhvxwx7gx5v";
+    url = "http://ftp.geda-project.org/geda-gaf/stable/v${lib.versions.majorMinor version}/${version}/geda-gaf-${version}.tar.gz";
+    hash = "sha256-6GKrJBUoU4+jvuJzkmH1aAERArYMXjmi8DWGY8BCyKQ=";
   };
 
-  configureFlags = "--disable-update-xdg-database";
-  buildInputs = [ pkgconfig guile gtk2 flex gawk perl ];
+  configureFlags = [
+    "--disable-update-xdg-database"
+    "--without-libfam"
+  ];
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [ groff pkg-config python2 ];
+  buildInputs = [ guile gtk2 flex gawk perl ];
+
+  meta = with lib; {
     description = "Full GPL'd suite of Electronic Design Automation tools";
-    homepage = http://www.geda-project.org/;
+    homepage = "http://www.geda-project.org/";
     maintainers = with maintainers; [ pjones ];
     platforms = platforms.linux;
     license = licenses.gpl2;

@@ -1,23 +1,33 @@
-{ stdenv, fetchurl, nasm }:
+{ lib, stdenv, fetchFromGitHub, nasm, windows }:
 
 stdenv.mkDerivation rec {
-  name = "openh264-1.5.0";
+  pname = "openh264";
+  version = "2.3.1";
 
-  src = fetchurl {
-    url = "https://github.com/cisco/openh264/archive/v1.5.0.tar.gz";
-    sha256 = "1d97dh5hzmy46jamfw03flvcz8md1hxp6y5n0b787h8ks7apn1wq";
+  src = fetchFromGitHub {
+    owner = "cisco";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-L5u0xkoza3G1ZHdtJH7ayVOgcVbPWYp7MC3lJd7LsSY=";
   };
 
-  buildInputs = [ nasm ];
+  nativeBuildInputs = [ nasm ];
 
-  installPhase = ''
-    make PREFIX=$out install
-  '';
+  buildInputs = lib.optional stdenv.hostPlatform.isWindows windows.pthreads;
 
-  meta = with stdenv.lib; {
+  makeFlags = [
+    "PREFIX=${placeholder "out"}"
+    "ARCH=${stdenv.hostPlatform.linuxArch}"
+  ] ++ lib.optional stdenv.hostPlatform.isWindows "OS=mingw_nt";
+
+  enableParallelBuilding = true;
+
+  hardeningDisable = lib.optional stdenv.hostPlatform.isWindows "stackprotector";
+
+  meta = with lib; {
     description = "A codec library which supports H.264 encoding and decoding";
-    homepage = http://www.openh264.org;
-    license = stdenv.lib.licenses.bsd2;
+    homepage = "https://www.openh264.org";
+    license = licenses.bsd2;
     platforms = platforms.unix;
   };
 }

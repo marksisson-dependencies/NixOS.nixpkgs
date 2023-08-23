@@ -1,139 +1,162 @@
-{ stdenv, fetchFromGitHub, cmake, gettext, libmsgpack, libtermkey
-, libtool, libuv, luajit, luaPackages, man, ncurses, perl, pkgconfig
-, unibilium, makeWrapper, vimUtils, xsel, gperf
+{ lib, stdenv, fetchFromGitHub, cmake, gettext, msgpack-c, libtermkey, libiconv
+, libuv, lua, ncurses, pkg-config
+, unibilium, gperf
+, libvterm-neovim
+, tree-sitter
+, fetchurl
+, buildPackages
+, treesitter-parsers ? import ./treesitter-parsers.nix { inherit fetchurl; }
+, CoreServices
+, glibcLocales ? null, procps ? null
 
-, withPython ? true, pythonPackages, extraPythonPackages ? []
-, withPython3 ? true, python3Packages, extraPython3Packages ? []
-, withJemalloc ? true, jemalloc
-
-, withPyGUI ? false
-, vimAlias ? false
-, configure ? null
+# now defaults to false because some tests can be flaky (clipboard etc), see
+# also: https://github.com/neovim/neovim/issues/16233
+, doCheck ? false
+, nodejs ? null, fish ? null, python3 ? null
 }:
 
-with stdenv.lib;
-
 let
+  requiredLuaPkgs = ps: (with ps; [
+    lpeg
+    luabitop
+    mpack
+  ] ++ lib.optionals doCheck [
+    nvim-client
+    luv
+    coxpcall
+    busted
+    luafilesystem
+    penlight
+    inspect
+  ]
+  );
+  neovimLuaEnv = lua.withPackages requiredLuaPkgs;
+  neovimLuaEnvOnBuild = lua.luaOnBuild.withPackages requiredLuaPkgs;
+  codegenLua =
+    if lua.luaOnBuild.pkgs.isLuaJIT
+      then
+        let deterministicLuajit =
+          lua.luaOnBuild.override {
+            deterministicStringIds = true;
+            self = deterministicLuajit;
+          };
+        in deterministicLuajit.withPackages(ps: [ ps.mpack ps.lpeg ])
+      else lua.luaOnBuild;
 
-  # Note: this is NOT the libvterm already in nixpkgs, but some NIH silliness:
-  neovimLibvterm = stdenv.mkDerivation rec {
-    name = "neovim-libvterm-${version}";
-    version = "2016-10-07";
-
-    src = fetchFromGitHub {
-      owner = "neovim";
-      repo = "libvterm";
-      rev = "11682793d84668057c5aedc3d7f8071bb54eaf2c";
-      sha256 = "0pd90yx6xsagrqjipi26sxri1l4wdnx23ziad1zbxnqx9njxa7g3";
-    };
-
-    buildInputs = [ perl ];
-    nativeBuildInputs = [ libtool ];
-
-    makeFlags = [ "PREFIX=$(out)" ]
-      ++ stdenv.lib.optional stdenv.isDarwin "LIBTOOL=${libtool}/bin/libtool";
-
-    enableParallelBuilding = true;
-
-    meta = {
-      description = "VT220/xterm/ECMA-48 terminal emulator library";
-      homepage = http://www.leonerd.org.uk/code/libvterm/;
-      license = licenses.mit;
-      maintainers = with maintainers; [ nckx garbas ];
-      platforms = platforms.unix;
-    };
-  };
-
-  pythonEnv = pythonPackages.python.buildEnv.override {
-    extraLibs = (
-        if withPyGUI
-          then [ pythonPackages.neovim_gui ]
-          else [ pythonPackages.neovim ]
-      ) ++ extraPythonPackages;
-    ignoreCollisions = true;
-  };
-
-  python3Env = python3Packages.python.buildEnv.override {
-    extraLibs = [ python3Packages.neovim ] ++ extraPython3Packages;
-    ignoreCollisions = true;
-  };
-
-  neovim = stdenv.mkDerivation rec {
-    name = "neovim-${version}";
-    version = "0.1.7";
+  pyEnv = python3.withPackages(ps: with ps; [ pynvim msgpack ]);
+in
+  stdenv.mkDerivation rec {
+    pname = "neovim-unwrapped";
+    version = "0.9.1";
 
     src = fetchFromGitHub {
       owner = "neovim";
       repo = "neovim";
       rev = "v${version}";
-      sha256 = "0bk0raxlb1xsqyw9pmqmxvcq5szqhimidrasnvzrci84gld8cwz4";
+      hash = "sha256-G51qD7GklEn0JrneKSSqDDx0Odi7W2FjdQc0ZDE9ZK4=";
     };
 
-    enableParallelBuilding = true;
+    patches = [
+      # introduce a system-wide rplugin.vim in addition to the user one
+      # necessary so that nix can handle `UpdateRemotePlugins` for the plugins
+      # it installs. See https://github.com/neovim/neovim/issues/9413.
+      ./system_rplugin_manifest.patch
+    ];
+
+    dontFixCmake = true;
+
+    inherit lua;
 
     buildInputs = [
+      gperf
       libtermkey
       libuv
-      libmsgpack
+      libvterm-neovim
+      # This is actually a c library, hence it's not included in neovimLuaEnv,
+      # see:
+      # https://github.com/luarocks/luarocks/issues/1402#issuecomment-1080616570
+      # and it's definition at: pkgs/development/lua-modules/overrides.nix
+      lua.pkgs.libluv
+      msgpack-c
       ncurses
-      neovimLibvterm
+      neovimLuaEnv
+      tree-sitter
       unibilium
-      luajit
-      luaPackages.lua
-      gperf
-    ] ++ optional withJemalloc jemalloc
-      ++ lualibs;
+    ] ++ lib.optionals stdenv.isDarwin [ libiconv CoreServices ]
+      ++ lib.optionals doCheck [ glibcLocales procps ]
+    ;
+
+    inherit doCheck;
+
+    # to be exhaustive, one could run
+    # make oldtests too
+    checkPhase = ''
+      make functionaltest
+    '';
 
     nativeBuildInputs = [
       cmake
       gettext
-      makeWrapper
-      pkgconfig
+      pkg-config
     ];
 
-    LUA_PATH = stdenv.lib.concatStringsSep ";" (map luaPackages.getLuaPath lualibs);
-    LUA_CPATH = stdenv.lib.concatStringsSep ";" (map luaPackages.getLuaCPath lualibs);
+    # extra programs test via `make functionaltest`
+    nativeCheckInputs = [
+      fish
+      nodejs
+      pyEnv      # for src/clint.py
+    ];
 
-    lualibs = [ luaPackages.mpack luaPackages.lpeg luaPackages.luabitop ];
+    # nvim --version output retains compilation flags and references to build tools
+    postPatch = ''
+      substituteInPlace src/nvim/version.c --replace NVIM_VERSION_CFLAGS "";
+    '' + lib.optionalString (!stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+      sed -i runtime/CMakeLists.txt \
+        -e "s|\".*/bin/nvim|\${stdenv.hostPlatform.emulator buildPackages} &|g"
+      sed -i src/nvim/po/CMakeLists.txt \
+        -e "s|\$<TARGET_FILE:nvim|\${stdenv.hostPlatform.emulator buildPackages} &|g"
+    '';
+    # check that the above patching actually works
+    disallowedReferences = [ stdenv.cc ] ++ lib.optional (lua != codegenLua) codegenLua;
 
     cmakeFlags = [
-      "-DLUA_PRG=${luaPackages.lua}/bin/lua"
-    ];
+      # Don't use downloaded dependencies. At the end of the configurePhase one
+      # can spot that cmake says this option was "not used by the project".
+      # That's because all dependencies were found and
+      # third-party/CMakeLists.txt is not read at all.
+      "-DUSE_BUNDLED=OFF"
+    ]
+    ++ lib.optional (!lua.pkgs.isLuaJIT) "-DPREFER_LUA=ON"
+    ;
 
-    # triggers on buffer overflow bug while running tests
-    hardeningDisable = [ "fortify" ];
-
-    preConfigure = ''
-      substituteInPlace runtime/autoload/man.vim \
-        --replace /usr/bin/man ${man}/bin/man
-    '' + stdenv.lib.optionalString stdenv.isDarwin ''
-      export DYLD_LIBRARY_PATH=${jemalloc}/lib
+    preConfigure = lib.optionalString lua.pkgs.isLuaJIT ''
+      cmakeFlagsArray+=(
+        "-DLUAC_PRG=${codegenLua}/bin/luajit -b -s %s -"
+        "-DLUA_GEN_PRG=${codegenLua}/bin/luajit"
+        "-DLUA_PRG=${neovimLuaEnvOnBuild}/bin/luajit"
+      )
+    '' + lib.optionalString stdenv.isDarwin ''
       substituteInPlace src/nvim/CMakeLists.txt --replace "    util" ""
+    '' + ''
+      mkdir -p $out/lib/nvim/parser
+    '' + lib.concatStrings (lib.mapAttrsToList
+      (language: src: ''
+        ln -s \
+          ${tree-sitter.buildGrammar {
+            inherit language src;
+            version = "neovim-${version}";
+          }}/parser \
+          $out/lib/nvim/parser/${language}.so
+      '')
+      treesitter-parsers);
+
+    shellHook=''
+      export VIMRUNTIME=$PWD/runtime
     '';
 
-    postInstall = stdenv.lib.optionalString stdenv.isDarwin ''
-      echo patching $out/bin/nvim
-      install_name_tool -change libjemalloc.1.dylib \
-                ${jemalloc}/lib/libjemalloc.1.dylib \
-                $out/bin/nvim
-      sed -i -e "s|'xsel|'${xsel}/bin/xsel|" $out/share/nvim/runtime/autoload/provider/clipboard.vim
-    '' + optionalString withPython ''
-      ln -s ${pythonEnv}/bin/python $out/bin/nvim-python
-    '' + optionalString withPyGUI ''
-      makeWrapper "${pythonEnv}/bin/pynvim" "$out/bin/pynvim" \
-        --prefix PATH : "$out/bin"
-    '' + optionalString withPython3 ''
-      ln -s ${python3Env}/bin/python3 $out/bin/nvim-python3
-    '' + optionalString (withPython || withPython3) ''
-        wrapProgram $out/bin/nvim --add-flags "${
-          (optionalString withPython
-            ''--cmd \"let g:python_host_prog='$out/bin/nvim-python'\" '') +
-          (optionalString withPython3
-            ''--cmd \"let g:python3_host_prog='$out/bin/nvim-python3'\" '')
-        }"
-    '';
+    separateDebugInfo = true;
 
-    meta = {
+    meta = with lib; {
       description = "Vim text editor fork focused on extensibility and agility";
       longDescription = ''
         Neovim is a project that seeks to aggressively refactor Vim in order to:
@@ -143,32 +166,15 @@ let
           modifications to the core source
         - Improve extensibility with a new plugin architecture
       '';
-      homepage    = https://www.neovim.io;
+      homepage    = "https://www.neovim.io";
+      mainProgram = "nvim";
       # "Contributions committed before b17d96 by authors who did not sign the
       # Contributor License Agreement (CLA) remain under the Vim license.
       # Contributions committed after b17d96 are licensed under Apache 2.0 unless
       # those contributions were copied from Vim (identified in the commit logs
       # by the vim-patch token). See LICENSE for details."
       license = with licenses; [ asl20 vim ];
-      maintainers = with maintainers; [ manveru garbas ];
+      maintainers = with maintainers; [ manveru rvolosatovs ];
       platforms   = platforms.unix;
     };
-  };
-
-in if (vimAlias == false && configure == null) then neovim else stdenv.mkDerivation {
-  name = "neovim-${neovim.version}-configured";
-  inherit (neovim) version;
-
-  nativeBuildInputs = [ makeWrapper ];
-
-  buildCommand = ''
-    mkdir -p $out/bin
-    for item in ${neovim}/bin/*; do
-      ln -s $item $out/bin/
-    done
-  '' + optionalString vimAlias ''
-    ln -s $out/bin/nvim $out/bin/vim
-  '' + optionalString (configure != null) ''
-    wrapProgram $out/bin/nvim --add-flags "-u ${vimUtils.vimrcFile configure}"
-  '';
-}
+  }

@@ -1,49 +1,45 @@
-{ stdenv, fetchFromGitHub }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, autoconf
+, automake
+, libtool
+, faad2
+, mp4v2
+}:
 
-stdenv.mkDerivation {
-  name = "aacgain-1.9.0";
+stdenv.mkDerivation rec {
+  pname = "aacgain";
+  version = "2.0.0";
 
   src = fetchFromGitHub {
-    owner = "mulx";
-    repo = "aacgain";
-    rev = "7c29dccd878ade1301710959aeebe87a8f0828f5";
-    sha256 = "07hl432vsscqg01b6wr99qmsj4gbx0i02x4k565432y6zpfmaxm0";
+    owner = "dgilman";
+    repo = pname;
+    rev = version;
+    sha256 = "sha256-9Y23Zh7q3oB4ha17Fpm1Hu2+wtQOA1llj6WDUAO2ARU=";
   };
 
-  hardeningDisable = [ "format" ];
-
-  configurePhase = ''
-    cd mp4v2
-    ./configure
-
-    cd ../faad2
-    ./configure
-
-    cd ..
-    ./configure
+  postPatch = ''
+    cp -R ${faad2.src}/* 3rdparty/faad2
+    cp -R ${mp4v2.src}/* 3rdparty/mp4v2
+    chmod -R +w 3rdparty
   '';
 
-  buildPhase = ''
-    cd mp4v2
-    make libmp4v2.la
+  nativeBuildInputs = [
+    cmake
+    autoconf
+    automake
+    libtool
+  ];
 
-    cd ../faad2
-    make LDFLAGS=-static
+  env.NIX_CFLAGS_COMPILE = "-Wno-error=narrowing";
 
-    cd ..
-    make
-  '';
-
-  installPhase = ''
-    strip -s aacgain/aacgain
-    install -vD aacgain/aacgain "$out/bin/aacgain"
-  '';
-
-  meta = {
+  meta = with lib; {
     description = "ReplayGain for AAC files";
-    homepage = https://github.com/mulx/aacgain;
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.robbinch ];
+    homepage = "https://github.com/dgilman/aacgain";
+    license = licenses.gpl2Plus;
+    platforms = platforms.unix;
+    maintainers = [ maintainers.robbinch ];
   };
 }

@@ -1,20 +1,21 @@
-{ stdenv, fetchurl, libmikmod, ncurses, alsaLib }:
+{ lib, stdenv, fetchurl, libmikmod, ncurses }:
 
 stdenv.mkDerivation rec {
-  name = "mikmod-3.2.6";
+  pname = "mikmod";
+  version = "3.2.8";
 
   src = fetchurl {
-    url = "mirror://sourceforge/mikmod/${name}.tar.gz";
-    sha256 = "0wr61raj10rpl64mk3x9g3rwys898fbzyg93c6mrz89nvc74wm04";
+    url = "mirror://sourceforge/${pname}/${pname}-${version}.tar.gz";
+    sha256 = "1k54p8pn3jinha0f2i23ad15pf1pamibzcxjrbzjbklpcz1ipc6v";
   };
 
   buildInputs = [ libmikmod ncurses ];
 
   meta = {
     description = "Tracker music player for the terminal";
-    homepage = http://mikmod.shlomifish.org/;
-    license = stdenv.lib.licenses.gpl2Plus;
-    maintainers = with stdenv.lib.maintainers; [ viric ];
-    platforms = with stdenv.lib.platforms; linux;
+    homepage = "http://mikmod.shlomifish.org/";
+    license = lib.licenses.gpl2Plus;
+    maintainers = with lib.maintainers; [ ];
+    platforms = with lib.platforms; linux;
   };
 }

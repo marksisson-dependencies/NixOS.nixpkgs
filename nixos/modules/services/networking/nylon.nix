@@ -8,7 +8,7 @@ let
 
   homeDir = "/var/lib/nylon";
 
-  configFile = pkgs.writeText "nylon.conf" ''
+  configFile = cfg: pkgs.writeText "nylon-${cfg.name}.conf" ''
     [General]
     No-Simultaneous-Conn=${toString cfg.nrConnections}
     Log=${if cfg.logging then "1" else "0"}
@@ -22,28 +22,28 @@ let
     Deny-IP=${concatStringsSep " " cfg.deniedIPRanges}
   '';
 
-in
+  nylonOpts = { name, ... }: {
 
-{
-
-  ###### interface
-
-  options = {
-
-    services.nylon = {
+    options = {
 
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Enables nylon as a running service upon activation.
         '';
+      };
+
+      name = mkOption {
+        type = types.str;
+        default = "";
+        description = lib.mdDoc "The name of this nylon instance.";
       };
 
       nrConnections = mkOption {
         type = types.int;
         default = 10;
-        description = ''
+        description = lib.mdDoc ''
           The number of allowed simultaneous connections to the daemon, default 10.
         '';
       };
@@ -51,7 +51,7 @@ in
       logging = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Enable logging, default is no logging.
         '';
       };
@@ -59,71 +59,59 @@ in
       verbosity = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Enable verbose output, default is to not be verbose.
         '';
       };
 
       acceptInterface = mkOption {
-        type = types.string;
+        type = types.str;
         default = "lo";
-        description = ''
+        description = lib.mdDoc ''
           Tell nylon which interface to listen for client requests on, default is "lo".
         '';
       };
 
       bindInterface = mkOption {
-        type = types.string;
+        type = types.str;
         default = "enp3s0f0";
-        description = ''
+        description = lib.mdDoc ''
           Tell nylon which interface to use as an uplink, default is "enp3s0f0".
         '';
       };
 
       port = mkOption {
-        type = types.int;
+        type = types.port;
         default = 1080;
-        description = ''
+        description = lib.mdDoc ''
           What port to listen for client requests, default is 1080.
         '';
       };
 
       allowedIPRanges = mkOption {
-        type = with types; listOf string;
+        type = with types; listOf str;
         default = [ "192.168.0.0/16" "127.0.0.1/8" "172.16.0.1/12" "10.0.0.0/8" ];
-        description = ''
+        description = lib.mdDoc ''
            Allowed client IP ranges are evaluated first, defaults to ARIN IPv4 private ranges:
              [ "192.168.0.0/16" "127.0.0.0/8" "172.16.0.0/12" "10.0.0.0/8" ]
         '';
       };
 
       deniedIPRanges = mkOption {
-        type = with types; listOf string;
+        type = with types; listOf str;
         default = [ "0.0.0.0/0" ];
-        description = ''
+        description = lib.mdDoc ''
           Denied client IP ranges, these gets evaluated after the allowed IP ranges, defaults to all IPv4 addresses:
             [ "0.0.0.0/0" ]
           To block all other access than the allowed.
         '';
       };
     };
+    config = { name = mkDefault name; };
   };
 
-  ###### implementation
-
-  config = mkIf cfg.enable {
-
-    users.extraUsers.nylon= {
-      group = "nylon";
-      description = "Nylon SOCKS Proxy";
-      home = homeDir;
-      createHome = true;
-      uid = config.ids.uids.nylon;
-    };
-
-    users.extraGroups.nylon.gid = config.ids.gids.nylon;
-
-    systemd.services.nylon = {
+  mkNamedNylon = cfg: {
+    "nylon-${cfg.name}" = {
       description = "Nylon, a lightweight SOCKS proxy server";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
@@ -132,8 +120,47 @@ in
         User = "nylon";
         Group = "nylon";
         WorkingDirectory = homeDir;
-        ExecStart = "${pkgs.nylon}/bin/nylon -f -c ${configFile}";
+        ExecStart = "${pkgs.nylon}/bin/nylon -f -c ${configFile cfg}";
       };
     };
+  };
+
+  anyNylons = collect (p: p ? enable) cfg;
+  enabledNylons = filter (p: p.enable == true) anyNylons;
+  nylonUnits = map (nylon: mkNamedNylon nylon) enabledNylons;
+
+in
+
+{
+
+  ###### interface
+
+  options = {
+
+    services.nylon = mkOption {
+      default = {};
+      description = lib.mdDoc "Collection of named nylon instances";
+      type = with types; attrsOf (submodule nylonOpts);
+      internal = true;
+    };
+
+  };
+
+  ###### implementation
+
+  config = mkIf (length(enabledNylons) > 0) {
+
+    users.users.nylon = {
+      group = "nylon";
+      description = "Nylon SOCKS Proxy";
+      home = homeDir;
+      createHome = true;
+      uid = config.ids.uids.nylon;
+    };
+
+    users.groups.nylon.gid = config.ids.gids.nylon;
+
+    systemd.services = foldr (a: b: a // b) {} nylonUnits;
+
   };
 }

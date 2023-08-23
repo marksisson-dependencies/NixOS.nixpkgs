@@ -1,31 +1,65 @@
-{ stdenv, fetchgit, cmake, perl, go }:
+{ lib
+, stdenv
+, fetchgit
+, cmake
+, ninja
+, perl
+, buildGoModule
+}:
 
-stdenv.mkDerivation rec {
-  name = "boringssl-${version}";
-  version = "2016-03-08";
+# reference: https://boringssl.googlesource.com/boringssl/+/2661/BUILDING.md
+buildGoModule {
+  pname = "boringssl";
+  version = "2021-07-09";
 
   src = fetchgit {
     url    = "https://boringssl.googlesource.com/boringssl";
-    rev    = "bfb38b1a3c5e37d43188bbd02365a87bebc8d122";
-    sha256 = "0bm7vqg3bk716xmw2af99p44zizfhknq9z3cphf7klfdrr7ibqm5";
+    rev    = "268a4a6ff3bd656ae65fe41ef1185daa85cfae21";
+    sha256 = "04fja4fdwhc69clmvg8i12zm6ks3sfl3r8i5bxn4x63b9dj5znlx";
   };
 
-  buildInputs = [ cmake perl go ];
-  enableParallelBuilding = true;
-  NIX_CFLAGS_COMPILE = "-Wno-error";
+  nativeBuildInputs = [ cmake ninja perl ];
 
-  installPhase = ''
-    mkdir -p $out/bin $out/include $out/lib
+  vendorSha256 = null;
 
-    mv tool/bssl    $out/bin
-    mv ssl/libssl.a $out/lib
-    mv ../include/openssl $out/include
+  # hack to get both go and cmake configure phase
+  # (if we use postConfigure then cmake will loop runHook postConfigure)
+  preBuild = ''
+    cmakeConfigurePhase
+  '' + lib.optionalString (stdenv.buildPlatform != stdenv.hostPlatform) ''
+    export GOARCH=$(go env GOHOSTARCH)
   '';
 
-  meta = {
+  env.NIX_CFLAGS_COMPILE = toString (lib.optionals stdenv.cc.isGNU [
+    # Needed with GCC 12 but breaks on darwin (with clang)
+    "-Wno-error=stringop-overflow"
+  ]);
+
+  buildPhase = ''
+    ninjaBuildPhase
+  '';
+
+  # CMAKE_OSX_ARCHITECTURES is set to x86_64 by Nix, but it confuses boringssl on aarch64-linux.
+  cmakeFlags = [ "-GNinja" ] ++ lib.optionals (stdenv.isLinux) [ "-DCMAKE_OSX_ARCHITECTURES=" ];
+
+  installPhase = ''
+    mkdir -p $bin/bin $dev $out/lib
+
+    mv tool/bssl $bin/bin
+
+    mv ssl/libssl.a           $out/lib
+    mv crypto/libcrypto.a     $out/lib
+    mv decrepit/libdecrepit.a $out/lib
+
+    mv ../include $dev
+  '';
+
+  outputs = [ "out" "bin" "dev" ];
+
+  meta = with lib; {
     description = "Free TLS/SSL implementation";
     homepage    = "https://boringssl.googlesource.com";
-    platforms   = stdenv.lib.platforms.all;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    maintainers = [ maintainers.thoughtpolice ];
+    license = with licenses; [ openssl isc mit bsd3 ];
   };
 }

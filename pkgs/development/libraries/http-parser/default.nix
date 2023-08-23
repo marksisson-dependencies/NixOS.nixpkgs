@@ -1,47 +1,38 @@
-{ stdenv, fetchurl, python2Packages, utillinux, fixDarwinDylibNames }:
+{ lib, stdenv, fetchFromGitHub, fetchpatch }:
 
-let
-  version = "2.7.0";
-in stdenv.mkDerivation {
-  name = "http-parser-${version}";
+stdenv.mkDerivation rec {
+  pname = "http-parser";
+  version = "2.9.4";
 
-  src = fetchurl {
-    url = "https://github.com/joyent/http-parser/archive/v${version}.tar.gz";
-    sha256 = "0rqij6v6wv1giwx4prfa082kw1nka5d9vlb06zkc8mwszq1vzidh";
+  src = fetchFromGitHub {
+    owner = "nodejs";
+    repo = "http-parser";
+    rev = "v${version}";
+    sha256 = "1vda4dp75pjf5fcph73sy0ifm3xrssrmf927qd1x8g3q46z0cv6c";
   };
 
-  patches = [ ./build-shared.patch ];
+  env.NIX_CFLAGS_COMPILE = "-Wno-error";
+  patches = [
+    ./build-shared.patch
+  ] ++ lib.optionals stdenv.isAarch32 [
+    # https://github.com/nodejs/http-parser/pull/510
+    (fetchpatch {
+      url = "https://github.com/nodejs/http-parser/commit/4f15b7d510dc7c6361a26a7c6d2f7c3a17f8d878.patch";
+      sha256 = "sha256-rZZMJeow3V1fTnjadRaRa+xTq3pdhZn/eJ4xjxEDoU4=";
+    })
+  ];
+  makeFlags = [ "DESTDIR=" "PREFIX=$(out)" ];
+  buildFlags = [ "library" ];
+  doCheck = true;
+  checkTarget = "test";
 
-  configurePhase = "gyp -f make --depth=`pwd` http_parser.gyp";
+  enableParallelBuilding = true;
 
-  buildFlags = [ "BUILDTYPE=Release" ];
-
-  buildInputs =
-    [ python2Packages.gyp ]
-    ++ stdenv.lib.optional stdenv.isLinux utillinux
-    ++ stdenv.lib.optionals stdenv.isDarwin [ python2Packages.python fixDarwinDylibNames ];
-
-  doCheck = !stdenv.isDarwin;
-
-  checkPhase = ''
-    out/Release/test-nonstrict
-    out/Release/test-strict
-  '';
-
-  installPhase = ''
-    mkdir -p $out/lib
-    mv out/Release/${if stdenv.isDarwin then "*.dylib" else "lib.target/*"} $out/lib
-
-    mkdir -p $out/include
-    mv http_parser.h $out/include
-  '';
-
-  meta = {
+  meta = with lib; {
     description = "An HTTP message parser written in C";
-
-    homepage = https://github.com/joyent/http-parser;
-
-    license = stdenv.lib.licenses.mit;
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://github.com/nodejs/http-parser";
+    maintainers = with maintainers; [ matthewbauer ];
+    license = licenses.mit;
+    platforms = platforms.unix;
   };
 }

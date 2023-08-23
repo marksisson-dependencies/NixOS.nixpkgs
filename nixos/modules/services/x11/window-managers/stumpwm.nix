@@ -8,17 +8,17 @@ in
 
 {
   options = {
-    services.xserver.windowManager.stumpwm.enable = mkEnableOption "stumpwm";
+    services.xserver.windowManager.stumpwm.enable = mkEnableOption (lib.mdDoc "stumpwm");
   };
 
   config = mkIf cfg.enable {
     services.xserver.windowManager.session = singleton {
       name = "stumpwm";
       start = ''
-        ${pkgs.stumpwm}/bin/stumpwm &
+        ${pkgs.sbclPackages.stumpwm}/bin/stumpwm &
         waitPID=$!
       '';
     };
-    environment.systemPackages = [ pkgs.stumpwm ];
+    environment.systemPackages = [ pkgs.sbclPackages.stumpwm ];
   };
 }

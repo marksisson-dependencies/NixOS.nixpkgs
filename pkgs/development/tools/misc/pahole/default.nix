@@ -1,27 +1,46 @@
-{ stdenv, fetchgit, cmake, elfutils, zlib }:
+{ lib
+, stdenv
+, fetchzip
+, pkg-config
+, libbpf
+, cmake
+, elfutils
+, zlib
+, argp-standalone
+, musl-obstack
+, nixosTests
+}:
 
-stdenv.mkDerivation {
-  name = "pahole-head";
-  src = fetchgit {
-    url = https://git.kernel.org/pub/scm/devel/pahole/pahole.git;
-    sha256 = "05f8a14ea6c200c20e9c6738593b38e4ced73a9cef86499ccd7af910eb9b74b3";
-    rev = "1decb1bc4a412a0902b7b25190d755a875022d03";
+stdenv.mkDerivation rec {
+  pname = "pahole";
+  version = "1.25";
+  src = fetchzip {
+    url = "https://git.kernel.org/pub/scm/devel/pahole/pahole.git/snapshot/pahole-${version}.tar.gz";
+    hash = "sha256-s0YVT2UnMSO8jS/4XCt06wNPV4czHH6bmZRy/snO3jg=";
   };
-  buildInputs = [ cmake elfutils zlib ];
 
-  postInstall = ''
-    for p in $out/bin/*; do
-      rpath=`patchelf --print-rpath $p || true`:$out
-      patchelf --set-rpath "$rpath" $p || true
-    done
-  '';
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ elfutils zlib libbpf ]
+    ++ lib.optionals stdenv.hostPlatform.isMusl [
+    argp-standalone
+    musl-obstack
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://git.kernel.org/cgit/devel/pahole/pahole.git/;
-    description = "Pahole and other DWARF utils";
-    license = licenses.gpl2;
+  patches = [ ./threading-reproducibility.patch ];
+
+  # Put libraries in "lib" subdirectory, not top level of $out
+  cmakeFlags = [ "-D__LIB=lib" "-DLIBBPF_EMBEDDED=OFF" ];
+
+  passthru.tests = {
+    inherit (nixosTests) bpf;
+  };
+
+  meta = with lib; {
+    homepage = "https://git.kernel.org/pub/scm/devel/pahole/pahole.git/";
+    description = "Shows, manipulates, and pretty-prints debugging information in DWARF, CTF, and BTF formats";
+    license = licenses.gpl2Only;
 
     platforms = platforms.linux;
-    maintainers = [ maintainers.bosu ];
+    maintainers = with maintainers; [ bosu martinetd ];
   };
 }

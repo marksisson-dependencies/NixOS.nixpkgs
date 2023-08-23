@@ -1,34 +1,44 @@
-{ stdenv, fetchurl, glibcLocales, python3Packages }:
+{ lib, python3, fetchPypi, khard, testers }:
 
-python3Packages.buildPythonApplication rec {
-  version = "0.11.1";
-  name = "khard-${version}";
-  namePrefix = "";
+python3.pkgs.buildPythonApplication rec {
+  version = "0.18.0";
+  pname = "khard";
 
-  src = fetchurl {
-    url = "https://github.com/scheibler/khard/archive/v${version}.tar.gz";
-    sha256 = "0055xx9icmsr6l7v0iqrndmygygdpdv10550w6pyrb96svzhry27";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "05860fdayqap128l7i6bcmi9kdyi2gx02g2pmh88d56xgysd927y";
   };
 
-  # setup.py reads the UTF-8 encoded readme.
-  LC_ALL = "en_US.UTF-8";
-  buildInputs = [ glibcLocales ];
-
-  propagatedBuildInputs = with python3Packages; [
-    atomicwrites
-    configobj
-    vobject
-    argparse
-    pyyaml
+  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+  nativeBuildInputs = [
+    python3.pkgs.setuptools-scm
   ];
 
-  # Fails; but there are no tests anyway.
-  doCheck = false;
+  propagatedBuildInputs = with python3.pkgs; [
+    atomicwrites
+    configobj
+    ruamel-yaml
+    unidecode
+    vobject
+  ];
+
+  postInstall = ''
+    install -D misc/zsh/_khard $out/share/zsh/site-functions/_khard
+  '';
+
+  preCheck = ''
+    # see https://github.com/scheibler/khard/issues/263
+    export COLUMNS=80
+  '';
+
+  pythonImportsCheck = [ "khard" ];
+
+  passthru.tests.version = testers.testVersion { package = khard; };
 
   meta = {
-    homepage = https://github.com/scheibler/khard;
+    homepage = "https://github.com/scheibler/khard";
     description = "Console carddav client";
-    license = stdenv.lib.licenses.gpl3;
-    maintainers = with stdenv.lib.maintainers; [ matthiasbeyer ];
+    license = lib.licenses.gpl3;
+    maintainers = with lib.maintainers; [ matthiasbeyer ];
   };
 }

@@ -1,28 +1,48 @@
-{ stdenv, fetchurl, SDL, SDL_image, SDL_ttf, zlib, libpng, pkgconfig, lua5 }:
+{ lib
+, stdenv
+, fetchurl
+, SDL
+, SDL_image
+, SDL_ttf
+, fontconfig
+, libpng
+, libtiff
+, lua5
+, pkg-config
+, zlib
+}:
 
 stdenv.mkDerivation rec {
-
-  version = "2.4.2035";
-  name = "grafx2-${version}";
+  version = "2.8.3091";
+  pname = "grafx2";
 
   src = fetchurl {
-    url = "https://grafx2.googlecode.com/files/${name}-src.tgz";
-    sha256 = "0svsy6rqmdj11b400c242i2ixihyz0hds0dgicqz6g6dcgmcl62q";
+    url = "https://pulkomandy.tk/projects/GrafX2/downloads/65";
+    name = "${pname}-${version}.tar.gz";
+    hash = "sha256-KdY7GUhQp/Q7t/ktLPGxI66ZHy2gDAffn2yB5pmcJCM=";
   };
 
-  buildInputs = [ SDL SDL_image SDL_ttf libpng zlib lua5 pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [
+    SDL
+    SDL_image
+    SDL_ttf
+    fontconfig
+    libpng
+    libtiff
+    lua5
+    zlib
+  ];
 
-  preBuild = "cd src";
-
-  preInstall = '' mkdir -p "$out" '';
-
-  installPhase = ''make install prefix="$out"'';
+  makeFlags = [ "-C src" ];
+  installFlags = [ "-C src" "PREFIX=$(out)" ];
 
   meta = {
     description = "Bitmap paint program inspired by the Amiga programs Deluxe Paint and Brilliance";
-    homepage = http://code.google.co/p/grafx2/;
-    license = stdenv.lib.licenses.gpl2;
+    homepage = "http://pulkomandy.tk/projects/GrafX2";
+    license = lib.licenses.gpl2;
     platforms = [ "x86_64-linux" "i686-linux" ];
-    maintainers = [ stdenv.lib.maintainers.zoomulator ];
+    maintainers = [];
+    mainProgram = "grafx2-sdl";
   };
 }

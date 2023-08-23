@@ -1,27 +1,31 @@
-{ composableDerivation, fetchurl, python }:
+{ lib
+, fetchurl
+, stdenv
+, testers
+, cmake
+}:
 
-let inherit (composableDerivation) edf; in
-
-composableDerivation.composableDerivation {} rec {
-
-  flags =
-  # python and ruby untested 
-    edf { name = "python"; enable = { buildInputs = [ python ]; }; };
-    # (if args.use_svn then ["libtool" "autoconf" "automake" "swig"] else [])
-    # // edf { name = "ruby"; enable = { buildInputs = [ ruby ]; };}
-
-  name = "geos-3.5.0";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "geos";
+  version = "3.11.2";
 
   src = fetchurl {
-    url = "http://download.osgeo.org/geos/${name}.tar.bz2";
-    sha256 = "49982b23bcfa64a53333dab136b82e25354edeb806e5a2e2f5b8aa98b1d0ae02";
+    url = "https://download.osgeo.org/geos/${finalAttrs.pname}-${finalAttrs.version}.tar.bz2";
+    hash = "sha256-sfB3ZpSBxaPmKv/EnpbrBvKBmHpdNv2rIlIX5bgl5Mw=";
   };
 
-  enableParallelBuilding = true;
+  nativeBuildInputs = [ cmake ];
 
-  meta = {
-    description = "C++ port of the Java Topology Suite (JTS)";
-    homepage = http://geos.refractions.net/;
-    license = "GPL";
+  doCheck = true;
+
+  passthru.tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
+
+  meta = with lib; {
+    description = "C/C++ library for computational geometry with a focus on algorithms used in geographic information systems (GIS) software";
+    homepage = "https://libgeos.org";
+    license = licenses.lgpl21Only;
+    maintainers = teams.geospatial.members;
+    pkgConfigModules = [ "geos" ];
+    mainProgram = "geosop";
   };
-}
+})

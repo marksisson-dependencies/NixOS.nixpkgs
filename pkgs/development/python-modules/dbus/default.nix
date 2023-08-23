@@ -1,27 +1,48 @@
-{ lib, fetchurl, mkPythonDerivation, python, pkgconfig, dbus, dbus_glib, dbus_tools, isPyPy
-, ncurses, pygobject3 }:
+{ lib, stdenv, fetchPypi, buildPythonPackage, python, pkg-config, dbus, dbus-glib, isPyPy
+, ncurses, pygobject3, isPy3k }:
 
-if isPyPy then throw "dbus-python not supported for interpreter ${python.executable}" else mkPythonDerivation rec {
-  name = "dbus-python-1.2.4";
+buildPythonPackage rec {
+  pname = "dbus-python";
+  version = "1.2.18";
 
-  src = fetchurl {
-    url = "http://dbus.freedesktop.org/releases/dbus-python/${name}.tar.gz";
-    sha256 = "1k7rnaqrk7mdkg0k6n2jn3d1mxsl7s3i07g5a8va5yvl3y3xdwg2";
+  disabled = isPyPy;
+  format = "other";
+  outputs = [ "out" "dev" ];
+
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "0q3jrw515z98mqdk9x822nd95rky455zz9876f1nqna5igkd3gcj";
   };
 
-  postPatch = "patchShebangs .";
+  patches = [
+    ./fix-includedir.patch
+  ];
 
-  buildInputs = [ pkgconfig dbus dbus_glib ]
-    ++ lib.optionals doCheck [ dbus_tools pygobject3 ]
+  preConfigure = lib.optionalString (lib.versionAtLeast stdenv.hostPlatform.darwinMinVersion "11" && stdenv.isDarwin) ''
+    MACOSX_DEPLOYMENT_TARGET=10.16
+  '';
+
+  configureFlags = [
+    "PYTHON=${python.pythonForBuild.interpreter}"
+  ];
+
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ dbus dbus-glib ]
     # My guess why it's sometimes trying to -lncurses.
     # It seems not to retain the dependency anyway.
     ++ lib.optional (! python ? modules) ncurses;
 
-  doCheck = true;
+  doCheck = isPy3k;
+  nativeCheckInputs = [ dbus.out pygobject3 ];
 
-  meta = {
+  postInstall = ''
+    cp -r dbus_python.egg-info $out/${python.sitePackages}/
+  '';
+
+  meta = with lib; {
     description = "Python DBus bindings";
-    license = lib.licenses.mit;
+    license = licenses.mit;
     platforms = dbus.meta.platforms;
+    maintainers = with maintainers; [ ];
   };
 }

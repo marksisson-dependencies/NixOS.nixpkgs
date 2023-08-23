@@ -1,21 +1,35 @@
-{ stdenv, fetchurl, python3Packages, sqlite  }:
+{ lib, fetchFromGitHub, python3Packages, sqlite, which }:
 
 python3Packages.buildPythonApplication rec {
-  name = "${pname}-${version}";
   pname = "s3ql";
-  version = "2.17.1";
+  version = "4.0.0";
 
-  src = fetchurl {
-    url = "https://bitbucket.org/nikratio/${pname}/downloads/${name}.tar.bz2";
-    sha256 = "049vpvvkyia7v4v97rg2l01n43shrdxc1ik38bmjb2q4fvsh1pgx";
+  src = fetchFromGitHub {
+    owner = pname;
+    repo = pname;
+    rev = "refs/tags/release-${version}";
+    sha256 = "sha256-7N09b7JwMPliuyv2fEy1gQYaFCMSSvajOBPhNL3DQsg=";
   };
 
-  propagatedBuildInputs = with python3Packages;
-    [ sqlite apsw pycrypto requests2 defusedxml dugong llfuse ];
+  nativeCheckInputs = [ which ] ++ (with python3Packages; [ cython pytest pytest-trio ]);
+  propagatedBuildInputs = with python3Packages; [
+    sqlite apsw pycrypto requests defusedxml dugong
+    google-auth google-auth-oauthlib trio pyfuse3
+  ];
 
-  meta = with stdenv.lib; {
+  preBuild = ''
+    ${python3Packages.python.pythonForBuild.interpreter} ./setup.py build_cython build_ext --inplace
+  '';
+
+  checkPhase = ''
+    # Removing integration tests
+    rm tests/t{4,5,6}_*
+    pytest tests
+  '';
+
+  meta = with lib; {
     description = "A full-featured file system for online data storage";
-    homepage = "https://bitbucket.org/nikratio/s3ql";
+    homepage = "https://github.com/s3ql/s3ql/";
     license = licenses.gpl3;
     maintainers = with maintainers; [ rushmorem ];
     platforms = platforms.linux;

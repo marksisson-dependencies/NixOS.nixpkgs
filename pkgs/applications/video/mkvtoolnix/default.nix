@@ -1,53 +1,133 @@
-{ stdenv, fetchFromGitHub, pkgconfig, autoconf, automake
-, ruby, file, xdg_utils, gettext, expat, qt5, boost
-, libebml, zlib, libmatroska, libogg, libvorbis, flac
+{ lib
+, stdenv
+, fetchFromGitLab
+, pkg-config
+, autoreconfHook
+, rake
+, boost
+, cmark
+, docbook_xsl
+, expat
+, file
+, flac
+, fmt
+, gettext
+, gmp
+, gtest
+, libdvdread
+, libebml
+, libiconv
+, libmatroska
+, libogg
+, libvorbis
+, libxslt
+, nlohmann_json
+, pugixml
+, qtbase
+, qtmultimedia
+, xdg-utils
+, zlib
 , withGUI ? true
+, wrapQtAppsHook
 }:
 
-assert withGUI -> qt5 != null;
+let
+  inherit (lib) enableFeature optional optionals optionalString;
 
-with stdenv.lib;
+  phase = name: args:
+    ''
+      runHook pre${name}
 
+      rake ${args}
+
+      runHook post${name}
+    '';
+
+in
 stdenv.mkDerivation rec {
-  name = "mkvtoolnix-${version}";
-  version = "9.6.0";
+  pname = "mkvtoolnix";
+  version = "78.0";
 
-  src = fetchFromGitHub {
+  src = fetchFromGitLab {
     owner = "mbunkus";
     repo = "mkvtoolnix";
     rev = "release-${version}";
-    sha256 = "14v6iclzkqxibzcdxr65bb5frmnsjyyly0d3lwv1gg7g1mkcw3jd";
+    sha256 = "sha256-iImcpuGZsRlwBTPyPUsfHAOkOIhc8eYs6rinl8O78oU=";
   };
 
-  nativeBuildInputs = [ pkgconfig autoconf automake gettext ruby ];
+  nativeBuildInputs = [
+    autoreconfHook
+    docbook_xsl
+    gettext
+    gtest
+    libxslt
+    pkg-config
+    rake
+  ]
+  ++ optional withGUI wrapQtAppsHook;
 
+  # 1. qtbase and qtmultimedia are needed without the GUI
+  # 2. we have utf8cpp in nixpkgs but it doesn't find it
   buildInputs = [
-    expat file xdg_utils boost libebml zlib libmatroska libogg
-    libvorbis flac
-  ] ++ optional withGUI qt5.qtbase;
+    boost
+    expat
+    file
+    flac
+    fmt
+    gmp
+    libdvdread
+    libebml
+    libmatroska
+    libogg
+    libvorbis
+    nlohmann_json
+    pugixml
+    qtbase
+    qtmultimedia
+    xdg-utils
+    zlib
+  ]
+  ++ optional withGUI cmark
+  ++ optional stdenv.isDarwin libiconv;
 
-  preConfigure = "./autogen.sh; patchShebangs .";
-  buildPhase   = "./drake -j $NIX_BUILD_CORES";
-  installPhase = "./drake install -j $NIX_BUILD_CORES";
+  # autoupdate is not needed but it silences a ton of pointless warnings
+  postPatch = ''
+    patchShebangs . > /dev/null
+    autoupdate configure.ac ac/*.m4
+  '';
 
   configureFlags = [
-    "--enable-magic"
-    "--enable-optimization"
-    "--with-boost-libdir=${boost.out}/lib"
     "--disable-debug"
-    "--disable-profiling"
     "--disable-precompiled-headers"
+    "--disable-profiling"
     "--disable-static-qt"
-    "--without-curl"
+    "--enable-optimization"
+    "--with-boost-libdir=${lib.getLib boost}/lib"
+    "--with-docbook-xsl-root=${docbook_xsl}/share/xml/docbook-xsl"
     "--with-gettext"
-    (enableFeature withGUI "qt")
+    (enableFeature withGUI "gui")
   ];
 
-  meta = with stdenv.lib; {
+  buildPhase = phase "Build" "";
+
+  installPhase = phase "Install" "install";
+
+  doCheck = true;
+
+  checkPhase = phase "Check" "tests:run_unit";
+
+  dontWrapQtApps = true;
+
+  postFixup = optionalString withGUI ''
+    wrapQtApp $out/bin/mkvtoolnix-gui
+  '';
+
+  meta = with lib; {
     description = "Cross-platform tools for Matroska";
-    homepage    = http://www.bunkus.org/videotools/mkvtoolnix/;
-    license     = licenses.gpl2;
-    maintainers = with maintainers; [ codyopel fuuzetsu rnhmjoj ];
-    platforms   = platforms.linux;
+    homepage = "https://mkvtoolnix.download/";
+    license = licenses.gpl2Only;
+    mainProgram = if withGUI then "mkvtoolnix-gui" else "mkvtoolnix";
+    maintainers = with maintainers; [ codyopel rnhmjoj ];
+    platforms = platforms.unix;
   };
 }

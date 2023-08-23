@@ -1,21 +1,66 @@
-{ lib, stdenv, fetchurl, pkgconfig, udev, glib }:
+{ stdenv
+, lib
+, fetchurl
+, pkg-config
+, meson
+, ninja
+, udev
+, glib
+, gnome
+, vala
+, gobject-introspection
+, fetchpatch
+, glibcLocales
+, umockdev
+}:
 
-let version = "230"; in
+stdenv.mkDerivation (finalAttrs: {
+  pname = "libgudev";
+  version = "238";
 
-stdenv.mkDerivation rec {
-  name = "libgudev-${version}";
+  outputs = [ "out" "dev" ];
 
   src = fetchurl {
-    url = "https://download.gnome.org/sources/libgudev/${version}/${name}.tar.xz";
-    sha256 = "a2e77faced0c66d7498403adefcc0707105e03db71a2b2abd620025b86347c18";
+    url = "mirror://gnome/sources/libgudev/${lib.versions.majorMinor finalAttrs.version}/libgudev-${finalAttrs.version}.tar.xz";
+    hash = "sha256-YSZqsa/J1z28YKiyr3PpnS/f9H2ZVE0IV2Dk+mZ7XdE=";
   };
 
-  buildInputs = [ pkgconfig udev glib ];
+  strictDeps = true;
 
-  meta = {
-    homepage = https://wiki.gnome.org/Projects/libgudev;
-    maintainers = [ lib.maintainers.eelco ];
-    platforms = lib.platforms.linux;
-    license = lib.licenses.lgpl2Plus;
+  nativeBuildInputs = [
+    pkg-config
+    meson
+    ninja
+    vala
+    glib # for glib-mkenums needed during the build
+    gobject-introspection
+  ];
+
+  buildInputs = [
+    udev
+    glib
+  ];
+
+  checkInputs = [
+    glibcLocales
+    umockdev
+  ];
+
+  doCheck = true;
+  mesonFlags = lib.optional (!finalAttrs.finalPackage.doCheck) "-Dtests=disabled";
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = "libgudev";
+      versionPolicy = "none";
+    };
   };
-}
+
+  meta = with lib; {
+    description = "A library that provides GObject bindings for libudev";
+    homepage = "https://wiki.gnome.org/Projects/libgudev";
+    maintainers = [ maintainers.eelco ] ++ teams.gnome.members;
+    platforms = platforms.linux;
+    license = licenses.lgpl2Plus;
+  };
+})

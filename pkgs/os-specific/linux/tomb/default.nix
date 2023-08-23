@@ -1,41 +1,44 @@
-{ stdenv, fetchurl, zsh, pinentry, cryptsetup, gnupg1orig, makeWrapper }:
-
-let
-    version = "2.2";
-in
+{ stdenv, lib, fetchFromGitHub, makeWrapper
+, gettext, zsh, pinentry, cryptsetup, gnupg, util-linux, e2fsprogs, sudo
+}:
 
 stdenv.mkDerivation rec {
-  name = "tomb-${version}";
+  pname = "tomb";
+  version = "2.9";
 
-  src = fetchurl {
-    url = "https://files.dyne.org/tomb/tomb-${version}.tar.gz";
-    sha256 = "11msj38fdmymiqcmwq1883kjqi5zr01ybdjj58rfjjrw4zw2w5y0";
+  src = fetchFromGitHub {
+    owner  = "dyne";
+    repo   = "Tomb";
+    rev    = "v${version}";
+    sha256 = "0d6vmfcf4kd0p2bcljmdnyc2fmbwvar81cc472zx86r7yc3ih102";
   };
 
-  buildInputs = [ makeWrapper ];
+  buildInputs = [ sudo zsh pinentry ];
 
-  buildPhase = ''
-    # manually patch the interpreter
-    sed -i -e "1s|.*|#!${zsh}/bin/zsh|g" tomb
+  nativeBuildInputs = [ makeWrapper ];
+
+  postPatch = ''
+    # if not, it shows .tomb-wrapped when running
+    substituteInPlace tomb \
+      --replace 'TOMBEXEC=$0' 'TOMBEXEC=tomb'
   '';
+
+  doInstallCheck = true;
+  installCheckPhase = "$out/bin/tomb -h";
 
   installPhase = ''
-    mkdir -p $out/bin
-    mkdir -p $out/share/man/man1
-
-    cp tomb $out/bin/tomb
-    cp doc/tomb.1 $out/share/man/man1
+    install -Dm755 tomb       $out/bin/tomb
+    install -Dm644 doc/tomb.1 $out/share/man/man1/tomb.1
 
     wrapProgram $out/bin/tomb \
-        --prefix PATH : "${pinentry}/bin" \
-        --prefix PATH : "${cryptsetup}/bin" \
-        --prefix PATH : "${gnupg1orig}/bin"
+      --prefix PATH : $out/bin:${lib.makeBinPath [ cryptsetup gettext gnupg pinentry util-linux e2fsprogs ]}
   '';
 
-  meta = {
+  meta = with lib; {
     description = "File encryption on GNU/Linux";
-    homepage = https://www.dyne.org/software/tomb/;
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.linux;
+    homepage    = "https://www.dyne.org/software/tomb/";
+    license     = licenses.gpl3;
+    maintainers = with maintainers; [ peterhoeg ];
+    platforms   = platforms.linux;
   };
 }

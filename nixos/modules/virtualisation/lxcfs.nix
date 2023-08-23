@@ -15,26 +15,22 @@ in {
       mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           This enables LXCFS, a FUSE filesystem for LXC.
           To use lxcfs in include the following configuration in your
           container configuration:
-          <code>
-            virtualisation.lxc.defaultConfig = "lxc.include = ''${pkgs.lxcfs}/share/lxc/config/common.conf.d/00-lxcfs.conf";
-          </code>
+          ```
+          virtualisation.lxc.defaultConfig = "lxc.include = ''${pkgs.lxcfs}/share/lxc/config/common.conf.d/00-lxcfs.conf";
+          ```
         '';
       };
   };
 
   ###### implementation
   config = mkIf cfg.enable {
-    services.cgmanager.enable = true;
-
     systemd.services.lxcfs = {
       description = "FUSE filesystem for LXC";
       wantedBy = [ "multi-user.target" ];
-      requires = [ "cgmanager.service" ];
-      after = [ "cgmanager.service" ];
       before = [ "lxc.service" ];
       restartIfChanged = false;
       serviceConfig = {

@@ -1,37 +1,84 @@
-{ stdenv, fetchurl, openssl, libuuid, cmake, libwebsockets }:
+{ stdenv
+, lib
+, fetchFromGitHub
+, cmake
+, docbook_xsl
+, libxslt
+, c-ares
+, cjson
+, libuuid
+, libuv
+, libwebsockets
+, openssl
+, withSystemd ? lib.meta.availableOn stdenv.hostPlatform systemd
+, systemd
+, fetchpatch
+}:
 
+let
+  # Mosquitto needs external poll enabled in libwebsockets.
+  libwebsockets' = (libwebsockets.override {
+    withExternalPoll = true;
+  }).overrideAttrs (old: {
+    # Avoid bug in firefox preventing websockets being created over http/2 connections
+    # https://github.com/eclipse/mosquitto/issues/1211#issuecomment-958137569
+    cmakeFlags = old.cmakeFlags ++ [ "-DLWS_WITH_HTTP2=OFF" ];
+  });
+
+in
 stdenv.mkDerivation rec {
   pname = "mosquitto";
-  version = "1.4";
+  version = "2.0.15";
 
-  name = "${pname}-${version}";
-
-  src = fetchurl {
-    url = http://mosquitto.org/files/source/mosquitto-1.4.tar.gz;
-    sha256 = "1imw5ps0cqda41b574k8hgz9gdr8yy58f76fg8gw14pdnvf3l7sr";
+  src = fetchFromGitHub {
+    owner = "eclipse";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-H2oaTphx5wvwXWDDaf9lLSVfHWmb2rMlxQmyRB4k5eg=";
   };
 
-  buildInputs = [ openssl libuuid libwebsockets ]
-    ++ stdenv.lib.optional stdenv.isDarwin cmake;
-
-  makeFlags = [
-    "DESTDIR=$(out)"
-    "PREFIX="
+  patches = lib.optionals stdenv.isDarwin [
+    (fetchpatch {
+      name = "revert-cmake-shared-to-module.patch"; # See https://github.com/eclipse/mosquitto/issues/2277
+      url = "https://github.com/eclipse/mosquitto/commit/e21eaeca37196439b3e89bb8fd2eb1903ef94845.patch";
+      sha256 = "14syi2c1rks8sl2aw09my276w45yq1iasvzkqcrqwy4drdqrf069";
+      revert = true;
+    })
   ];
 
-  preBuild = ''
-    substituteInPlace config.mk \
-      --replace "/usr/local" ""
-    substituteInPlace config.mk \
-      --replace "WITH_WEBSOCKETS:=no" "WITH_WEBSOCKETS:=yes"
+  postPatch = ''
+    for f in html manpage ; do
+      substituteInPlace man/$f.xsl \
+        --replace http://docbook.sourceforge.net/release/xsl/current ${docbook_xsl}/share/xml/docbook-xsl
+    done
 
+    # the manpages are not generated when using cmake
+    pushd man
+    make
+    popd
   '';
 
-  meta = {
-    homepage = http://mosquitto.org/;
-    description = "An open source MQTT v3.1/3.1.1 broker";
-    platforms = stdenv.lib.platforms.unix;
-    # http://www.eclipse.org/legal/epl-v10.html (free software, copyleft)
-    license = stdenv.lib.licenses.epl10;
+  nativeBuildInputs = [ cmake docbook_xsl libxslt ];
+
+  buildInputs = [
+    c-ares
+    cjson
+    libuuid
+    libuv
+    libwebsockets'
+    openssl
+  ] ++ lib.optional withSystemd systemd;
+
+  cmakeFlags = [
+    "-DWITH_THREADING=ON"
+    "-DWITH_WEBSOCKETS=ON"
+  ] ++ lib.optional withSystemd "-DWITH_SYSTEMD=ON";
+
+  meta = with lib; {
+    description = "An open source MQTT v3.1/3.1.1/5.0 broker";
+    homepage = "https://mosquitto.org/";
+    license = licenses.epl10;
+    maintainers = with maintainers; [ peterhoeg ];
+    platforms = platforms.unix;
   };
 }

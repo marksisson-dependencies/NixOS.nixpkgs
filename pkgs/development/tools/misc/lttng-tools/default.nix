@@ -1,24 +1,23 @@
-{ stdenv, fetchurl, popt, libuuid, liburcu, lttng-ust, kmod, libxml2 }:
+{ lib, stdenv, fetchurl, pkg-config, popt, libuuid, liburcu, lttng-ust, kmod, libxml2 }:
 
 stdenv.mkDerivation rec {
-  name = "lttng-tools-2.5.2";
+  pname = "lttng-tools";
+  version = "2.13.10";
 
   src = fetchurl {
-    url = "https://lttng.org/files/lttng-tools/${name}.tar.bz2";
-    sha256 = "0g931f90pl9bfgsxihrj0zlw9ivyaplbiw28axkscmjvzd1d6lhz";
+    url = "https://lttng.org/files/lttng-tools/${pname}-${version}.tar.bz2";
+    sha256 = "sha256-5dEJXsEyJWXzjxSTRvcZZ0lsKB6sxR7Fx3mUuFDn0zU=";
   };
 
-  buildInputs = [ popt libuuid liburcu lttng-ust libxml2 ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ popt libuuid liburcu lttng-ust libxml2 kmod ];
 
-  prePatch = ''
-    sed -e "s|/sbin/modprobe|${kmod}/bin/modprobe|g" \
-        -i src/bin/lttng-sessiond/modprobe.c
-  '';
+  enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Tracing tools (kernel + user space) for Linux";
-    homepage = http://lttng.org/;
-    license = licenses.lgpl21;
+    homepage = "https://lttng.org/";
+    license = with licenses; [ lgpl21Only gpl2Only ];
     platforms = platforms.linux;
     maintainers = [ maintainers.bjornfor ];
   };

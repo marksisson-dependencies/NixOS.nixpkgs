@@ -4,22 +4,26 @@ with lib;
 
 let
   cfg = config.services.graylog;
-  configBool = b: if b then "true" else "false";
 
   confFile = pkgs.writeText "graylog.conf" ''
-    is_master = ${configBool cfg.isMaster}
+    is_master = ${boolToString cfg.isMaster}
     node_id_file = ${cfg.nodeIdFile}
     password_secret = ${cfg.passwordSecret}
     root_username = ${cfg.rootUsername}
     root_password_sha2 = ${cfg.rootPasswordSha2}
-    elasticsearch_cluster_name = ${cfg.elasticsearchClusterName}
-    elasticsearch_discovery_zen_ping_multicast_enabled = ${configBool cfg.elasticsearchDiscoveryZenPingMulticastEnabled}
-    elasticsearch_discovery_zen_ping_unicast_hosts = ${cfg.elasticsearchDiscoveryZenPingUnicastHosts}
+    elasticsearch_hosts = ${concatStringsSep "," cfg.elasticsearchHosts}
     message_journal_dir = ${cfg.messageJournalDir}
     mongodb_uri = ${cfg.mongodbUri}
+    plugin_dir = /var/lib/graylog/plugins
 
     ${cfg.extraConfig}
   '';
+
+  glPlugins = pkgs.buildEnv {
+    name = "graylog-plugins";
+    paths = cfg.plugins;
+  };
+
 in
 
 {
@@ -29,38 +33,36 @@ in
 
     services.graylog = {
 
-      enable = mkEnableOption "Graylog";
+      enable = mkEnableOption (lib.mdDoc "Graylog");
 
       package = mkOption {
         type = types.package;
-        default = pkgs.graylog;
-        defaultText = "pkgs.graylog";
-        example = literalExample "pkgs.graylog";
-        description = "Graylog package to use.";
+        default = if versionOlder config.system.stateVersion "23.05" then pkgs.graylog-3_3 else pkgs.graylog-5_1;
+        defaultText = literalExpression (if versionOlder config.system.stateVersion "23.05" then "pkgs.graylog-3_3" else "pkgs.graylog-5_1");
+        description = lib.mdDoc "Graylog package to use.";
       };
 
       user = mkOption {
         type = types.str;
         default = "graylog";
-        example = literalExample "graylog";
-        description = "User account under which graylog runs";
+        description = lib.mdDoc "User account under which graylog runs";
       };
 
       isMaster = mkOption {
         type = types.bool;
         default = true;
-        description = "Whether this is the master instance of your Graylog cluster";
+        description = lib.mdDoc "Whether this is the master instance of your Graylog cluster";
       };
 
       nodeIdFile = mkOption {
         type = types.str;
         default = "/var/lib/graylog/server/node-id";
-        description = "Path of the file containing the graylog node-id";
+        description = lib.mdDoc "Path of the file containing the graylog node-id";
       };
 
       passwordSecret = mkOption {
         type = types.str;
-        description = ''
+        description = lib.mdDoc ''
           You MUST set a secret to secure/pepper the stored user passwords here. Use at least 64 characters.
           Generate one by using for example: pwgen -N 1 -s 96
         '';
@@ -69,13 +71,13 @@ in
       rootUsername = mkOption {
         type = types.str;
         default = "admin";
-        description = "Name of the default administrator user";
+        description = lib.mdDoc "Name of the default administrator user";
       };
 
       rootPasswordSha2 = mkOption {
         type = types.str;
         example = "e3c652f0ba0b4801205814f8b6bc49672c4c74e25b497770bb89b22cdeb4e952";
-        description = ''
+        description = lib.mdDoc ''
           You MUST specify a hash password for the root user (which you only need to initially set up the
           system and in case you lose connectivity to your authentication backend)
           This password cannot be changed using the API or via the web interface. If you need to change it,
@@ -85,40 +87,34 @@ in
         '';
       };
 
-      elasticsearchClusterName = mkOption {
-        type = types.str;
-        example = "graylog";
-        description = "This must be the same as for your Elasticsearch cluster";
-      };
-
-      elasticsearchDiscoveryZenPingMulticastEnabled = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Whether to use elasticsearch multicast discovery";
-      };
-
-      elasticsearchDiscoveryZenPingUnicastHosts = mkOption {
-        type = types.str;
-        default = "127.0.0.1:9300";
-        description = "Tells Graylogs Elasticsearch client how to find other cluster members. See Elasticsearch documentation for details";
+      elasticsearchHosts = mkOption {
+        type = types.listOf types.str;
+        example = literalExpression ''[ "http://node1:9200" "http://user:password@node2:19200" ]'';
+        description = lib.mdDoc "List of valid URIs of the http ports of your elastic nodes. If one or more of your elasticsearch hosts require authentication, include the credentials in each node URI that requires authentication";
       };
 
       messageJournalDir = mkOption {
         type = types.str;
         default = "/var/lib/graylog/data/journal";
-        description = "The directory which will be used to store the message journal. The directory must be exclusively used by Graylog and must not contain any other files than the ones created by Graylog itself";
+        description = lib.mdDoc "The directory which will be used to store the message journal. The directory must be exclusively used by Graylog and must not contain any other files than the ones created by Graylog itself";
       };
 
       mongodbUri = mkOption {
         type = types.str;
         default = "mongodb://localhost/graylog";
-        description = "MongoDB connection string. See http://docs.mongodb.org/manual/reference/connection-string/ for details";
+        description = lib.mdDoc "MongoDB connection string. See http://docs.mongodb.org/manual/reference/connection-string/ for details";
       };
 
       extraConfig = mkOption {
-        type = types.str;
+        type = types.lines;
         default = "";
-        description = "Any other configuration options you might want to add";
+        description = lib.mdDoc "Any other configuration options you might want to add";
+      };
+
+      plugins = mkOption {
+        description = lib.mdDoc "Extra graylog plugins";
+        default = [ ];
+        type = types.listOf types.package;
       };
 
     };
@@ -129,31 +125,43 @@ in
 
   config = mkIf cfg.enable {
 
-    users.extraUsers = mkIf (cfg.user == "graylog") {
+    users.users = mkIf (cfg.user == "graylog") {
       graylog = {
-        uid = config.ids.uids.graylog;
+        isSystemUser = true;
+        group = "graylog";
         description = "Graylog server daemon user";
       };
     };
+    users.groups = mkIf (cfg.user == "graylog") { graylog = {}; };
 
-    systemd.services.graylog = with pkgs; {
+    systemd.tmpfiles.rules = [
+      "d '${cfg.messageJournalDir}' - ${cfg.user} - - -"
+    ];
+
+    systemd.services.graylog = {
       description = "Graylog Server";
       wantedBy = [ "multi-user.target" ];
       environment = {
-        JAVA_HOME = jre;
         GRAYLOG_CONF = "${confFile}";
       };
-      path = [ pkgs.openjdk8 pkgs.which pkgs.procps ];
+      path = [ pkgs.which pkgs.procps ];
       preStart = ''
-        mkdir -p /var/lib/graylog -m 755
-        chown -R ${cfg.user} /var/lib/graylog
+        rm -rf /var/lib/graylog/plugins || true
+        mkdir -p /var/lib/graylog/plugins -m 755
 
-        mkdir -p ${cfg.messageJournalDir} -m 755
-        chown -R ${cfg.user} ${cfg.messageJournalDir}
+        mkdir -p "$(dirname ${cfg.nodeIdFile})"
+        chown -R ${cfg.user} "$(dirname ${cfg.nodeIdFile})"
+
+        for declarativeplugin in `ls ${glPlugins}/bin/`; do
+          ln -sf ${glPlugins}/bin/$declarativeplugin /var/lib/graylog/plugins/$declarativeplugin
+        done
+        for includedplugin in `ls ${cfg.package}/plugin/`; do
+          ln -s ${cfg.package}/plugin/$includedplugin /var/lib/graylog/plugins/$includedplugin || true
+        done
       '';
       serviceConfig = {
         User="${cfg.user}";
-        PermissionsStartOnly=true;
+        StateDirectory = "graylog";
         ExecStart = "${cfg.package}/bin/graylogctl run";
       };
     };

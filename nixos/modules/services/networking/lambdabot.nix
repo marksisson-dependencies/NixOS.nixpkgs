@@ -21,20 +21,20 @@ in
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = "Enable the Lambdabot IRC bot";
+        description = lib.mdDoc "Enable the Lambdabot IRC bot";
       };
 
       package = mkOption {
         type = types.package;
         default = pkgs.lambdabot;
-        defaultText = "pkgs.lambdabot";
-        description = "Used lambdabot package";
+        defaultText = literalExpression "pkgs.lambdabot";
+        description = lib.mdDoc "Used lambdabot package";
       };
 
       script = mkOption {
         type = types.str;
         default = "";
-        description = "Lambdabot script";
+        description = lib.mdDoc "Lambdabot script";
       };
 
     };
@@ -67,7 +67,7 @@ in
       };
     };
 
-    users.extraUsers.lambdabot = {
+    users.users.lambdabot = {
       group = "lambdabot";
       description = "Lambdabot daemon user";
       home = "/var/lib/lambdabot";
@@ -75,7 +75,7 @@ in
       uid = config.ids.uids.lambdabot;
     };
 
-    users.extraGroups.lambdabot.gid = config.ids.gids.lambdabot;
+    users.groups.lambdabot.gid = config.ids.gids.lambdabot;
 
   };
 

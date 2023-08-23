@@ -1,22 +1,32 @@
-{ stdenv, fetchurl }:
+{ lib
+, stdenv
+, fetchurl
+, python ? null
+, withPython ? false
+}:
 
 stdenv.mkDerivation rec {
-  name = "fastjet-${version}";
-  version = "3.2.0";
+  pname = "fastjet";
+  version = "3.4.1";
 
   src = fetchurl {
     url = "http://fastjet.fr/repo/fastjet-${version}.tar.gz";
-    sha256 = "1qvmab7l4ps5xd1wvmblgpzyhkbs2gff41qgyg7r7b9nlgqjgacn";
+    hash = "sha256-BWCMb/IT8G3Z3nI4E9a03M1R5mGsEwmPdL/J7q8ctao=";
   };
 
-  configureFlags = "--enable-allcxxplugins";
+  buildInputs = lib.optional withPython python;
+
+  configureFlags = [
+    "--enable-allcxxplugins"
+  ] ++ lib.optional withPython "--enable-pyext";
 
   enableParallelBuilding = true;
 
   meta = {
     description = "A software package for jet finding in pp and e+e− collisions";
-    license     = stdenv.lib.licenses.gpl2;
-    homepage    = http://fastjet.fr/;
-    platforms   = stdenv.lib.platforms.unix;
+    license     = lib.licenses.gpl2Plus;
+    homepage    = "http://fastjet.fr/";
+    platforms   = lib.platforms.unix;
+    maintainers = with lib.maintainers; [ veprbl ];
   };
 }

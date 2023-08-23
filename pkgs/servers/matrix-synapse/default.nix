@@ -1,46 +1,167 @@
-{ lib, pkgs, stdenv, pythonPackages, fetchurl, fetchFromGitHub }:
-let
-  matrix-angular-sdk = pythonPackages.buildPythonApplication rec {
-    name = "matrix-angular-sdk-${version}";
-    version = "0.6.8";
+{ lib
+, stdenv
+, fetchFromGitHub
+, python3
+, openssl
+, cargo
+, rustPlatform
+, rustc
+, nixosTests
+, callPackage
+}:
 
-    src = fetchurl {
-      url = "mirror://pypi/m/matrix-angular-sdk/matrix-angular-sdk-${version}.tar.gz";
-      sha256 = "0gmx4y5kqqphnq3m7xk2vpzb0w2a4palicw7wfdr1q2schl9fhz2";
-    };
-  };
-in pythonPackages.buildPythonApplication rec {
-  name = "matrix-synapse-${version}";
-  version = "0.18.4";
+let
+  plugins = python3.pkgs.callPackage ./plugins { };
+  tools = callPackage ./tools { };
+in
+python3.pkgs.buildPythonApplication rec {
+  pname = "matrix-synapse";
+  version = "1.90.0";
+  format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "matrix-org";
     repo = "synapse";
     rev = "v${version}";
-    sha256 = "0hcag9a4wd6a9q0ln5l949xr1bhmk1zrnf9vf3qi3lzxgi0rbm98";
+    hash = "sha256-VUbEERQ/UFCroSiz8Y8EsjB+uhFQXLAsK52kM6HTjjY=";
   };
 
-  patches = [ ./matrix-synapse.patch ];
+  cargoDeps = rustPlatform.fetchCargoTarball {
+    inherit src;
+    name = "${pname}-${version}";
+    hash = "sha256-t65rvhkLryzba6eZH1thBMzV7y0y5XMbdbrTxC91blQ=";
+  };
 
-  propagatedBuildInputs = with pythonPackages; [
-    blist canonicaljson daemonize dateutil frozendict pillow pybcrypt pyasn1
-    pydenticon pymacaroons-pynacl pynacl pyopenssl pysaml2 pytz requests2
-    service-identity signedjson systemd twisted ujson unpaddedbase64 pyyaml
-    matrix-angular-sdk bleach netaddr jinja2 psycopg2
-    ldap3 psutil msgpack lxml
+  postPatch = ''
+    # Remove setuptools_rust from runtime dependencies
+    # https://github.com/matrix-org/synapse/blob/v1.69.0/pyproject.toml#L177-L185
+    sed -i '/^setuptools_rust =/d' pyproject.toml
+  '';
+
+  nativeBuildInputs = with python3.pkgs; [
+    poetry-core
+    rustPlatform.cargoSetupHook
+    setuptools-rust
+    cargo
+    rustc
   ];
 
-  # Checks fail because of Tox.
-  doCheck = false;
-
-  buildInputs = with pythonPackages; [
-    mock setuptoolsTrial
+  buildInputs = [
+    openssl
   ];
 
-  meta = with stdenv.lib; {
-    homepage = https://matrix.org;
+  propagatedBuildInputs = with python3.pkgs; [
+    attrs
+    bcrypt
+    bleach
+    canonicaljson
+    cryptography
+    ijson
+    immutabledict
+    jinja2
+    jsonschema
+    matrix-common
+    msgpack
+    netaddr
+    packaging
+    phonenumbers
+    pillow
+    prometheus-client
+    pyasn1
+    pyasn1-modules
+    pydantic
+    pymacaroons
+    pyopenssl
+    pyyaml
+    service-identity
+    signedjson
+    sortedcontainers
+    treq
+    twisted
+    typing-extensions
+    unpaddedbase64
+  ]
+  ++ twisted.optional-dependencies.tls;
+
+  passthru.optional-dependencies = with python3.pkgs; {
+    postgres = if isPyPy then [
+      psycopg2cffi
+    ] else [
+      psycopg2
+    ];
+    saml2 = [
+      pysaml2
+    ];
+    oidc = [
+      authlib
+    ];
+    systemd = [
+      systemd
+    ];
+    url-preview = [
+      lxml
+    ];
+    sentry = [
+      sentry-sdk
+    ];
+    opentracing = [
+      jaeger-client
+      opentracing
+    ];
+    jwt = [
+      authlib
+    ];
+    redis = [
+      hiredis
+      txredisapi
+    ];
+    cache-memory = [
+      pympler
+    ];
+    user-search = [
+      pyicu
+    ];
+  };
+
+  nativeCheckInputs = [
+    openssl
+  ] ++ (with python3.pkgs; [
+    mock
+    parameterized
+  ])
+  ++ lib.flatten (lib.attrValues passthru.optional-dependencies);
+
+  doCheck = !stdenv.isDarwin;
+
+  checkPhase = ''
+    runHook preCheck
+
+    # remove src module, so tests use the installed module instead
+    rm -rf ./synapse
+
+    # high parallelisem makes test suite unstable
+    # upstream uses 2 cores but 4 seems to be also stable
+    # https://github.com/matrix-org/synapse/blob/develop/.github/workflows/latest_deps.yml#L103
+    if (( $NIX_BUILD_CORES > 4)); then
+      NIX_BUILD_CORES=4
+    fi
+
+    PYTHONPATH=".:$PYTHONPATH" ${python3.interpreter} -m twisted.trial -j $NIX_BUILD_CORES tests
+
+    runHook postCheck
+  '';
+
+  passthru = {
+    tests = { inherit (nixosTests) matrix-synapse; };
+    inherit plugins tools;
+    python = python3;
+  };
+
+  meta = with lib; {
+    homepage = "https://matrix.org";
+    changelog = "https://github.com/matrix-org/synapse/releases/tag/v${version}";
     description = "Matrix reference homeserver";
     license = licenses.asl20;
-    maintainers = [ maintainers.ralith maintainers.roblabla ];
+    maintainers = teams.matrix.members;
   };
 }

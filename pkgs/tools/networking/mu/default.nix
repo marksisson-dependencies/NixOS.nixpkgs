@@ -1,42 +1,67 @@
-{ fetchurl, stdenv, sqlite, pkgconfig, autoreconfHook
-, xapian, glib, gmime, texinfo , emacs, guile
-, gtk3, webkitgtk24x, libsoup, icu }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, meson
+, ninja
+, pkg-config
+, coreutils
+, emacs
+, glib
+, gmime3
+, texinfo
+, xapian
+}:
 
 stdenv.mkDerivation rec {
-  version = "0.9.16";
-  name = "mu-${version}";
+  pname = "mu";
+  version = "1.10.6";
 
-  src = fetchurl {
-    url = "https://github.com/djcb/mu/archive/v${version}.tar.gz";
-    sha256 = "0p7hqri1r1x6750x138cc29mh81kdav2dcim26y58s8an206h25g";
+  src = fetchFromGitHub {
+    owner = "djcb";
+    repo = "mu";
+    rev = "v${version}";
+    hash = "sha256-AGHPczGh4z0bla034FGSTmaRgMIfBNYFBUPevJ9LHqI=";
   };
 
-  buildInputs = [
-    sqlite pkgconfig xapian glib gmime texinfo emacs guile libsoup icu
-    autoreconfHook
-    gtk3 webkitgtk24x ];
-
-  preBuild = ''
+  postPatch = ''
     # Fix mu4e-builddir (set it to $out)
-    substituteInPlace mu4e/mu4e-meta.el.in \
+    substituteInPlace mu4e/mu4e-config.el.in \
       --replace "@abs_top_builddir@" "$out"
-
-    # We install msg2pdf to bin/msg2pdf, fix its location in elisp
-    substituteInPlace mu4e/mu4e-actions.el \
-      --replace "/toys/msg2pdf/msg2pdf" "/bin/msg2pdf"
+    substituteInPlace lib/utils/mu-test-utils.cc \
+      --replace "/bin/rm" "${coreutils}/bin/rm"
   '';
 
-  # Install mug and msg2pdf
-  postInstall = ''
-    cp -v toys/msg2pdf/msg2pdf $out/bin/
-    cp -v toys/mug/mug $out/bin/
+  # AOT native-comp, mostly copied from pkgs/build-support/emacs/generic.nix
+  postInstall = lib.optionalString (emacs.withNativeCompilation or false) ''
+    mkdir -p $out/share/emacs/native-lisp
+    export EMACSLOADPATH=$out/share/emacs/site-lisp/mu4e:
+    export EMACSNATIVELOADPATH=$out/share/emacs/native-lisp:
+
+    find $out/share/emacs -type f -name '*.el' -print0 \
+      | xargs -0 -I {} -n 1 -P $NIX_BUILD_CORES sh -c \
+          "emacs --batch --eval '(setq large-file-warning-threshold nil)' -f batch-native-compile {} || true"
+  '' + ''
+    emacs --batch -l package --eval "(package-generate-autoloads \"mu4e\" \"$out/share/emacs/site-lisp/mu4e\")"
   '';
 
-  meta = with stdenv.lib; {
-    description = "A collection of utilties for indexing and searching Maildirs";
+  buildInputs = [ emacs glib gmime3 texinfo xapian ];
+
+  mesonFlags = [
+    "-Dguile=disabled"
+    "-Dreadline=disabled"
+  ];
+
+  nativeBuildInputs = [ pkg-config meson ninja ];
+
+  doCheck = true;
+
+  meta = with lib; {
+    description = "A collection of utilities for indexing and searching Maildirs";
     license = licenses.gpl3Plus;
-    homepage = "http://www.djcbsoftware.nl/code/mu/";
-    platforms = platforms.mesaPlatforms;
-    maintainers = with maintainers; [ antono the-kenny ];
+    homepage = "https://www.djcbsoftware.nl/code/mu/";
+    changelog = "https://github.com/djcb/mu/releases/tag/v${version}";
+    maintainers = with maintainers; [ antono chvp peterhoeg ];
+    mainProgram = "mu";
+    platforms = platforms.unix;
   };
 }

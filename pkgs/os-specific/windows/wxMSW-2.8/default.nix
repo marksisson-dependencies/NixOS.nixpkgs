@@ -1,13 +1,11 @@
-{ stdenv, fetchurl, compat24 ? false, compat26 ? true, unicode ? true,
-}:
+{ lib, stdenv, fetchurl, compat24 ? false, compat26 ? true, unicode ? true }:
 
-assert stdenv ? cross -> stdenv.cross.libc == "msvcrt";
-
-stdenv.mkDerivation {
-  name = "wxMSW-2.8.11";
+stdenv.mkDerivation rec {
+  pname = "wxMSW";
+  version = "2.8.11";
 
   src = fetchurl {
-    url = mirror://sourceforge/wxwindows/wxWidgets-2.8.11.tar.gz;
+    url = "mirror://sourceforge/wxwindows/wxWidgets-${version}.tar.gz";
     sha256 = "0icxd21g18d42n1ygshkpw0jnflm03iqki6r623pb5hhd7fm2ksj";
   };
 
@@ -15,15 +13,9 @@ stdenv.mkDerivation {
     (if compat24 then "--enable-compat24" else "--disable-compat24")
     (if compat26 then "--enable-compat26" else "--disable-compat26")
     "--disable-precomp-headers"
-    (if unicode then "--enable-unicode" else "")
+    (lib.optionalString unicode "--enable-unicode")
     "--with-opengl"
   ];
-
-  # Cross build only tested for mingw32
-  checkCross = throw "This package can only be cross-built" false;
-  crossAttrs = {
-    checkCross = true;
-  };
 
   preConfigure = "
     substituteInPlace configure --replace /usr /no-such-path
@@ -36,5 +28,11 @@ stdenv.mkDerivation {
     (cd $out/include && ln -s wx-*/* .)
   ";
 
-  passthru = {inherit compat24 compat26 unicode;};
+  passthru = { inherit compat24 compat26 unicode; };
+
+  meta = {
+    platforms = lib.platforms.windows;
+
+    broken = true;
+  };
 }

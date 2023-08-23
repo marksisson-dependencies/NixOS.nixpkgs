@@ -6,101 +6,118 @@ with lib;
 let
   cfg = config.services.oauth2_proxy;
 
-  # Use like:
-  #   repeatedArgs (arg: "--arg=${arg}") args
-  repeatedArgs = concatMapStringsSep " ";
-
-  # 'toString' doesn't quite do what we want for bools.
-  fromBool = x: if x then "true" else "false";
-
   # oauth2_proxy provides many options that are only relevant if you are using
   # a certain provider. This set maps from provider name to a function that
   # takes the configuration and returns a string that can be inserted into the
   # command-line to launch oauth2_proxy.
   providerSpecificOptions = {
-    azure = cfg: ''
-      --azure-tenant=${cfg.azure.tenant} \
-      --resource=${cfg.azure.resource} \
-    '';
+    azure = cfg: {
+      azure-tenant = cfg.azure.tenant;
+      resource = cfg.azure.resource;
+    };
 
-    github = cfg: ''
-      $(optionalString (!isNull cfg.github.org) "--github-org=${cfg.github.org}") \
-      $(optionalString (!isNull cfg.github.team) "--github-org=${cfg.github.team}") \
-    '';
+    github = cfg: { github = {
+      inherit (cfg.github) org team;
+    }; };
 
-    google = cfg: ''
-      --google-admin-email=${cfg.google.adminEmail} \
-      --google-service-account=${cfg.google.serviceAccountJSON} \
-      $(repeatedArgs (group: "--google-group=${group}") cfg.google.groups) \
-    '';
+    google = cfg: { google = with cfg.google; optionalAttrs (groups != []) {
+      admin-email = adminEmail;
+      service-account = serviceAccountJSON;
+      group = groups;
+    }; };
   };
 
   authenticatedEmailsFile = pkgs.writeText "authenticated-emails" cfg.email.addresses;
 
-  getProviderOptions = cfg: provider:
-    if providerSpecificOptions ? provider then providerSpecificOptions.provider cfg else "";
+  getProviderOptions = cfg: provider: providerSpecificOptions.${provider} or (_: {}) cfg;
 
-  mkCommandLine = cfg: ''
-    --provider='${cfg.provider}' \
-    ${optionalString (!isNull cfg.email.addresses) "--authenticated-emails-file='${authenticatedEmailsFile}'"} \
-    --approval-prompt='${cfg.approvalPrompt}' \
-    ${optionalString (cfg.passBasicAuth && !isNull cfg.basicAuthPassword) "--basic-auth-password='${cfg.basicAuthPassword}'"} \
-    --client-id='${cfg.clientID}' \
-    --client-secret='${cfg.clientSecret}' \
-    ${optionalString (!isNull cfg.cookie.domain) "--cookie-domain='${cfg.cookie.domain}'"} \
-    --cookie-expire='${cfg.cookie.expire}' \
-    --cookie-httponly=${fromBool cfg.cookie.httpOnly} \
-    --cookie-name='${cfg.cookie.name}' \
-    --cookie-secret='${cfg.cookie.secret}' \
-    --cookie-secure=${fromBool cfg.cookie.secure} \
-    ${optionalString (!isNull cfg.cookie.refresh) "--cookie-refresh='${cfg.cookie.refresh}'"} \
-    ${optionalString (!isNull cfg.customTemplatesDir) "--custom-templates-dir='${cfg.customTemplatesDir}'"} \
-    ${repeatedArgs (x: "--email-domain='${x}'") cfg.email.domains} \
-    --http-address='${cfg.httpAddress}' \
-    ${optionalString (!isNull cfg.htpasswd.file) "--htpasswd-file='${cfg.htpasswd.file}' --display-htpasswd-form=${fromBool cfg.htpasswd.displayForm}"} \
-    ${optionalString (!isNull cfg.loginURL) "--login-url='${cfg.loginURL}'"} \
-    --pass-access-token=${fromBool cfg.passAccessToken} \
-    --pass-basic-auth=${fromBool cfg.passBasicAuth} \
-    --pass-host-header=${fromBool cfg.passHostHeader} \
-    --proxy-prefix='${cfg.proxyPrefix}' \
-    ${optionalString (!isNull cfg.profileURL) "--profile-url='${cfg.profileURL}'"} \
-    ${optionalString (!isNull cfg.redeemURL) "--redeem-url='${cfg.redeemURL}'"} \
-    ${optionalString (!isNull cfg.redirectURL) "--redirect-url='${cfg.redirectURL}'"} \
-    --request-logging=${fromBool cfg.requestLogging} \
-    ${optionalString (!isNull cfg.scope) "--scope='${cfg.scope}'"} \
-    ${repeatedArgs (x: "--skip-auth-regex='${x}'") cfg.skipAuthRegexes} \
-    ${optionalString (!isNull cfg.signatureKey) "--signature-key='${cfg.signatureKey}'"} \
-    --upstream='${cfg.upstream}' \
-    ${optionalString (!isNull cfg.validateURL) "--validate-url='${cfg.validateURL}'"} \
-    ${optionalString cfg.tls.enable "--tls-cert='${cfg.tls.certificate}' --tls-key='${cfg.tls.key}' --https-address='${cfg.tls.httpsAddress}'"} \
-  '' + getProviderOptions cfg cfg.provider;
+  allConfig = with cfg; {
+    inherit (cfg) provider scope upstream;
+    approval-prompt = approvalPrompt;
+    basic-auth-password = basicAuthPassword;
+    client-id = clientID;
+    client-secret = clientSecret;
+    custom-templates-dir = customTemplatesDir;
+    email-domain = email.domains;
+    http-address = httpAddress;
+    login-url = loginURL;
+    pass-access-token = passAccessToken;
+    pass-basic-auth = passBasicAuth;
+    pass-host-header = passHostHeader;
+    reverse-proxy = reverseProxy;
+    proxy-prefix = proxyPrefix;
+    profile-url = profileURL;
+    redeem-url = redeemURL;
+    redirect-url = redirectURL;
+    request-logging = requestLogging;
+    skip-auth-regex = skipAuthRegexes;
+    signature-key = signatureKey;
+    validate-url = validateURL;
+    htpasswd-file = htpasswd.file;
+    cookie = {
+      inherit (cookie) domain secure expire name secret refresh;
+      httponly = cookie.httpOnly;
+    };
+    set-xauthrequest = setXauthrequest;
+  } // lib.optionalAttrs (cfg.email.addresses != null) {
+    authenticated-emails-file = authenticatedEmailsFile;
+  } // lib.optionalAttrs (cfg.passBasicAuth) {
+    basic-auth-password = cfg.basicAuthPassword;
+  } // lib.optionalAttrs (cfg.htpasswd.file != null) {
+    display-htpasswd-file = cfg.htpasswd.displayForm;
+  } // lib.optionalAttrs tls.enable {
+    tls-cert-file = tls.certificate;
+    tls-key-file = tls.key;
+    https-address = tls.httpsAddress;
+  } // (getProviderOptions cfg cfg.provider) // cfg.extraConfig;
+
+  mapConfig = key: attr:
+  optionalString (attr != null && attr != []) (
+    if isDerivation attr then mapConfig key (toString attr) else
+    if (builtins.typeOf attr) == "set" then concatStringsSep " "
+      (mapAttrsToList (name: value: mapConfig (key + "-" + name) value) attr) else
+    if (builtins.typeOf attr) == "list" then concatMapStringsSep " " (mapConfig key) attr else
+    if (builtins.typeOf attr) == "bool" then "--${key}=${boolToString attr}" else
+    if (builtins.typeOf attr) == "string" then "--${key}='${attr}'" else
+    "--${key}=${toString attr}");
+
+  configString = concatStringsSep " " (mapAttrsToList mapConfig allConfig);
 in
 {
   options.services.oauth2_proxy = {
-    enable = mkEnableOption "oauth2_proxy";
+    enable = mkEnableOption (lib.mdDoc "oauth2_proxy");
 
     package = mkOption {
       type = types.package;
-      default = pkgs.oauth2_proxy;
-      defaultText = "pkgs.oauth2_proxy";
-      description = ''
-        The package that provides oauth2_proxy.
+      default = pkgs.oauth2-proxy;
+      defaultText = literalExpression "pkgs.oauth2-proxy";
+      description = lib.mdDoc ''
+        The package that provides oauth2-proxy.
       '';
     };
 
     ##############################################
     # PROVIDER configuration
+    # Taken from: https://github.com/oauth2-proxy/oauth2-proxy/blob/master/providers/providers.go
     provider = mkOption {
       type = types.enum [
-        "google"
-        "github"
+        "adfs"
         "azure"
+        "bitbucket"
+        "digitalocean"
+        "facebook"
+        "github"
         "gitlab"
+        "google"
+        "keycloak"
+        "keycloak-oidc"
         "linkedin"
-        "myusa"
+        "login.gov"
+        "nextcloud"
+        "oidc"
       ];
       default = "google";
-      description = ''
+      description = lib.mdDoc ''
         OAuth provider.
       '';
     };
@@ -108,22 +125,22 @@ in
     approvalPrompt = mkOption {
       type = types.enum ["force" "auto"];
       default = "force";
-      description = ''
+      description = lib.mdDoc ''
         OAuth approval_prompt.
       '';
     };
 
     clientID = mkOption {
-      type = types.str;
-      description = ''
+      type = types.nullOr types.str;
+      description = lib.mdDoc ''
         The OAuth Client ID.
       '';
       example = "123456.apps.googleusercontent.com";
     };
 
     clientSecret = mkOption {
-      type = types.str;
-      description = ''
+      type = types.nullOr types.str;
+      description = lib.mdDoc ''
         The OAuth Client Secret.
       '';
     };
@@ -131,7 +148,7 @@ in
     skipAuthRegexes = mkOption {
      type = types.listOf types.str;
      default = [];
-     description = ''
+     description = lib.mdDoc ''
        Skip authentication for requests matching any of these regular
        expressions.
      '';
@@ -142,16 +159,16 @@ in
       domains = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = ''
+        description = lib.mdDoc ''
           Authenticate emails with the specified domains. Use
-          <literal>*</literal> to authenticate any email.
+          `*` to authenticate any email.
         '';
       };
 
       addresses = mkOption {
         type = types.nullOr types.lines;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Line-separated email addresses that are allowed to authenticate.
         '';
       };
@@ -160,7 +177,7 @@ in
     loginURL = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Authentication endpoint.
 
         You only need to set this if you are using a self-hosted provider (e.g.
@@ -173,7 +190,7 @@ in
     redeemURL = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Token redemption endpoint.
 
         You only need to set this if you are using a self-hosted provider (e.g.
@@ -186,7 +203,7 @@ in
     validateURL = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Access token validation endpoint.
 
         You only need to set this if you are using a self-hosted provider (e.g.
@@ -201,7 +218,7 @@ in
       # doesn't require it so making it optional.
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         The OAuth2 redirect URL.
       '';
       example = "https://internalapp.yourcompany.com/oauth2/callback";
@@ -211,14 +228,14 @@ in
       tenant = mkOption {
         type = types.str;
         default = "common";
-        description = ''
+        description = lib.mdDoc ''
           Go to a tenant-specific or common (tenant-independent) endpoint.
         '';
       };
 
       resource = mkOption {
         type = types.str;
-        description = ''
+        description = lib.mdDoc ''
           The resource that is protected.
         '';
       };
@@ -227,28 +244,28 @@ in
     google = {
       adminEmail = mkOption {
         type = types.str;
-        description = ''
+        description = lib.mdDoc ''
           The Google Admin to impersonate for API calls.
 
           Only users with access to the Admin APIs can access the Admin SDK
           Directory API, thus the service account needs to impersonate one of
           those users to access the Admin SDK Directory API.
 
-          See <link xlink:href="https://developers.google.com/admin-sdk/directory/v1/guides/delegation#delegate_domain-wide_authority_to_your_service_account" />.
+          See <https://developers.google.com/admin-sdk/directory/v1/guides/delegation#delegate_domain-wide_authority_to_your_service_account>.
         '';
       };
 
       groups = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = ''
+        description = lib.mdDoc ''
           Restrict logins to members of these Google groups.
         '';
       };
 
       serviceAccountJSON = mkOption {
         type = types.path;
-        description = ''
+        description = lib.mdDoc ''
           The path to the service account JSON credentials.
         '';
       };
@@ -258,7 +275,7 @@ in
       org = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Restrict logins to members of this organisation.
         '';
       };
@@ -266,7 +283,7 @@ in
       team = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Restrict logins to members of this team.
         '';
       };
@@ -276,9 +293,10 @@ in
     ####################################################
     # UPSTREAM Configuration
     upstream = mkOption {
-      type = types.commas;
-      description = ''
-        The http url(s) of the upstream endpoint or <literal>file://</literal>
+      type = with types; coercedTo str (x: [x]) (listOf str);
+      default = [];
+      description = lib.mdDoc ''
+        The http url(s) of the upstream endpoint or `file://`
         paths for static files. Routing is based on the path.
       '';
     };
@@ -286,7 +304,7 @@ in
     passAccessToken = mkOption {
       type = types.bool;
       default = false;
-      description = ''
+      description = lib.mdDoc ''
         Pass OAuth access_token to upstream via X-Forwarded-Access-Token header.
       '';
     };
@@ -294,7 +312,7 @@ in
     passBasicAuth = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Pass HTTP Basic Auth, X-Forwarded-User and X-Forwarded-Email information to upstream.
       '';
     };
@@ -302,7 +320,7 @@ in
     basicAuthPassword = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         The password to set when passing the HTTP Basic Auth header.
       '';
     };
@@ -310,7 +328,7 @@ in
     passHostHeader = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Pass the request Host Header to upstream.
       '';
     };
@@ -318,7 +336,7 @@ in
     signatureKey = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         GAP-Signature request signature key.
       '';
       example = "sha1:secret0";
@@ -328,8 +346,10 @@ in
       domain = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = ''
-          An optional cookie domain to force cookies to.
+        description = lib.mdDoc ''
+          Optional cookie domains to force cookies to (ie: `.yourcompany.com`).
+          The longest domain matching the request's host will be used (or the shortest
+          cookie domain if there is no match).
         '';
         example = ".yourcompany.com";
       };
@@ -337,7 +357,7 @@ in
       expire = mkOption {
         type = types.str;
         default = "168h0m0s";
-        description = ''
+        description = lib.mdDoc ''
           Expire timeframe for cookie.
         '';
       };
@@ -345,7 +365,7 @@ in
       httpOnly = mkOption {
         type = types.bool;
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           Set HttpOnly cookie flag.
         '';
       };
@@ -353,7 +373,7 @@ in
       name = mkOption {
         type = types.str;
         default = "_oauth2_proxy";
-        description = ''
+        description = lib.mdDoc ''
           The name of the cookie that the oauth_proxy creates.
         '';
       };
@@ -362,15 +382,15 @@ in
         # XXX: Unclear what the behavior is when this is not specified.
         type = types.nullOr types.str;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Refresh the cookie after this duration; 0 to disable.
         '';
         example = "168h0m0s";
       };
 
       secret = mkOption {
-        type = types.str;
-        description = ''
+        type = types.nullOr types.str;
+        description = lib.mdDoc ''
           The seed string for secure cookies.
         '';
       };
@@ -378,7 +398,7 @@ in
       secure = mkOption {
         type = types.bool;
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           Set secure (HTTPS) cookie flag.
         '';
       };
@@ -389,11 +409,11 @@ in
 
     httpAddress = mkOption {
       type = types.str;
-      default = "127.0.0.1:4180";
-      description = ''
+      default = "http://127.0.0.1:4180";
+      description = lib.mdDoc ''
         HTTPS listening address.  This module does not expose the port by
         default. If you want this URL to be accessible to other machines, please
-        add the port to <literal>networking.firewall.allowedTCPPorts</literal>.
+        add the port to `networking.firewall.allowedTCPPorts`.
       '';
     };
 
@@ -401,16 +421,16 @@ in
       file = mkOption {
         type = types.nullOr types.path;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Additionally authenticate against a htpasswd file. Entries must be
-          created with <literal>htpasswd -s</literal> for SHA encryption.
+          created with `htpasswd -s` for SHA encryption.
         '';
       };
 
       displayForm = mkOption {
         type = types.bool;
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           Display username / password login form if an htpasswd file is provided.
         '';
       };
@@ -419,15 +439,26 @@ in
     customTemplatesDir = mkOption {
       type = types.nullOr types.path;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Path to custom HTML templates.
+      '';
+    };
+
+    reverseProxy = mkOption {
+      type = types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        In case when running behind a reverse proxy, controls whether headers
+        like `X-Real-Ip` are accepted. Usage behind a reverse
+        proxy will require this flag to be set to avoid logging the reverse
+        proxy IP address.
       '';
     };
 
     proxyPrefix = mkOption {
       type = types.str;
       default = "/oauth2";
-      description = ''
+      description = lib.mdDoc ''
         The url root path that this proxy should be nested under.
       '';
     };
@@ -436,21 +467,21 @@ in
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           Whether to serve over TLS.
         '';
       };
 
       certificate = mkOption {
         type = types.path;
-        description = ''
+        description = lib.mdDoc ''
           Path to certificate file.
         '';
       };
 
       key = mkOption {
         type = types.path;
-        description = ''
+        description = lib.mdDoc ''
           Path to private key file.
         '';
       };
@@ -458,11 +489,11 @@ in
       httpsAddress = mkOption {
         type = types.str;
         default = ":443";
-        description = ''
-          <literal>addr:port</literal> to listen on for HTTPS clients.
+        description = lib.mdDoc ''
+          `addr:port` to listen on for HTTPS clients.
 
-          Remember to add <literal>port</literal> to
-          <literal>allowedTCPPorts</literal> if you want other machines to be
+          Remember to add `port` to
+          `allowedTCPPorts` if you want other machines to be
           able to connect to it.
         '';
       };
@@ -471,7 +502,7 @@ in
     requestLogging = mkOption {
       type = types.bool;
       default = true;
-      description = ''
+      description = lib.mdDoc ''
         Log requests to stdout.
       '';
     };
@@ -485,7 +516,7 @@ in
       # doesn't require it so making it optional.
       type = types.nullOr types.str;
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         OAuth scope specification.
       '';
     };
@@ -493,29 +524,68 @@ in
     profileURL = mkOption {
       type = types.nullOr types.str;
       default = null;
-      description = ''
-      	Profile access endpoint.
+      description = lib.mdDoc ''
+        Profile access endpoint.
       '';
+    };
+
+    setXauthrequest = mkOption {
+      type = types.nullOr types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        Set X-Auth-Request-User and X-Auth-Request-Email response headers (useful in Nginx auth_request mode). Setting this to 'null' means using the upstream default (false).
+      '';
+    };
+
+    extraConfig = mkOption {
+      default = {};
+      type = types.attrsOf types.anything;
+      description = lib.mdDoc ''
+        Extra config to pass to oauth2-proxy.
+      '';
+    };
+
+    keyFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = lib.mdDoc ''
+        oauth2-proxy allows passing sensitive configuration via environment variables.
+        Make a file that contains lines like
+        OAUTH2_PROXY_CLIENT_SECRET=asdfasdfasdf.apps.googleuserscontent.com
+        and specify the path here.
+      '';
+      example = "/run/keys/oauth2_proxy";
     };
 
   };
 
   config = mkIf cfg.enable {
 
-    users.extraUsers.oauth2_proxy = {
-      description = "OAuth2 Proxy";
+    services.oauth2_proxy = mkIf (cfg.keyFile != null) {
+      clientID = mkDefault null;
+      clientSecret = mkDefault null;
+      cookie.secret = mkDefault null;
     };
+
+    users.users.oauth2_proxy = {
+      description = "OAuth2 Proxy";
+      isSystemUser = true;
+      group = "oauth2_proxy";
+    };
+
+    users.groups.oauth2_proxy = {};
 
     systemd.services.oauth2_proxy = {
       description = "OAuth2 Proxy";
       path = [ cfg.package ];
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [ "network-online.target" ];
 
       serviceConfig = {
         User = "oauth2_proxy";
         Restart = "always";
-        ExecStart = "${cfg.package.bin}/bin/oauth2_proxy ${mkCommandLine cfg}";
+        ExecStart = "${cfg.package}/bin/oauth2-proxy ${configString}";
+        EnvironmentFile = mkIf (cfg.keyFile != null) cfg.keyFile;
       };
     };
 

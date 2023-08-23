@@ -1,29 +1,65 @@
-{ stdenv, fetchurl, eventlog, pkgconfig, glib, python, systemd, perl
-, riemann_c_client, protobufc, pcre, yacc }:
+{ lib, stdenv, fetchurl, openssl, libcap, curl, which
+, eventlog, pkg-config, glib, python3, systemd, perl
+, riemann_c_client, protobufc, pcre, libnet
+, json_c, libuuid, libivykis, mongoc, rabbitmq-c
+, libesmtp
+}:
 
 stdenv.mkDerivation rec {
-  name = "syslog-ng-${version}";
-
-  version = "3.6.2";
+  pname = "syslog-ng";
+  version = "3.38.1";
 
   src = fetchurl {
-    url = "http://www.balabit.com/downloads/files?path=/syslog-ng/sources/${version}/source/syslog-ng_${version}.tar.gz";
-    sha256 = "0qc21mwajk6xrra3gqy2nvaza5gq62psamq4ayphj7lqabdglizg";
+    url = "https://github.com/${pname}/${pname}/releases/download/${pname}-${version}/${pname}-${version}.tar.gz";
+    sha256 = "sha256-VJH2htC4KbabLg/A1mpi9RmRqvruAFR1v6OPqzmUQfc=";
   };
 
-  buildInputs = [ eventlog pkgconfig glib python systemd perl riemann_c_client protobufc yacc pcre ];
+  nativeBuildInputs = [ pkg-config which ];
 
-  configureFlags = [
-    "--enable-dynamic-linking"
-    "--enable-systemd"
-    "--with-systemdsystemunitdir=$(out)/etc/systemd/system"
+  buildInputs = [
+    libcap
+    curl
+    openssl
+    eventlog
+    glib
+    perl
+    python3
+    systemd
+    riemann_c_client
+    protobufc
+    pcre
+    libnet
+    json_c
+    libuuid
+    libivykis
+    mongoc
+    rabbitmq-c
+    libesmtp
   ];
 
-  meta = with stdenv.lib; {
-    homepage = "http://www.balabit.com/network-security/syslog-ng/";
+  configureFlags = [
+    "--enable-manpages"
+    "--enable-dynamic-linking"
+    "--enable-systemd"
+    "--enable-smtp"
+    "--with-ivykis=system"
+    "--with-librabbitmq-client=system"
+    "--with-mongoc=system"
+    "--with-jsonc=system"
+    "--with-systemd-journal=system"
+    "--with-systemdsystemunitdir=$(out)/etc/systemd/system"
+    "--without-compile-date"
+  ];
+
+  outputs = [ "out" "man" ];
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    homepage = "https://www.syslog-ng.com";
     description = "Next-generation syslogd with advanced networking and filtering capabilities";
-    license = licenses.gpl2;
-    maintainers = [ maintainers.rickynils ];
+    license = with licenses; [ gpl2Plus lgpl21Plus ];
+    maintainers = with maintainers; [ ];
     platforms = platforms.linux;
   };
 }

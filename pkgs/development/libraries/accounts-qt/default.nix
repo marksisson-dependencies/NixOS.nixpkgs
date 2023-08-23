@@ -1,28 +1,28 @@
-{ stdenv, fetchFromGitLab, doxygen, glib, libaccounts-glib, pkgconfig, qtbase, qmakeHook }:
+{ mkDerivation, lib, fetchFromGitLab, doxygen, glib, libaccounts-glib, pkg-config, qmake }:
 
-stdenv.mkDerivation rec {
-  name = "accounts-qt-${version}";
-  version = "1.13";
+mkDerivation rec {
+  pname = "accounts-qt";
+  version = "1.16";
 
   src = fetchFromGitLab {
-    sha256 = "1gpkgw05dwsf2wk5cy3skgss3kw6mqh7iv3fadrxqxfc1za1xmyl";
-    rev = version;
+    sha256 = "1vmpjvysm0ld8dqnx8msa15hlhrkny02cqycsh4k2azrnijg0xjz";
+    rev = "VERSION_${version}";
     repo = "libaccounts-qt";
     owner = "accounts-sso";
   };
 
-  buildInputs = [ glib libaccounts-glib qtbase ];
-  nativeBuildInputs = [ doxygen pkgconfig qmakeHook ];
+  propagatedBuildInputs = [ glib libaccounts-glib ];
+  nativeBuildInputs = [ doxygen pkg-config qmake ];
 
-  preConfigure = ''
-    qmakeFlags="$qmakeFlags LIBDIR=$out/lib CMAKE_CONFIG_PATH=$out/lib/cmake"
+  # remove forbidden references to $TMPDIR
+  preFixup = ''
+    patchelf --shrink-rpath --allowed-rpath-prefixes "$NIX_STORE" "$out"/bin/*
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Qt library for accessing the online accounts database";
-    homepage = "http://code.google.com/p/accounts-sso/";
+    homepage = "https://gitlab.com/accounts-sso";
     license = licenses.lgpl21;
-    maintainers = with maintainers; [ nckx ];
     platforms = with platforms; linux;
   };
 }

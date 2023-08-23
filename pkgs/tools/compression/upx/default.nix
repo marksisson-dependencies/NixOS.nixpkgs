@@ -1,35 +1,22 @@
-{stdenv, fetchurl, ucl, zlib}:
+{ lib, stdenv, fetchFromGitHub, cmake }:
 
-stdenv.mkDerivation {
-  name = "upx-3.91";
-  src = fetchurl {
-    url = mirror://sourceforge/upx/upx-3.91-src.tar.bz2;
-    sha256 = "0g3aiinlcb37z1xhs202h2qrgbf8dygiyarmflbgahcq89byfz2j";
+stdenv.mkDerivation rec {
+  pname = "upx";
+  version = "4.1.0";
+  src = fetchFromGitHub {
+    owner = "upx";
+    repo = pname;
+    rev = "v${version}";
+    fetchSubmodules = true;
+    sha256 = "sha256-pHJypO+sK7+ytM7yJxJpfBJHTYpGc9nr/JiFGd7hlJM=";
   };
 
-  buildInputs = [ ucl zlib ];
+  nativeBuildInputs = [ cmake ];
 
-  lzmaSrc = fetchurl {
-    url = mirror://sourceforge/sevenzip/lzma443.tar.bz2;
-    sha256 = "1ck4z81y6xv1x9ky8abqn3mj9xj2dwg41bmd5j431xgi8crgd1ds";
-  };
-
-  preConfigure = "
-    export UPX_UCLDIR=${ucl}
-    mkdir lzma443
-    pushd lzma443
-    tar xf $lzmaSrc
-    popd
-    export UPX_LZMADIR=`pwd`/lzma443
-    cd src
-  ";
-
-  installPhase = "mkdir -p $out/bin ; cp upx.out $out/bin/upx";
-
-  meta = {
-    homepage = http://upx.sourceforge.net/;
+  meta = with lib; {
+    homepage = "https://upx.github.io/";
     description = "The Ultimate Packer for eXecutables";
-    license = stdenv.lib.licenses.gpl2Plus;
-    platforms = stdenv.lib.platforms.unix;
+    license = licenses.gpl2Plus;
+    platforms = platforms.unix;
   };
 }

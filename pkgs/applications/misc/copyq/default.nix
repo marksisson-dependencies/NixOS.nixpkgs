@@ -1,23 +1,63 @@
-{ stdenv, fetchurl, cmake, qt4, libXfixes, libXtst}:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, ninja
+, extra-cmake-modules
+, qtbase
+, qtsvg
+, qttools
+, qtdeclarative
+, libXfixes
+, libXtst
+, qtwayland
+, wayland
+, wrapQtAppsHook
+}:
 
-let version = "2.5.0";
-in
-stdenv.mkDerivation {
-  name = "CopyQ-${version}";
-  src  = fetchurl {
-    url    = "https://github.com/hluk/CopyQ/archive/v${version}.tar.gz";
-    sha256 = "7726745056e8d82625531defc75b2a740d3c42131ecce1f3181bc0a0bae51fb1";
+stdenv.mkDerivation rec {
+  pname = "CopyQ";
+  version = "unstable-2023-04-14";
+
+  src = fetchFromGitHub {
+    owner = "hluk";
+    repo = "CopyQ";
+    rev = "c4e481315be5a1fa35503c9717b396319b43aa9b";
+    hash = "sha256-XLuawTKzDi+ixEUcsllyW5tCVTPlzIozu1UzYOjTqDU=";
   };
 
-  buildInputs = [ cmake qt4 libXfixes libXtst ];
+  nativeBuildInputs = [
+    cmake
+    ninja
+    extra-cmake-modules
+    wrapQtAppsHook
+  ];
 
-  meta = with stdenv.lib; {
-    homepage    = "https://hluk.github.io/CopyQ";
+  buildInputs = [
+    qtbase
+    qtsvg
+    qttools
+    qtdeclarative
+    libXfixes
+    libXtst
+    qtwayland
+    wayland
+  ];
+
+  postPatch = ''
+    substituteInPlace shared/com.github.hluk.copyq.desktop.in \
+      --replace copyq "$out/bin/copyq"
+  '';
+
+  cmakeFlags = [ "-DWITH_QT6=ON" ];
+
+  meta = with lib; {
+    homepage = "https://hluk.github.io/CopyQ";
     description = "Clipboard Manager with Advanced Features";
-    license     = licenses.gpl3;
-    maintainers = with maintainers; [ willtim ];
+    license = licenses.gpl3Only;
+    maintainers = with maintainers; [ artturin ];
     # NOTE: CopyQ supports windows and osx, but I cannot test these.
-    # OSX build requires QT5.
-    platforms   = platforms.linux;
+    platforms = platforms.linux;
+    mainProgram = "copyq";
   };
 }

@@ -1,19 +1,59 @@
-{ stdenv, fetchurl, python2Packages, makeWrapper }:
+{ lib
+, stdenv
+, fetchurl
+, fetchpatch
+, python
+, root
+, makeWrapper
+, zlib
+, withRootSupport ? false
+}:
 
 stdenv.mkDerivation rec {
-  name = "yoda-${version}";
-  version = "1.6.5";
+  pname = "yoda";
+  version = "1.9.8";
 
   src = fetchurl {
-    url = "http://www.hepforge.org/archive/yoda/YODA-${version}.tar.bz2";
-    sha256 = "1i8lmj63cd3qnxl9k2cb1abap2pirhx7ffinm834wbpy9iszwxql";
+    url = "https://www.hepforge.org/archive/yoda/YODA-${version}.tar.bz2";
+    hash = "sha256-e8MGJGirulCv8+y4sizmdxlgNgCYkGiO9FM6qn+S5uQ=";
   };
 
-  pythonPath = []; # python wrapper support
+  patches = [
+    # A bugfix https://gitlab.com/hepcedar/yoda/-/merge_requests/116
+    (fetchpatch {
+      url = "https://gitlab.com/hepcedar/yoda/-/commit/ba1275033522c66bc473dfeffae1a7971e985611.diff";
+      hash = "sha256-/8UJuypiQzywarE+o3BEMtqM+f+YzkHylugi+xTJf+w=";
+      excludes = [ "ChangeLog" ];
+    })
+  ];
 
-  buildInputs = with python2Packages; [ python numpy matplotlib makeWrapper ];
+  nativeBuildInputs = with python.pkgs; [
+    cython
+    makeWrapper
+  ];
+
+  buildInputs = [
+    python
+  ] ++ (with python.pkgs; [
+    numpy
+    matplotlib
+  ]) ++ lib.optionals withRootSupport [
+    root
+  ];
+
+  propagatedBuildInputs = [
+    zlib
+  ];
 
   enableParallelBuilding = true;
+
+  postPatch = ''
+    touch pyext/yoda/*.{pyx,pxd}
+    patchShebangs .
+
+    substituteInPlace pyext/yoda/plotting/script_generator.py \
+      --replace '/usr/bin/env python' '${python.interpreter}'
+  '';
 
   postInstall = ''
     for prog in "$out"/bin/*; do
@@ -21,11 +61,18 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  meta = {
+  hardeningDisable = [ "format" ];
+
+  doInstallCheck = true;
+
+  installCheckTarget = "check";
+
+  meta = with lib; {
     description = "Provides small set of data analysis (specifically histogramming) classes";
-    license     = stdenv.lib.licenses.gpl2;
-    homepage    = https://yoda.hepforge.org;
-    platforms   = stdenv.lib.platforms.unix;
-    maintainers = with stdenv.lib.maintainers; [ veprbl ];
+    license = licenses.gpl3Only;
+    homepage = "https://yoda.hepforge.org";
+    changelog = "https://gitlab.com/hepcedar/yoda/-/blob/yoda-${version}/ChangeLog";
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ veprbl ];
   };
 }

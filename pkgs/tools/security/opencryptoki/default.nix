@@ -1,38 +1,63 @@
-{ stdenv, fetchurl, openssl, trousers, automake, autoconf, libtool, bison, flex }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, bison
+, flex
+, openldap
+, openssl
+, trousers
+}:
 
 stdenv.mkDerivation rec {
-  version = "3.2";
-  name = "opencryptoki-${version}";
+  pname = "opencryptoki";
+  version = "3.20.0";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/opencryptoki/opencryptoki/v${version}/opencryptoki-v${version}.tgz";
-    sha256 = "06r6zp299vxdspl6k65myzgjv0bihg7kc500v7s4jd3mcrkngd6h";
+  src = fetchFromGitHub {
+    owner = "opencryptoki";
+    repo = "opencryptoki";
+    rev = "v${version}";
+    hash = "sha256-Z11CDw9ykmJ7MI7I0H4Y/i+8/I+hRgC2frklYPP1di0=";
   };
 
-  buildInputs = [ automake autoconf libtool openssl trousers bison flex ];
+  nativeBuildInputs = [
+    autoreconfHook
+    bison
+    flex
+  ];
 
-  preConfigure = ''
-    substituteInPlace configure.in --replace "chown" "true"
-    substituteInPlace configure.in --replace "chgrp" "true"
-    sh bootstrap.sh --prefix=$out
+  buildInputs = [
+    openldap
+    openssl
+    trousers
+  ];
+
+  postPatch = ''
+    substituteInPlace configure.ac \
+      --replace "usermod" "true" \
+      --replace "groupadd" "true" \
+      --replace "chmod" "true" \
+      --replace "chgrp" "true"
   '';
 
-  configureFlags = [ "--disable-ccatok" "--disable-icatok" ];
+  configureFlags = [
+    "--prefix="
+    "--disable-ccatok"
+    "--disable-icatok"
+  ];
 
-  makeFlags = "DESTDIR=$(out)";
+  enableParallelBuilding = true;
 
-  # work around the build script of opencryptoki
-  postInstall = ''
-    cp -r $out/$out/* $out
-    rm -r $out/nix
-    '';
+  installFlags = [
+    "DESTDIR=${placeholder "out"}"
+  ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
+    changelog   = "https://github.com/opencryptoki/opencryptoki/blob/${src.rev}/ChangeLog";
     description = "PKCS#11 implementation for Linux";
-    homepage    = http://opencryptoki.sourceforge.net/;
+    homepage    = "https://github.com/opencryptoki/opencryptoki";
     license     = licenses.cpl10;
-    maintainers = [ maintainers.tstrobel ];
+    maintainers = [ ];
     platforms   = platforms.unix;
   };
 }
-

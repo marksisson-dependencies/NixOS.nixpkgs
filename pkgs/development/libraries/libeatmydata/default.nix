@@ -1,24 +1,53 @@
-{ stdenv, fetchurl, makeWrapper }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, fetchpatch2
+, autoreconfHook
+, strace
+, which
+}:
 
 stdenv.mkDerivation rec {
-  name = "libeatmydata-105";
-  
-  src = fetchurl {
-    url = "http://www.flamingspork.com/projects/libeatmydata/${name}.tar.gz";
-    sha256 = "1pd8sc73cgc41ldsvq6g8ics1m5k8gdcb91as9yg8z5jnrld1lmx";
+  pname = "libeatmydata";
+  version = "131";
+
+  src = fetchFromGitHub {
+    owner = "stewartsmith";
+    repo = pname;
+    rev = "refs/tags/v${version}";
+    sha256 = "sha256-0lrYDW51/KSr809whGwg9FYhzcLRfmoxipIgrK1zFCc=";
   };
 
-  buildInputs = [ makeWrapper ];
+  patches = [
+    # Fixes "error: redefinition of 'open'" on musl
+    (fetchpatch2 {
+      url = "https://raw.githubusercontent.com/void-linux/void-packages/861ac185a6b60134292ff93d40e40b5391d0aa8e/srcpkgs/libeatmydata/patches/musl.patch";
+      hash = "sha256-MZfTgf2Qn94UpPlYNRM2zK99iKQorKQrlbU5/1WJhJM=";
+    })
+  ];
 
-  postInstall = ''
-    wrapProgram $out/bin/eatmydata \
-      --prefix PATH : $out/bin
+  postPatch = ''
+    patchShebangs .
   '';
 
-  meta = {
-    homepage = http://www.flamingspork.com/projects/libeatmydata/;
-    license = stdenv.lib.licenses.gpl3Plus;
+  nativeBuildInputs = [
+    autoreconfHook
+  ];
+
+  nativeCheckInputs = [
+    strace
+    which
+  ];
+
+  doCheck = stdenv.buildPlatform.canExecute stdenv.hostPlatform;
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     description = "Small LD_PRELOAD library to disable fsync and friends";
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://www.flamingspork.com/projects/libeatmydata/";
+    license = licenses.gpl3Plus;
+    mainProgram = "eatmydata";
+    platforms = platforms.unix;
   };
 }

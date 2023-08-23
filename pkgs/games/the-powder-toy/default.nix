@@ -1,39 +1,49 @@
-{ stdenv, fetchFromGitHub, scons, pkgconfig, SDL, lua, fftwFloat, zlib, bzip2 }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, meson
+, ninja
+, pkg-config
+, python3
+, SDL2
+, bzip2
+, curl
+, fftwFloat
+, lua
+, luajit
+, zlib
+, Cocoa }:
 
 stdenv.mkDerivation rec {
-  name = "the-powder-toy-${version}";
-  version = "91.5.330";
+  pname = "the-powder-toy";
+  version = "unstable-2022-08-30";
 
   src = fetchFromGitHub {
-    owner = "simtr";
+    owner = "The-Powder-Toy";
     repo = "The-Powder-Toy";
-    rev = "v${version}";
-    sha256 = "19m7jyg3pnppymvr6lz454mjiw18hvldpdhi33596m9ji3nrq8x7";
+    rev = "9e712eba080e194fc162b475f58aaed8f4ea008e";
+    sha256 = "sha256-44xUfif1E+T9jzixWgnBxOWmzPPuVZy7rf62ig/CczA=";
   };
 
-  patches = [ ./fix-env.patch ];
+  nativeBuildInputs = [ meson ninja pkg-config python3 ];
 
-  postPatch = ''
-    sed -i 's,lua5.1,lua,g' SConscript
-  '';
-
-  nativeBuildInputs = [ scons pkgconfig ];
-
-  buildInputs = [ SDL lua fftwFloat zlib bzip2 ];
-
-  buildPhase = "scons DESTDIR=$out/bin --tool='' -j$NIX_BUILD_CORES";
+  buildInputs = [ SDL2 bzip2 curl fftwFloat lua luajit zlib ]
+  ++ lib.optionals stdenv.isDarwin [ Cocoa ];
 
   installPhase = ''
-    install -Dm 755 build/powder* "$out/bin/powder"
+    install -Dm 755 powder $out/bin/powder
+
+    mkdir -p $out/share/applications
+    mv ../resources/powder.desktop $out/share/applications
+    mv ../resources $out/share
   '';
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A free 2D physics sandbox game";
-    homepage = "http://powdertoy.co.uk/";
+    homepage = "https://powdertoy.co.uk/";
     platforms = platforms.unix;
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ abbradar ];
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ abbradar siraben ];
+    mainProgram = "powder";
   };
 }

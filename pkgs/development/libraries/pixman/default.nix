@@ -1,26 +1,56 @@
-{ fetchurl, stdenv, pkgconfig, libpng, glib /*just passthru*/ }:
+{ lib
+, stdenv
+, fetchurl
+, pkg-config
+, libpng
+, glib /*just passthru*/
+
+# for passthru.tests
+, cairo
+, qemu
+, scribus
+, tigervnc
+, wlroots
+, xwayland
+}:
 
 stdenv.mkDerivation rec {
-  name = "pixman-0.34.0";
+  pname = "pixman";
+  version = "0.42.2";
 
   src = fetchurl {
-    url = "mirror://xorg/individual/lib/${name}.tar.bz2";
-    sha256 = "184lazwdpv67zrlxxswpxrdap85wminh1gmq1i5lcz6iycw39fir";
+    urls = [
+      "mirror://xorg/individual/lib/${pname}-${version}.tar.gz"
+      "https://cairographics.org/releases/${pname}-${version}.tar.gz"
+    ];
+    hash = "sha256-6hSA762i/ZSLx1Nm98NJ4cltMpfQmj/mJibjjiNKYl4=";
   };
 
-  patches = [];
+  separateDebugInfo = !stdenv.hostPlatform.isStatic;
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = stdenv.lib.optional doCheck libpng;
+  nativeBuildInputs = [ pkg-config ];
 
-  configureFlags = stdenv.lib.optional stdenv.isArm "--disable-arm-iwmmxt";
+  buildInputs = [ libpng ];
+
+  configureFlags = lib.optional stdenv.isAarch32 "--disable-arm-iwmmxt"
+    # Disable until https://gitlab.freedesktop.org/pixman/pixman/-/issues/46 is resolved
+    ++ lib.optional (stdenv.isAarch64 && !stdenv.cc.isGNU) "--disable-arm-a64-neon";
+
+  preConfigure = ''
+    # https://gitlab.freedesktop.org/pixman/pixman/-/issues/62
+    export OMP_NUM_THREADS=$((NIX_BUILD_CORES > 184 ? 184 : NIX_BUILD_CORES))
+  '';
 
   doCheck = true;
 
   postInstall = glib.flattenInclude;
 
-  meta = with stdenv.lib; {
-    homepage = http://pixman.org;
+  passthru.tests = {
+    inherit cairo qemu scribus tigervnc wlroots xwayland;
+  };
+
+  meta = with lib; {
+    homepage = "http://pixman.org";
     description = "A low-level library for pixel manipulation";
     license = licenses.mit;
     platforms = platforms.all;

@@ -11,7 +11,7 @@ with lib;
     services.oidentd.enable = mkOption {
       default = false;
       type = types.bool;
-      description = ''
+      description = lib.mdDoc ''
         Whether to enable ‘oidentd’, an implementation of the Ident
         protocol (RFC 1413).  It allows remote systems to identify the
         name of the user associated with a TCP connection.
@@ -28,17 +28,16 @@ with lib;
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig.Type = "forking";
-      script = "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup" +
-          optionalString config.networking.enableIPv6 " -a ::";
+      script = "${pkgs.oidentd}/sbin/oidentd -u oidentd -g nogroup";
     };
 
-    users.extraUsers.oidentd = {
+    users.users.oidentd = {
       description = "Ident Protocol daemon user";
       group = "oidentd";
       uid = config.ids.uids.oidentd;
     };
 
-    users.extraGroups.oidentd.gid = config.ids.gids.oidentd;
+    users.groups.oidentd.gid = config.ids.gids.oidentd;
 
   };
 

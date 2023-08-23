@@ -1,35 +1,41 @@
-{ mkDerivation, aeson, ansi-terminal, ansi-wl-pprint, base, binary
-, bytestring, containers, directory, edit-distance, fetchgit
-, filemanip, filepath, HUnit, indents, mtl, optparse-applicative
-, parsec, pretty, process, QuickCheck, quickcheck-io
-, regex-applicative, split, stdenv, tasty, tasty-golden
-, tasty-hunit, tasty-quickcheck, text, union-find, wl-pprint
+{ mkDerivation, aeson, ansi-wl-pprint, avh4-lib, base, bytestring
+, elm-format-lib, elm-format-test-lib, fetchgit, hspec, lib
+, optparse-applicative, QuickCheck, quickcheck-io, relude, tasty
+, tasty-hspec, tasty-hunit, tasty-quickcheck, text
 }:
-mkDerivation {
+mkDerivation rec {
   pname = "elm-format";
-  version = "0.5.2";
+  version = "0.8.7";
   src = fetchgit {
-    url = "http://github.com/avh4/elm-format";
-    sha256 = "0lman7h6wr75y90javcc4y1scvwgv125gqqaqvfrd5xrfmm43gg8";
-    rev = "e452ed9342620e7bb0bc822983b96411d57143ef";
+    url = "https://github.com/avh4/elm-format";
+    sha256 = "04l1bn4w8q3ifd6mc4mfrqxfbihmqnpfjdn6gr0x2jqcasjbk0bi";
+    rev = "b5cca4c26b473dab06e5d73b98148637e4770d45";
+    fetchSubmodules = true;
   };
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    aeson ansi-terminal ansi-wl-pprint base binary bytestring
-    containers directory edit-distance filemanip filepath indents mtl
-    optparse-applicative parsec pretty process regex-applicative split
-    text
+    aeson ansi-wl-pprint avh4-lib base bytestring elm-format-lib
+    optparse-applicative relude text
   ];
   testHaskellDepends = [
-    aeson ansi-terminal ansi-wl-pprint base binary bytestring
-    containers directory edit-distance filemanip filepath HUnit indents
-    mtl optparse-applicative parsec pretty process QuickCheck
-    quickcheck-io regex-applicative split tasty tasty-golden
-    tasty-hunit tasty-quickcheck text union-find wl-pprint
+    aeson ansi-wl-pprint avh4-lib base bytestring elm-format-lib
+    elm-format-test-lib hspec optparse-applicative QuickCheck
+    quickcheck-io relude tasty tasty-hspec tasty-hunit tasty-quickcheck
+    text
   ];
-  jailbreak = true;
-  homepage = "http://elm-lang.org";
+  doHaddock = false;
+  homepage = "https://elm-lang.org";
   description = "A source code formatter for Elm";
-  license = stdenv.lib.licenses.bsd3;
+  license = lib.licenses.bsd3;
+  mainProgram = "elm-format";
+  postPatch = ''
+    mkdir -p ./generated
+    cat <<EOHS > ./generated/Build_elm_format.hs
+    module Build_elm_format where
+
+    gitDescribe :: String
+    gitDescribe = "${version}"
+    EOHS
+  '';
 }

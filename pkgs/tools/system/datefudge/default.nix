@@ -1,38 +1,42 @@
-{ stdenv, fetchgit }:
+{ lib, stdenv, fetchgit, makeWrapper, coreutils }:
 
 stdenv.mkDerivation rec {
   pname = "datefudge";
-  version = "1.2.1";
-  name = "${pname}-${version}";
+  version = "1.24";
 
   src = fetchgit {
-    sha256 = "0l83kn6c3jr3wzs880zfa64rw81cqjjk55gjxz71rjf2balp64ps";
-    url = "git://anonscm.debian.org/users/robert/datefudge.git";
-    rev = "cd141c63bebe9b579109b2232b5e83db18f222c2";
+    url = "https://salsa.debian.org/debian/${pname}.git";
+    rev = "debian/${version}";
+    sha256 = "1nh433yx4y4djp0bs6aawqbwk7miq7fsbs9wpjlyh2k9dvil2lrm";
   };
 
-  patchPhase = ''
+  nativeBuildInputs = [ makeWrapper ];
+
+  buildInputs = [ coreutils ];
+
+  postPatch = ''
     substituteInPlace Makefile \
      --replace "/usr" "/" \
      --replace "-o root -g root" ""
     substituteInPlace datefudge.sh \
      --replace "@LIBDIR@" "$out/lib/"
-    '';
-
-  preInstallPhase = "mkdir -P $out/lib/datefudge";
+  '';
 
   installFlags = [ "DESTDIR=$(out)" ];
 
-  postInstall = "chmod +x $out/lib/datefudge/datefudge.so";
+  postInstall = ''
+    chmod +x $out/lib/datefudge/datefudge.so
+    wrapProgram $out/bin/datefudge --prefix PATH : ${coreutils}/bin
+  '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Fake the system date";
     longDescription = ''
       datefudge is a small utility that pretends that the system time is
       different by pre-loading a small library which modifies the time,
       gettimeofday and clock_gettime system calls.
     '';
-    homepage = http://packages.qa.debian.org/d/datefudge.html;
+    homepage = "https://packages.qa.debian.org/d/datefudge.html";
     license = licenses.gpl2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ leenaars ];

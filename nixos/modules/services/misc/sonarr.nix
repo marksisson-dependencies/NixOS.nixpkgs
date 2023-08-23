@@ -1,4 +1,4 @@
-{ config, pkgs, lib, mono, ... }:
+{ config, pkgs, lib, ... }:
 
 with lib;
 
@@ -8,37 +8,78 @@ in
 {
   options = {
     services.sonarr = {
-      enable = mkEnableOption "Sonarr";
+      enable = mkEnableOption (lib.mdDoc "Sonarr");
+
+      dataDir = mkOption {
+        type = types.str;
+        default = "/var/lib/sonarr/.config/NzbDrone";
+        description = lib.mdDoc "The directory where Sonarr stores its data files.";
+      };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc ''
+          Open ports in the firewall for the Sonarr web interface
+        '';
+      };
+
+      user = mkOption {
+        type = types.str;
+        default = "sonarr";
+        description = lib.mdDoc "User account under which Sonaar runs.";
+      };
+
+      group = mkOption {
+        type = types.str;
+        default = "sonarr";
+        description = lib.mdDoc "Group under which Sonaar runs.";
+      };
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.sonarr;
+        defaultText = literalExpression "pkgs.sonarr";
+        description = lib.mdDoc ''
+          Sonarr package to use.
+        '';
+      };
     };
   };
 
   config = mkIf cfg.enable {
+    systemd.tmpfiles.rules = [
+      "d '${cfg.dataDir}' 0700 ${cfg.user} ${cfg.group} - -"
+    ];
+
     systemd.services.sonarr = {
       description = "Sonarr";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
-      preStart = ''
-        test -d /var/lib/sonarr/ || {
-          echo "Creating sonarr data directory in /var/lib/sonarr/"
-          mkdir -p /var/lib/sonarr/
-        }
-        chown -R sonarr /var/lib/sonarr/
-        chmod 0700 /var/lib/sonarr/
-      '';
 
       serviceConfig = {
         Type = "simple";
-        User = "sonarr";
-        Group = "nogroup";
-        PermissionsStartOnly = "true";
-        ExecStart = "${pkgs.sonarr}/bin/NzbDrone --no-browser";
+        User = cfg.user;
+        Group = cfg.group;
+        ExecStart = "${cfg.package}/bin/NzbDrone -nobrowser -data='${cfg.dataDir}'";
         Restart = "on-failure";
       };
     };
 
-    users.extraUsers.sonarr = {
-      home = "/var/lib/sonarr";
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts = [ 8989 ];
     };
 
+    users.users = mkIf (cfg.user == "sonarr") {
+      sonarr = {
+        group = cfg.group;
+        home = cfg.dataDir;
+        uid = config.ids.uids.sonarr;
+      };
+    };
+
+    users.groups = mkIf (cfg.group == "sonarr") {
+      sonarr.gid = config.ids.gids.sonarr;
+    };
   };
 }

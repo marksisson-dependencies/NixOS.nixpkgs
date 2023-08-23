@@ -13,7 +13,7 @@ let
     useDisplayDevice = cfg.connectDisplay;
   };
 
-  useBbswitch = cfg.pmMethod == "bbswitch";
+  useBbswitch = cfg.pmMethod == "bbswitch" || cfg.pmMethod == "auto" && useNvidia;
 
   primus = pkgs.primus.override {
     inherit useNvidia;
@@ -29,7 +29,7 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           Enable the bumblebee daemon to manage Optimus hybrid video cards.
           This should power off secondary GPU until its use is requested
           by running an application with optirun.
@@ -40,13 +40,13 @@ in
         default = "wheel";
         example = "video";
         type = types.str;
-        description = ''Group for bumblebee socket'';
+        description = lib.mdDoc "Group for bumblebee socket";
       };
 
       connectDisplay = mkOption {
         default = false;
         type = types.bool;
-        description = ''
+        description = lib.mdDoc ''
           Set to true if you intend to connect your discrete card to a
           monitor. This option will set up your Nvidia card for EDID
           discovery and to turn on the monitor signal.
@@ -58,15 +58,15 @@ in
       driver = mkOption {
         default = "nvidia";
         type = types.enum [ "nvidia" "nouveau" ];
-        description = ''
+        description = lib.mdDoc ''
           Set driver used by bumblebeed. Supported are nouveau and nvidia.
         '';
       };
 
       pmMethod = mkOption {
         default = "auto";
-        type = types.enum [ "auto" "bbswitch" "nouveau" "switcheroo" "none" ];
-        description = ''
+        type = types.enum [ "auto" "bbswitch" "switcheroo" "none" ];
+        description = lib.mdDoc ''
           Set preferred power management method for unused card.
         '';
       };
@@ -76,8 +76,8 @@ in
 
   config = mkIf cfg.enable {
     boot.blacklistedKernelModules = [ "nvidia-drm" "nvidia" "nouveau" ];
-    boot.kernelModules = optional useBbswitch [ "bbswitch" ];
-    boot.extraModulePackages = optional useBbswitch kernel.bbswitch ++ optional useNvidia kernel.nvidia_x11;
+    boot.kernelModules = optional useBbswitch "bbswitch";
+    boot.extraModulePackages = optional useBbswitch kernel.bbswitch ++ optional useNvidia kernel.nvidia_x11.bin;
 
     environment.systemPackages = [ bumblebee primus ];
 

@@ -1,17 +1,18 @@
-{ stdenv, fetchurl, pkgconfig, qt4, alsaLib }:
+{ lib, stdenv, fetchurl, pkg-config, qt4, alsa-lib }:
 
 stdenv.mkDerivation rec {
-  version = "0.3.0";
-  name = "qmidiroute-${version}";
+  version = "0.4.0";
+  pname = "qmidiroute";
 
   src = fetchurl {
-    url = "mirror://sourceforge/project/alsamodular/QMidiRoute/${version}/${name}.tar.gz";
-    sha256 = "11bfjz14z37v6hk2xyg4vrw423b5h3qgcbviv07g00ws1fgjygm2";
+    url = "mirror://sourceforge/project/alsamodular/QMidiRoute/${version}/${pname}-${version}.tar.gz";
+    sha256 = "0vmjwarsxr5540rafhmdcc62yarf0w2l05bjjl9s28zzr5m39z3n";
   };
 
-  buildInputs = [ pkgconfig qt4 alsaLib ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ qt4 alsa-lib ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "MIDI event processor and router";
     longDescription = ''
     qmidiroute is a versatile MIDI event processor and router for the ALSA
@@ -24,6 +25,6 @@ stdenv.mkDerivation rec {
 
     license = licenses.gpl2;
     maintainers = [ maintainers.lebastr ];
-    platforms = stdenv.lib.platforms.linux;
+    platforms = lib.platforms.linux;
   };
 }

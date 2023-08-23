@@ -1,34 +1,22 @@
-{ stdenv, fetchzip, ocaml, findlib, cppo, easy-format, biniou }:
-let
+{ lib, fetchurl, buildDunePackage, cppo, seq }:
+
+buildDunePackage rec {
   pname = "yojson";
-  version = "1.2.3";
-in
-stdenv.mkDerivation {
+  version = "2.1.0";
 
-  name = "ocaml-${pname}-${version}";
-
-  src = fetchzip {
-    url = "https://github.com/mjambon/${pname}/archive/v${version}.tar.gz";
-    sha256 = "10dvkndgwanvw4agbjln7kgb1n9s6lii7jw82kwxczl5rd1sgmvl";
+  src = fetchurl {
+    url = "https://github.com/ocaml-community/yojson/releases/download/${version}/yojson-${version}.tbz";
+    sha256 = "sha256-n8sf8ttYqyWfkih5awraR5Tq6XF3sYMzcTgMTk+QsV0=";
   };
 
-  buildInputs = [ ocaml findlib ];
+  nativeBuildInputs = [ cppo ];
+  propagatedBuildInputs = [ seq ];
 
-  propagatedBuildInputs = [ cppo easy-format biniou ];
-
-  createFindlibDestdir = true;
-
-  makeFlags = "PREFIX=$(out)";
-
-  preBuild = ''
-    mkdir $out/bin
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An optimized parsing and printing library for the JSON format";
-    homepage = "http://mjambon.com/${pname}.html";
+    homepage = "https://github.com/ocaml-community/${pname}";
     license = licenses.bsd3;
     maintainers = [ maintainers.vbgl ];
-    platforms = ocaml.meta.platforms or [];
+    mainProgram = "ydump";
   };
 }

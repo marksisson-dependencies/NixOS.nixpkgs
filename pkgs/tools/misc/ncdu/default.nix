@@ -1,21 +1,43 @@
-{ stdenv, fetchurl, ncurses }:
+{ lib
+, stdenv
+, fetchurl
+, ncurses
+, zig_0_11
+, installShellFiles
+, pie ? stdenv.isDarwin
+}:
 
-stdenv.mkDerivation rec {
-  name = "ncdu-${version}";
-  version = "1.12";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "ncdu";
+  version = "2.3";
 
   src = fetchurl {
-    url = "http://dev.yorhel.nl/download/${name}.tar.gz";
-    sha256 = "16j9fyw73y1lk05a35i4q9i66laklgsx41lz5rxfr8m28x3lw3l2";
+    url = "https://dev.yorhel.nl/download/ncdu-${finalAttrs.version}.tar.gz";
+    hash = "sha256-u84dHHDxJHZxvk6iE12MUs0ppwivXtYs7Np9xqgACjw=";
   };
 
-  buildInputs = [ ncurses ];
+  nativeBuildInputs = [
+    zig_0_11.hook
+    installShellFiles
+  ];
 
-  meta = with stdenv.lib; {
-    description = "Ncurses disk usage analyzer";
-    homepage = http://dev.yorhel.nl/ncdu;
-    license = licenses.mit;
-    platforms = platforms.all;
-    maintainers = with maintainers; [ pSub ];
+  buildInputs = [
+    ncurses
+  ];
+
+  zigBuildFlags = lib.optional pie "-Dpie=true";
+
+  postInstall = ''
+    installManPage ncdu.1
+  '';
+
+  meta = {
+    homepage = "https://dev.yorhel.nl/ncdu";
+    description = "Disk usage analyzer with an ncurses interface";
+    changelog = "https://dev.yorhel.nl/ncdu/changes2";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ pSub rodrgz ];
+    inherit (zig_0_11.meta) platforms;
+    mainProgram = "ncdu";
   };
-}
+})

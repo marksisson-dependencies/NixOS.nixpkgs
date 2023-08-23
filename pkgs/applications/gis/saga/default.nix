@@ -1,23 +1,87 @@
-{ stdenv, fetchurl, gdal, wxGTK30, proj, libiodbc, lzma, jasper,
-  libharu, opencv, vigra, postgresql }:
+{ stdenv
+, lib
+, fetchurl
+# native
+, cmake
+, desktopToDarwinBundle
+, pkg-config
+# not native
+, gdal
+, wxGTK32
+, proj
+, dxflib
+, curl
+, libiodbc
+, xz
+, libharu
+, opencv
+, vigra
+, postgresql
+, Cocoa
+, unixODBC
+, poppler
+, hdf5
+, netcdf
+, sqlite
+, qhull
+, giflib
+, libsvm
+, fftw
+}:
 
 stdenv.mkDerivation rec {
-  name = "saga-2.3.1";
-
-  buildInputs = [ gdal wxGTK30 proj libharu opencv vigra postgresql libiodbc lzma jasper ];
-
-  enableParallelBuilding = true;
+  pname = "saga";
+  version = "9.1.1";
 
   src = fetchurl {
-    url = "mirror://sourceforge/project/saga-gis/SAGA%20-%202.3/SAGA%202.3.1/saga_2.3.1.tar.gz";
-    sha256 = "1h4zkfid9z02mqm1f8az9j0pzmm95f83ra57c4r7bvrrz21w3xaq";
+    url = "mirror://sourceforge/saga-gis/saga-${version}.tar.gz";
+    sha256 = "sha256-VXupgjoiexZZ1kLXAbbQMW7XQ7FWjd1ejZPeeTffUhM=";
   };
 
-  meta = {
+  sourceRoot = "saga-${version}/saga-gis";
+
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+  ] ++ lib.optional stdenv.isDarwin desktopToDarwinBundle;
+
+  buildInputs = [
+    curl
+    dxflib
+    fftw
+    libsvm
+    hdf5
+    gdal
+    wxGTK32
+    proj
+    libharu
+    opencv
+    vigra
+    postgresql
+    libiodbc
+    xz
+    qhull
+    giflib
+  ]
+  # See https://groups.google.com/forum/#!topic/nix-devel/h_vSzEJAPXs
+  # for why the have additional buildInputs on darwin
+  ++ lib.optionals stdenv.isDarwin [
+    Cocoa
+    unixODBC
+    poppler
+    netcdf
+    sqlite
+  ];
+
+  cmakeFlags = [
+    "-DOpenMP_SUPPORT=${if stdenv.isDarwin then "OFF" else "ON"}"
+  ];
+
+  meta = with lib; {
     description = "System for Automated Geoscientific Analyses";
-    homepage = http://www.saga-gis.org;
-    license = stdenv.lib.licenses.gpl2Plus;
-    maintainers = [ stdenv.lib.maintainers.michelk ];
-    platforms = ["x86_64-linux" ];
+    homepage = "https://saga-gis.sourceforge.io";
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; teams.geospatial.members ++ [ michelk mpickering ];
+    platforms = with platforms; unix;
   };
 }

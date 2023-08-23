@@ -1,37 +1,73 @@
-{ stdenv, fetchFromGitHub, sqlite, readline, asciidoc, SDL, SDL_gfx }:
+{ lib
+, stdenv
+, fetchFromGitHub
 
-stdenv.mkDerivation {
-  name = "jimtcl-0.76";
+, asciidoc
+, pkg-config
+, inetutils
+
+, sqlite
+, readline
+, SDL
+, SDL_gfx
+, openssl
+}:
+
+stdenv.mkDerivation rec {
+  pname = "jimtcl";
+  version = "0.82";
 
   src = fetchFromGitHub {
     owner = "msteveb";
     repo = "jimtcl";
-    rev = "51f65c6d38fbf86e1f0b036ad336761fd2ab7fa0";
-    sha256 = "00ldal1w9ysyfmx28xdcaz81vaazr1fqixxb2abk438yfpp1i9hq";
+    rev = version;
+    sha256 = "sha256-CDjjrxpoTbLESAbCiCjQ8+E/oJP87gDv9SedQOzH3QY=";
   };
 
-  buildInputs = [
-    sqlite readline asciidoc SDL SDL_gfx
+  nativeBuildInputs = [
+    pkg-config
+    asciidoc
   ];
 
-  NIX_CFLAGS_COMPILE = [ "-I${SDL.dev}/include/SDL" ];
+  buildInputs = [
+    sqlite
+    readline
+    SDL
+    SDL_gfx
+    openssl
+  ];
 
   configureFlags = [
+    "--shared"
     "--with-ext=oo"
     "--with-ext=tree"
     "--with-ext=binary"
     "--with-ext=sqlite3"
     "--with-ext=readline"
     "--with-ext=sdl"
+    "--with-ext=json"
     "--enable-utf8"
     "--ipv6"
   ];
 
+  enableParallelBuilding = true;
+
+  doCheck = true;
+  preCheck = ''
+    # test exec2-3.2 fails depending on platform or sandboxing (?)
+    rm tests/exec2.test
+    # requires internet access
+    rm tests/ssl.test
+  '';
+
+  # test posix-1.6 needs the "hostname" command
+  nativeCheckInputs = [ inetutils ];
+
   meta = {
     description = "An open source small-footprint implementation of the Tcl programming language";
-    homepage = http://jim.tcl.tk/;
-    license = stdenv.lib.licenses.bsd2;
-    platforms = stdenv.lib.platforms.all;
-    maintainers = with stdenv.lib.maintainers; [ dbohdan vrthra ];
+    homepage = "http://jim.tcl.tk/";
+    license = lib.licenses.bsd2;
+    platforms = lib.platforms.all;
+    maintainers = with lib.maintainers; [ dbohdan fgaz vrthra ];
   };
 }

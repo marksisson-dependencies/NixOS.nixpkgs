@@ -1,26 +1,77 @@
-{ stdenv, fetchurl, pythonPackages, glibcLocales} :
+{ lib
+, devpi-server
+, git
+, glibcLocales
+, python3
+, fetchPypi
+}:
 
-pythonPackages.buildPythonApplication rec {
-  name = "devpi-client-${version}";
-  version = "2.7.0";
+python3.pkgs.buildPythonApplication rec {
+  pname = "devpi-client";
+  version = "6.0.3";
 
-  src = fetchurl {
-    url = "mirror://pypi/d/devpi-client/${name}.tar.gz";
-    sha256 = "0z7vaf0a66n82mz0vx122pbynjvkhp2mjf9lskgyv09y3bxzzpj3";
+  format = "setuptools";
+
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-csdQUxnopH+kYtoqdvyXKNW3fGkQNSREJYxjes9Dgi8=";
   };
 
-  doCheck = false;
+  postPatch = ''
+    substituteInPlace tox.ini \
+      --replace "--flake8" ""
+  '';
+
+  buildInputs = [
+    glibcLocales
+  ];
+
+  propagatedBuildInputs = with python3.pkgs; [
+    argon2-cffi-bindings
+    build
+    check-manifest
+    devpi-common
+    iniconfig
+    pep517
+    pkginfo
+    pluggy
+    platformdirs
+    py
+    setuptools
+  ];
+
+  nativeCheckInputs = [
+    devpi-server
+    git
+  ] ++ (with python3.pkgs; [
+    mercurial
+    mock
+    pypitoken
+    pytestCheckHook
+    sphinx
+    virtualenv
+    webtest
+    wheel
+  ]);
+
+  preCheck = ''
+    export HOME=$(mktemp -d);
+  '';
+
+  pytestFlagsArray = [
+    # --fast skips tests which try to start a devpi-server improperly
+    "--fast"
+  ];
 
   LC_ALL = "en_US.UTF-8";
-  buildInputs = with pythonPackages; [ glibcLocales tox check-manifest pkginfo ];
 
-  propagatedBuildInputs = with pythonPackages; [ py devpi-common ];
+  __darwinAllowLocalNetworking = true;
 
-  meta = {
-    homepage = http://doc.devpi.net;
-    description = "Github-style pypi index server and packaging meta tool";
-    license = stdenv.lib.licenses.mit;
-    maintainers = with stdenv.lib.maintainers; [ lewo makefu ];
-
+  meta = with lib; {
+    description = "Client for devpi, a pypi index server and packaging meta tool";
+    homepage = "http://doc.devpi.net";
+    changelog = "https://github.com/devpi/devpi/blob/client-${version}/client/CHANGELOG";
+    license = licenses.mit;
+    maintainers = with maintainers; [ lewo makefu ];
   };
 }

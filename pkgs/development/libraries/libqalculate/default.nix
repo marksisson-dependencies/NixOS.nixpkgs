@@ -1,19 +1,42 @@
-{ stdenv, fetchurl, cln, libxml2, glib, intltool, pkgconfig, doxygen, autoreconfHook, readline }:
+{ lib, stdenv, fetchFromGitHub
+, mpfr, gnuplot
+, readline
+, libxml2, curl
+, intltool, libiconv, icu, gettext
+, pkg-config, doxygen, autoreconfHook, buildPackages
+}:
 
 stdenv.mkDerivation rec {
-  name = "libqalculate-${version}";
-  version = "0.9.10";
+  pname = "libqalculate";
+  version = "4.7.0";
 
-  src = fetchurl {
-    url = "https://github.com/Qalculate/libqalculate/archive/v${version}.tar.gz";
-    sha256 = "0whzc15nwsrib6bpw4lqsm59yr0pfk44hny9sivfbwhidk0177zi";
+  src = fetchFromGitHub {
+    owner = "qalculate";
+    repo = "libqalculate";
+    rev = "v${version}";
+    sha256 = "sha256-Wgy1vsr0FXRJz9BCfw2PyFkesIJ/eg2dYDY/I2TESnU=";
   };
 
   outputs = [ "out" "dev" "doc" ];
 
-  nativeBuildInputs = [ intltool pkgconfig autoreconfHook doxygen ];
-  buildInputs = [ readline ];
-  propagatedBuildInputs = [ cln libxml2 glib ];
+  nativeBuildInputs = [ intltool pkg-config autoreconfHook doxygen ];
+  buildInputs = [ curl gettext libiconv readline ];
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
+  propagatedBuildInputs = [ libxml2 mpfr icu ];
+  enableParallelBuilding = true;
+
+  preConfigure = ''
+    intltoolize -f
+  '';
+
+  patchPhase = ''
+    substituteInPlace libqalculate/Calculator-plot.cc \
+      --replace 'commandline = "gnuplot"' 'commandline = "${gnuplot}/bin/gnuplot"' \
+      --replace '"gnuplot - ' '"${gnuplot}/bin/gnuplot - '
+  '' + lib.optionalString stdenv.cc.isClang ''
+    substituteInPlace src/qalc.cc \
+      --replace 'printf(_("aborted"))' 'printf("%s", _("aborted"))'
+  '';
 
   preBuild = ''
     pushd docs/reference
@@ -21,10 +44,12 @@ stdenv.mkDerivation rec {
     popd
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An advanced calculator library";
-    homepage = http://qalculate.github.io;
-    maintainers = with maintainers; [ urkud gebner ];
+    homepage = "http://qalculate.github.io";
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ gebner doronbehar alyaeanyx ];
+    mainProgram = "qalc";
     platforms = platforms.all;
   };
 }

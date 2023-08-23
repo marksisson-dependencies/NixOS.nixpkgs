@@ -1,25 +1,62 @@
-{ stdenv, fetchFromGitHub, cmake, bison }:
-
+{ lib, stdenv
+, fetchFromGitHub
+, fetchpatch
+, bison
+, cmake
+, jq
+, python3
+, spirv-headers
+, spirv-tools
+}:
 stdenv.mkDerivation rec {
-  name = "glslang-git-${version}";
-  version = "2016-08-26";
+  pname = "glslang";
+  version = "12.2.0";
 
-  # `vulkan-loader` requires a specific version of `glslang` as specified in
-  # `<vulkan-loader-repo>/glslang_revision`.
   src = fetchFromGitHub {
     owner = "KhronosGroup";
     repo = "glslang";
-    rev = "81cd764b5ffc475bc73f1fb35f75fd1171bb2343";
-    sha256 = "1vfwl6lzkjh9nh29q32b7zca4q1abf3q4nqkahskijgznw5lr59g";
+    rev = version;
+    hash = "sha256-2i6DZA42b0s1ul6VDhjPi9lpSYvsRD8r9yiRoRfVoW0=";
   };
 
-  patches = [ ./install-headers.patch ];
+  patches = [
+    # Fix build on Darwin
+    # FIXME: remove for next release
+    (fetchpatch {
+      url = "https://github.com/KhronosGroup/glslang/commit/6a7ec4be7b8a22ab16cea0f294b5973dbcdd637a.diff";
+      hash = "sha256-O1N62X6LZNRNHHz90TLJDbt6pDr28EI6IKMbMXcKBj8=";
+    })
+  ];
 
-  buildInputs = [ cmake bison ];
-  enableParallelBuilding = true;
+  # These get set at all-packages, keep onto them for child drvs
+  passthru = {
+    spirv-tools = spirv-tools;
+    spirv-headers = spirv-headers;
+  };
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [ cmake python3 bison jq ];
+
+  postPatch = ''
+    cp --no-preserve=mode -r "${spirv-tools.src}" External/spirv-tools
+    ln -s "${spirv-headers.src}" External/spirv-tools/external/spirv-headers
+  '';
+
+  # This is a dirty fix for lib/cmake/SPIRVTargets.cmake:51 which includes this directory
+  postInstall = ''
+    mkdir $out/include/External
+  '';
+
+  # Fix the paths in .pc, even though it's unclear if these .pc are really useful.
+  postFixup = ''
+    substituteInPlace "$out"/lib/pkgconfig/SPIRV-Tools{,-shared}.pc \
+      --replace '=''${prefix}//' '=/'
+  '';
+
+  meta = with lib; {
     inherit (src.meta) homepage;
     description = "Khronos reference front-end for GLSL and ESSL";
+    license = licenses.asl20;
+    platforms = platforms.unix;
+    maintainers = [ maintainers.ralith ];
   };
 }

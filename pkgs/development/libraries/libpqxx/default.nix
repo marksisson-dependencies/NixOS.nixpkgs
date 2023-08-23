@@ -1,26 +1,30 @@
-{ lib, stdenv, fetchurl, postgresql, python2 }:
+{ lib, stdenv, fetchFromGitHub, postgresql, python3 }:
 
 stdenv.mkDerivation rec {
-  name = "libpqxx-4.0.1";
+  pname = "libpqxx";
+  version = "7.7.0";
 
-  src = fetchurl {
-    url = "http://pqxx.org/download/software/libpqxx/${name}.tar.gz";
-    sha256 = "0f6wxspp6rx12fkasanb0z2g2gc8dhcfwnxagx8wwqbpg6ifsz09";
+  src = fetchFromGitHub {
+    owner = "jtv";
+    repo = pname;
+    rev = version;
+    sha256 = "sha256-O30czHwEDXz5xY4o3MWhmEK06OKTKMQCy0M6qwSEpy8=";
   };
 
-  buildInputs = [ postgresql python2 ];
+  nativeBuildInputs = [ python3 ];
+  buildInputs = [ postgresql ];
 
   preConfigure = ''
-    patchShebangs .
+    patchShebangs ./tools/splitconfig
   '';
 
-  configureFlags = "--enable-shared";
+  configureFlags = [ "--enable-shared --disable-documentation" ];
 
   meta = {
     description = "A C++ library to access PostgreSQL databases";
-    homepage = http://pqxx.org/development/libpqxx/;
-    license = lib.licenses.postgresql;
-    platforms = lib.platforms.linux;
+    homepage = "https://pqxx.org/development/libpqxx/";
+    license = lib.licenses.bsd3;
+    platforms = lib.platforms.unix;
     maintainers = [ lib.maintainers.eelco ];
   };
 }

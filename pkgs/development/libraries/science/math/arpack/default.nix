@@ -1,38 +1,71 @@
-{ stdenv, lib, copyPathsToStore, fetchurl, autoconf, automake, gettext, libtool
-, gfortran, openblas }:
+{ lib, stdenv, fetchFromGitHub, fetchpatch, cmake
+, gfortran, blas, lapack, eigen
+, useMpi ? false
+, mpi
+, openssh
+}:
 
-with stdenv.lib;
+# MPI version can only be built with LP64 interface.
+# See https://github.com/opencollab/arpack-ng#readme
+assert useMpi -> !blas.isILP64;
 
-let
-  version = "3.3.0";
-in
-stdenv.mkDerivation {
-  name = "arpack-${version}";
+stdenv.mkDerivation rec {
+  pname = "arpack";
+  version = "3.8.0";
 
-  src = fetchurl {
-    url = "https://github.com/opencollab/arpack-ng/archive/${version}.tar.gz";
-    sha256 = "1cz53wqzcf6czmcpfb3vb61xi0rn5bwhinczl65hpmbrglg82ndd";
+  src = fetchFromGitHub {
+    owner = "opencollab";
+    repo = "arpack-ng";
+    rev = version;
+    sha256 = "sha256-nc710iLRqy/p3EaVgbEoCRzNJ9GpKqqQp33tbn7R6lA=";
   };
 
-  nativeBuildInputs = [ autoconf automake gettext libtool ];
-  buildInputs = [ gfortran openblas ];
+  patches = [
+    # https://github.com/opencollab/arpack-ng/pull/301
+    (fetchpatch {
+      name = "pkg-config-paths.patch";
+      url = "https://github.com/opencollab/arpack-ng/commit/47fc83cb371a9cc8a8c058097de5e0298cd548f5.patch";
+      excludes = [ "CHANGES" ];
+      sha256 = "1aijvrfsxkgzqmkzq2dmaj8q3jdpg2hwlqpfl8ddk9scv17gh9m8";
+    })
+  ];
 
-  BLAS_LIBS = "-L${openblas}/lib -lopenblas";
+  nativeBuildInputs = [ cmake gfortran ];
+  buildInputs = assert (blas.isILP64 == lapack.isILP64); [
+    blas
+    lapack
+    eigen
+  ] ++ lib.optional useMpi mpi;
 
-  FFLAGS = optional openblas.blas64 "-fdefault-integer-8";
+  nativeCheckInputs = lib.optional useMpi openssh;
 
-  preConfigure = ''
-    ./bootstrap
+  doCheck = true;
+
+  cmakeFlags = [
+    "-DBUILD_SHARED_LIBS=ON"
+    "-DINTERFACE64=${if blas.isILP64 then "1" else "0"}"
+    "-DMPI=${if useMpi then "ON" else "OFF"}"
+  ];
+
+  preCheck = ''
+    # Prevent tests from using all cores
+    export OMP_NUM_THREADS=2
   '';
 
+  postFixup = lib.optionalString stdenv.isDarwin ''
+    install_name_tool -change libblas.dylib ${blas}/lib/libblas.dylib $out/lib/libarpack.dylib
+  '';
+
+  passthru = { inherit (blas) isILP64; };
+
   meta = {
-    homepage = "http://github.com/opencollab/arpack-ng";
+    homepage = "https://github.com/opencollab/arpack-ng";
     description = ''
       A collection of Fortran77 subroutines to solve large scale eigenvalue
       problems.
     '';
-    license = stdenv.lib.licenses.bsd3;
-    maintainers = [ stdenv.lib.maintainers.ttuegel ];
-    platforms = stdenv.lib.platforms.unix;
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ ttuegel dotlambda ];
+    platforms = lib.platforms.unix;
   };
 }

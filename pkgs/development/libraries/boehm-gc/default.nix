@@ -1,34 +1,61 @@
-{ lib, stdenv, fetchurl, enableLargeConfig ? false }:
+{ lib
+, stdenv
+, fetchurl
+# doc: https://github.com/ivmai/bdwgc/blob/v8.2.2/doc/README.macros (LARGE_CONFIG)
+, enableLargeConfig ? false
+, enableMmap ? true
+, enableStatic ? false
+, nixVersions
+}:
 
-stdenv.mkDerivation rec {
-  name = "boehm-gc-7.2g";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "boehm-gc";
+  version = "8.2.2";
 
   src = fetchurl {
-    url = http://www.hboehm.info/gc/gc_source/gc-7.2g.tar.gz;
-    sha256 = "0bvw6cc555qg5b7dgcqy3ryiw0wir79dqy0glff3hjmyy7i2jkjq";
+    urls = [
+      # "https://www.hboehm.info/gc/gc_source/gc-${finalAttrs.version}.tar.gz"
+      "https://github.com/ivmai/bdwgc/releases/download/v${finalAttrs.version}/gc-${finalAttrs.version}.tar.gz"
+    ];
+    sha256 = "sha256-8wEHvLBi4JIKeQ//+lbZUSNIVGhZNkwjoUviZLOINqA=";
   };
-  patches = if stdenv.isCygwin then [ ./cygwin.patch ] else null;
 
   outputs = [ "out" "dev" "doc" ];
+  separateDebugInfo = stdenv.isLinux && stdenv.hostPlatform.libc != "musl";
 
-  configureFlags =
-    [ "--enable-cplusplus" ]
-    ++ lib.optional enableLargeConfig "--enable-large-config";
+  configureFlags = [
+    "--enable-cplusplus"
+    "--with-libatomic-ops=none"
+  ]
+  ++ lib.optional enableStatic "--enable-static"
+  ++ lib.optional enableMmap "--enable-mmap"
+  ++ lib.optional enableLargeConfig "--enable-large-config";
 
-  doCheck = true;
+  # This stanza can be dropped when a release fixes this issue:
+  #   https://github.com/ivmai/bdwgc/issues/376
+  # The version is checked with == instead of versionAtLeast so we
+  # don't forget to disable the fix (and if the next release does
+  # not fix the problem the test failure will be a reminder to
+  # extend the set of versions requiring the workaround).
+  makeFlags = lib.optionals (stdenv.hostPlatform.isPower64 &&
+                  finalAttrs.version == "8.2.2")
+    [
+      # do not use /proc primitives to track dirty bits; see:
+      # https://github.com/ivmai/bdwgc/issues/479#issuecomment-1279687537
+      # https://github.com/ivmai/bdwgc/blob/54522af853de28f45195044dadfd795c4e5942aa/include/private/gcconfig.h#L741
+      "CFLAGS_EXTRA=-DNO_SOFT_VDB"
+    ];
 
-  # Don't run the native `strip' when cross-compiling.
-  dontStrip = stdenv ? cross;
+  # `gctest` fails under emulation on aarch64-darwin
+  doCheck = !(stdenv.isDarwin && stdenv.isx86_64);
 
-  postInstall =
-    ''
-      mkdir -p $out/share/doc
-      mv $out/share/gc $out/share/doc/gc
-    '';
+  enableParallelBuilding = true;
 
-  meta = {
+  passthru.tests = nixVersions;
+
+  meta = with lib; {
+    homepage = "https://hboehm.info/gc/";
     description = "The Boehm-Demers-Weiser conservative garbage collector for C and C++";
-
     longDescription = ''
       The Boehm-Demers-Weiser conservative garbage collector can be used as a
       garbage collecting replacement for C malloc or C++ new.  It allows you
@@ -45,13 +72,10 @@ stdenv.mkDerivation rec {
       Alternatively, the garbage collector may be used as a leak detector for
       C or C++ programs, though that is not its primary goal.
     '';
-
-    homepage = http://hboehm.info/gc/;
-
     # non-copyleft, X11-style license
-    license = http://hboehm.info/gc/license.txt;
-
-    maintainers = [ ];
-    platforms = stdenv.lib.platforms.all;
+    changelog = "https://github.com/ivmai/bdwgc/blob/v${finalAttrs.version}/ChangeLog";
+    license = "https://hboehm.info/gc/license.txt";
+    maintainers = with maintainers; [ AndersonTorres ];
+    platforms = platforms.all;
   };
-}
+})

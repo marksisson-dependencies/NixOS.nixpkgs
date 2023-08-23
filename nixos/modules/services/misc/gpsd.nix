@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, utils, ... }:
 
 with lib;
 
@@ -8,11 +8,14 @@ let
   gid = config.ids.gids.gpsd;
   cfg = config.services.gpsd;
 
-in
-
-{
+in {
 
   ###### interface
+
+  imports = [
+    (lib.mkRemovedOptionModule [ "services" "gpsd" "device" ]
+      "Use `services.gpsd.devices` instead.")
+  ];
 
   options = {
 
@@ -21,25 +24,29 @@ in
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = ''
-          Whether to enable `gpsd', a GPS service daemon.
+        description = lib.mdDoc ''
+          Whether to enable `gpsd`, a GPS service daemon.
         '';
       };
 
-      device = mkOption {
-        type = types.str;
-        default = "/dev/ttyUSB0";
-        description = ''
-          A device may be a local serial device for GPS input, or a URL of the form:
-               <literal>[{dgpsip|ntrip}://][user:passwd@]host[:port][/stream]</literal>
-          in which case it specifies an input source for DGPS or ntrip data.
+      devices = mkOption {
+        type = types.listOf types.str;
+        default = [ "/dev/ttyUSB0" ];
+        description = lib.mdDoc ''
+          List of devices that `gpsd` should subscribe to.
+
+          A device may be a local serial device for GPS input, or a
+          URL of the form:
+          `[{dgpsip|ntrip}://][user:passwd@]host[:port][/stream]` in
+          which case it specifies an input source for DGPS or ntrip
+          data.
         '';
       };
 
       readonly = mkOption {
         type = types.bool;
         default = true;
-        description = ''
+        description = lib.mdDoc ''
           Whether to enable the broken-device-safety, otherwise
           known as read-only mode.  Some popular bluetooth and USB
           receivers lock up or become totally inaccessible when
@@ -53,10 +60,18 @@ in
         '';
       };
 
+      nowait = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc ''
+          don't wait for client connects to poll GPS
+        '';
+      };
+
       port = mkOption {
-        type = types.int;
+        type = types.port;
         default = 2947;
-        description = ''
+        description = lib.mdDoc ''
           The port where to listen for TCP connections.
         '';
       };
@@ -64,8 +79,16 @@ in
       debugLevel = mkOption {
         type = types.int;
         default = 0;
-        description = ''
+        description = lib.mdDoc ''
           The debugging level.
+        '';
+      };
+
+      listenany = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc ''
+          Listen on all addresses rather than just loopback.
         '';
       };
 
@@ -73,22 +96,18 @@ in
 
   };
 
-
   ###### implementation
 
   config = mkIf cfg.enable {
 
-    users.extraUsers = singleton
-      { name = "gpsd";
-        inherit uid;
-        description = "gpsd daemon user";
-        home = "/var/empty";
-      };
+    users.users.gpsd = {
+      inherit uid;
+      group = "gpsd";
+      description = "gpsd daemon user";
+      home = "/var/empty";
+    };
 
-    users.extraGroups = singleton
-      { name = "gpsd";
-        inherit gid;
-      };
+    users.groups.gpsd = { inherit gid; };
 
     systemd.services.gpsd = {
       description = "GPSD daemon";
@@ -96,11 +115,15 @@ in
       after = [ "network.target" ];
       serviceConfig = {
         Type = "forking";
-        ExecStart = ''
+        ExecStart = let
+          devices = utils.escapeSystemdExecArgs cfg.devices;
+        in ''
           ${pkgs.gpsd}/sbin/gpsd -D "${toString cfg.debugLevel}"  \
             -S "${toString cfg.port}"                             \
-            ${if cfg.readonly then "-b" else ""}                  \
-            "${cfg.device}"
+            ${optionalString cfg.readonly "-b"}                   \
+            ${optionalString cfg.nowait "-n"}                     \
+            ${optionalString cfg.listenany "-G"}                  \
+            ${devices}
         '';
       };
     };

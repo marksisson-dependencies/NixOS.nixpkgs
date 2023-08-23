@@ -9,6 +9,12 @@ let
   isBuiltinBackend = name:
     builtins.elem name [ "graphite" "console" "repeater" ];
 
+  backendsToPackages = let
+    mkMap = list: name:
+      if isBuiltinBackend name then list
+      else list ++ [ pkgs.nodePackages.${name} ];
+  in foldl mkMap [];
+
   configFile = pkgs.writeText "statsd.conf" ''
     {
       address: "${cfg.listenAddress}",
@@ -27,12 +33,20 @@ let
         prettyprint: false
       },
       log: {
-        backend: "syslog"
+        backend: "stdout"
       },
       automaticConfigReload: false${optionalString (cfg.extraConfig != null) ","}
       ${cfg.extraConfig}
     }
   '';
+
+  deps = pkgs.buildEnv {
+    name = "statsd-runtime-deps";
+    pathsToLink = [ "/lib" ];
+    ignoreCollisions = true;
+
+    paths = backendsToPackages cfg.backends;
+  };
 
 in
 
@@ -42,38 +56,34 @@ in
 
   options.services.statsd = {
 
-    enable = mkOption {
-      description = "Whether to enable statsd stats aggregation service";
-      default = false;
-      type = types.bool;
-    };
+    enable = mkEnableOption (lib.mdDoc "statsd");
 
     listenAddress = mkOption {
-      description = "Address that statsd listens on over UDP";
+      description = lib.mdDoc "Address that statsd listens on over UDP";
       default = "127.0.0.1";
       type = types.str;
     };
 
     port = mkOption {
-      description = "Port that stats listens for messages on over UDP";
+      description = lib.mdDoc "Port that stats listens for messages on over UDP";
       default = 8125;
       type = types.int;
     };
 
     mgmt_address = mkOption {
-      description = "Address to run management TCP interface on";
+      description = lib.mdDoc "Address to run management TCP interface on";
       default = "127.0.0.1";
       type = types.str;
     };
 
     mgmt_port = mkOption {
-      description = "Port to run the management TCP interface on";
+      description = lib.mdDoc "Port to run the management TCP interface on";
       default = 8126;
       type = types.int;
     };
 
     backends = mkOption {
-      description = "List of backends statsd will use for data persistence";
+      description = lib.mdDoc "List of backends statsd will use for data persistence";
       default = [];
       example = [
         "graphite"
@@ -87,19 +97,19 @@ in
     };
 
     graphiteHost = mkOption {
-      description = "Hostname or IP of Graphite server";
+      description = lib.mdDoc "Hostname or IP of Graphite server";
       default = null;
       type = types.nullOr types.str;
     };
 
     graphitePort = mkOption {
-      description = "Port of Graphite server (i.e. carbon-cache).";
+      description = lib.mdDoc "Port of Graphite server (i.e. carbon-cache).";
       default = null;
       type = types.nullOr types.int;
     };
 
     extraConfig = mkOption {
-      description = "Extra configuration options for statsd";
+      description = lib.mdDoc "Extra configuration options for statsd";
       default = "";
       type = types.nullOr types.str;
     };
@@ -110,8 +120,12 @@ in
 
   config = mkIf cfg.enable {
 
-    users.extraUsers = singleton {
-      name = "statsd";
+    assertions = map (backend: {
+      assertion = !isBuiltinBackend backend -> hasAttrByPath [ backend ] pkgs.nodePackages;
+      message = "Only builtin backends (graphite, console, repeater) or backends enumerated in `pkgs.nodePackages` are allowed!";
+    }) cfg.backends;
+
+    users.users.statsd = {
       uid = config.ids.uids.statsd;
       description = "Statsd daemon user";
     };
@@ -120,9 +134,7 @@ in
       description = "Statsd Server";
       wantedBy = [ "multi-user.target" ];
       environment = {
-        NODE_PATH=concatMapStringsSep ":"
-          (pkg: "${builtins.getAttr pkg pkgs.statsd.nodePackages}/lib/node_modules")
-          (filter (name: !isBuiltinBackend name) cfg.backends);
+        NODE_PATH = "${deps}/lib/node_modules";
       };
       serviceConfig = {
         ExecStart = "${pkgs.statsd}/bin/statsd ${configFile}";

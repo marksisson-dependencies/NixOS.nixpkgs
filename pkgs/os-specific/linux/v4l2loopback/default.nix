@@ -1,34 +1,47 @@
-{ stdenv, fetchurl, kernel, kmod }:
+{ lib, stdenv, fetchFromGitHub, kernel, kmod }:
 
 stdenv.mkDerivation rec {
-  name = "v4l2loopback-${version}-${kernel.version}";
-  version = "0.9.1";
+  pname = "v4l2loopback";
+  version = "unstable-2023-02-19-${kernel.version}";
 
-  src = fetchurl {
-    url = "https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz";
-    sha256 = "1crkhxlnskqrfj3f7jmiiyi5m75zmj7n0s26xz07wcwdzdf2p568";
+  src = fetchFromGitHub {
+    owner = "umlaeute";
+    repo = "v4l2loopback";
+    rev = "fb410fc7af40e972058809a191fae9517b9313af";
+    hash = "sha256-gLFtR7s+3LUQ0BZxHbmaArHbufuphbtAX99nxJU3c84=";
   };
+
+  patches = [
+    # fix bug https://github.com/umlaeute/v4l2loopback/issues/535
+    ./revert-pr518.patch
+  ];
 
   hardeningDisable = [ "format" "pic" ];
 
   preBuild = ''
     substituteInPlace Makefile --replace "modules_install" "INSTALL_MOD_PATH=$out modules_install"
     sed -i '/depmod/d' Makefile
-    export PATH=${kmod}/sbin:$PATH
   '';
 
-  buildInputs = [ kmod ];
+  nativeBuildInputs = [ kmod ] ++ kernel.moduleBuildDependencies;
 
-  makeFlags = [
+  postInstall = ''
+    make install-utils PREFIX=$bin
+  '';
+
+  outputs = [ "out" "bin" ];
+
+  makeFlags = kernel.makeFlags ++ [
     "KERNELRELEASE=${kernel.modDirVersion}"
     "KERNEL_DIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A kernel module to create V4L2 loopback devices";
-    homepage = https://github.com/umlaeute/v4l2loopback;
-    license = licenses.gpl2;
-    maintainers = [ maintainers.domenkozar ];
+    homepage = "https://github.com/umlaeute/v4l2loopback";
+    license = licenses.gpl2Only;
+    maintainers = with maintainers; [ fortuneteller2k ];
     platforms = platforms.linux;
+    outputsToInstall = [ "out" ];
   };
 }

@@ -1,47 +1,67 @@
-{ stdenv, fetchurl
-, pkgconfig
-, intltool
-, gnome2
+{ lib
+, stdenv
+, fetchFromGitLab
+, desktop-file-utils
+, gsettings-desktop-schemas
+, glib
+, gtk3
+, libgda
+, libxml2
 , libxslt
-, python
+, makeWrapper
+, meson
+, ninja
+, pkg-config
+, shared-mime-info
 }:
 
-let
-  version = "${major}.${minor}.${patch}";
-  major = "0";
-  minor = "14";
-  patch = "6";
+stdenv.mkDerivation rec {
+  pname = "planner";
+  version = "0.14.91";
 
-in stdenv.mkDerivation {
-  name = "planner-${version}";
-
-  src = fetchurl {
-    url = "http://ftp.gnome.org/pub/GNOME/sources/planner/${major}.${minor}/planner-${version}.tar.xz";
-    sha256 = "15h6ps58giy5r1g66sg1l4xzhjssl362mfny2x09khdqsvk2j38k";
+  src = fetchFromGitLab {
+    domain = "gitlab.gnome.org";
+    owner = "World";
+    repo = "planner";
+    rev = version;
+    hash = "sha256-LxctZv/CKolJ1I4Hql20E+/+p+ZoJLR1eZe34HPMqvY=";
   };
 
-  buildInputs = with gnome2; [
-    pkgconfig
-    intltool
+  postPatch = ''
+    patchShebangs \
+      meson_post_install.sh \
+      tools/strip_trailing_white_space.sh \
+      tests/python/task-test.py
+  '';
 
-    GConf
-    gtk
-    libgnomecanvas
-    libgnomeui
-    libglade
-    scrollkeeper
-
-    libxslt
-    python
+  nativeBuildInputs = [
+    desktop-file-utils
+    makeWrapper
+    meson
+    ninja
+    pkg-config
+    shared-mime-info
   ];
 
-  enableParallelBuilding = true;
+  buildInputs = [
+    libgda
+    libxml2
+    libxslt
+    glib
+    gsettings-desktop-schemas
+    gtk3
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://wiki.gnome.org/Apps/Planner/;
-    description = "Project management application for GNOME";
-    license = licenses.gpl2;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.rasendubi ];
+  postInstall = ''
+    wrapProgram $out/bin/planner \
+      --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH:$out/share/gsettings-schemas/planner-${version}"
+  '';
+
+  meta = {
+    description = "Project management tool for the GNOME desktop";
+    homepage = "https://wiki.gnome.org/Apps/Planner";
+    license = lib.licenses.gpl2Plus;
+    maintainers = with lib.maintainers; [ amiloradovsky ];
+    platforms = lib.platforms.unix;
   };
 }

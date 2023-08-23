@@ -1,80 +1,72 @@
-{ stdenv, fetchurl, gfortran, openblas }:
+{ lib, stdenv
+, fetchFromGitHub
+, gfortran
+, blas, lapack
+, metis
+, fixDarwinDylibNames
+, gmp
+, mpfr
+, config
+, enableCuda ? config.cudaSupport
+, cudatoolkit
+}:
 
-let
-  version = "4.4.4";
-  name = "suitesparse-${version}";
+stdenv.mkDerivation rec {
+  pname = "suitesparse";
+  version = "5.13.0";
 
-  int_t = if openblas.blas64 then "int64_t" else "int32_t";
-  SHLIB_EXT = if stdenv.isDarwin then "dylib" else "so";
-in
-stdenv.mkDerivation {
-  inherit name;
+  outputs = [ "out" "dev" "doc" ];
 
-  src = fetchurl {
-    url = "http://faculty.cse.tamu.edu/davis/SuiteSparse/SuiteSparse-${version}.tar.gz";
-    sha256 = "1zdn1y0ij6amj7smmcslkqgbqv9yy5cwmbyzqc9v6drzdzllgbpj";
+  src = fetchFromGitHub {
+    owner = "DrTimothyAldenDavis";
+    repo = "SuiteSparse";
+    rev = "v${version}";
+    sha256 = "sha256-Anen1YtXsSPhk8DpA4JtADIz9m8oXFl9umlkb4iImf8=";
   };
 
-  preConfigure = ''
-    mkdir -p $out/lib
-    mkdir -p $out/include
+  nativeBuildInputs = [
+  ] ++ lib.optional stdenv.isDarwin fixDarwinDylibNames;
 
-    sed -i "SuiteSparse_config/SuiteSparse_config.mk" \
-        -e 's/METIS .*$/METIS =/' \
-        -e 's/METIS_PATH .*$/METIS_PATH =/' \
-        -e '/CHOLMOD_CONFIG/ s/$/-DNPARTITION -DLONGBLAS=${int_t}/' \
-        -e '/UMFPACK_CONFIG/ s/$/-DLONGBLAS=${int_t}/'
-  ''
-  + stdenv.lib.optionalString stdenv.isDarwin ''
-    sed -i "SuiteSparse_config/SuiteSparse_config.mk" \
-        -e 's/^[[:space:]]*\(LIB = -lm\) -lrt/\1/'
+  # Use compatible indexing for lapack and blas used
+  buildInputs = assert (blas.isILP64 == lapack.isILP64); [
+    blas lapack
+    metis
+    gfortran.cc.lib
+    gmp
+    mpfr
+  ] ++ lib.optional enableCuda cudatoolkit;
+
+  preConfigure = ''
+    # Mongoose and GraphBLAS are packaged separately
+    sed -i "Makefile" -e '/GraphBLAS\|Mongoose/d'
   '';
 
   makeFlags = [
-    "PREFIX=\"$(out)\""
-    "INSTALL_LIB=$(out)/lib"
-    "INSTALL_INCLUDE=$(out)/include"
-    "BLAS=-lopenblas"
-    "LAPACK="
+    "INSTALL=${placeholder "out"}"
+    "INSTALL_INCLUDE=${placeholder "dev"}/include"
+    "JOBS=$(NIX_BUILD_CORES)"
+    "MY_METIS_LIB=-lmetis"
+  ] ++ lib.optionals blas.isILP64 [
+    "CFLAGS=-DBLAS64"
+  ] ++ lib.optionals enableCuda [
+    "CUDA_PATH=${cudatoolkit}"
+    "CUDART_LIB=${cudatoolkit.lib}/lib/libcudart.so"
+    "CUBLAS_LIB=${cudatoolkit}/lib/libcublas.so"
+  ] ++ lib.optionals stdenv.isDarwin [
+    # Unless these are set, the build will attempt to use `Accelerate` on darwin, see:
+    # https://github.com/DrTimothyAldenDavis/SuiteSparse/blob/v5.13.0/SuiteSparse_config/SuiteSparse_config.mk#L368
+    "BLAS=-lblas"
+    "LAPACK=-llapack"
+  ]
+  ;
+
+  buildFlags = [
+    # Build individual shared libraries, not demos
+    "library"
   ];
 
-  NIX_CFLAGS = stdenv.lib.optionalString stdenv.isDarwin " -DNTIMER";
-
-  postInstall = ''
-    # Build and install shared library
-    (
-        cd "$(mktemp -d)"
-        for i in "$out"/lib/lib*.a; do
-          ar -x $i
-        done
-        ''${CC} *.o ${if stdenv.isDarwin then "-dynamiclib" else "--shared"} -o "$out/lib/libsuitesparse.${SHLIB_EXT}" -lopenblas
-    )
-    for i in umfpack cholmod amd camd colamd spqr; do
-      ln -s libsuitesparse.${SHLIB_EXT} "$out"/lib/lib$i.${SHLIB_EXT}
-    done
-
-    # Install documentation
-    outdoc=$out/share/doc/${name}
-    mkdir -p $outdoc
-    cp -r AMD/Doc $outdoc/amd
-    cp -r BTF/Doc $outdoc/bft
-    cp -r CAMD/Doc $outdoc/camd
-    cp -r CCOLAMD/Doc $outdoc/ccolamd
-    cp -r CHOLMOD/Doc $outdoc/cholmod
-    cp -r COLAMD/Doc $outdoc/colamd
-    cp -r CXSparse/Doc $outdoc/cxsparse
-    cp -r KLU/Doc $outdoc/klu
-    cp -r LDL/Doc $outdoc/ldl
-    cp -r RBio/Doc $outdoc/rbio
-    cp -r SPQR/Doc $outdoc/spqr
-    cp -r UMFPACK/Doc $outdoc/umfpack
-  '';
-
-  nativeBuildInputs = [ gfortran ];
-  buildInputs = [ openblas ];
-
-  meta = with stdenv.lib; {
-    homepage = http://faculty.cse.tamu.edu/davis/suitesparse.html;
+  meta = with lib; {
+    homepage = "http://faculty.cse.tamu.edu/davis/suitesparse.html";
     description = "A suite of sparse matrix algorithms";
     license = with licenses; [ bsd2 gpl2Plus lgpl21Plus ];
     maintainers = with maintainers; [ ttuegel ];

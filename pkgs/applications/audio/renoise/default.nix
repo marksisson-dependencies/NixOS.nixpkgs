@@ -1,43 +1,39 @@
-{ stdenv, lib, requireFile, demo, fetchurl, libX11, libXext, libXcursor, libXrandr, libjack2, alsaLib, ... }:
+{ lib, stdenv, fetchurl, libX11, libXext, libXcursor, libXrandr, libjack2, alsa-lib
+, mpg123, releasePath ? null }:
+
+# To use the full release version:
+# 1) Sign into https://backstage.renoise.com and download the release version to some stable location.
+# 2) Override the releasePath attribute to point to the location of the newly downloaded bundle.
+# Note: Renoise creates an individual build for each license which screws somewhat with the
+# use of functions like requireFile as the hash will be different for every user.
+let
+  urlVersion = lib.replaceStrings [ "." ] [ "_" ];
+in
 
 stdenv.mkDerivation rec {
-  name = "renoise";
-
-  buildInputs = [ libX11 libXext libXcursor libXrandr alsaLib libjack2 ];
+  pname = "renoise";
+  version = "3.3.2";
 
   src =
-    if stdenv.system == "x86_64-linux" then
-        if demo then
+    if stdenv.hostPlatform.system == "x86_64-linux" then
+        if releasePath == null then
         fetchurl {
-            url = "http://files.renoise.com/demo/Renoise_3_0_1_Demo_x86_64.tar.bz2";
-            sha256 = "1q7f94wz2dbz659kpp53a3n1qyndsk0pkb29lxdff4pc3ddqwykg";
+          urls = [
+              "https://files.renoise.com/demo/Renoise_${urlVersion version}_Demo_Linux.tar.gz"
+              "https://web.archive.org/web/https://files.renoise.com/demo/Renoise_${urlVersion version}_Demo_Linux.tar.gz"
+          ];
+          sha256 = "0d9pnrvs93d4bwbfqxwyr3lg3k6gnzmp81m95gglzwdzczxkw38k";
         }
         else
-        requireFile {
-            url = "http://backstage.renoise.com/frontend/app/index.html#/login";
-            name = "rns_3_0_1_linux_x86_64.tar.gz";
-            sha256 = "1yb5w5jrg9dk9fg5rfvfk6p0rxn4r4i32vxp2l9lzhbs02pv15wd";
-        }
-    else if stdenv.system == "i686-linux" then
-        if demo then
-        fetchurl {
-            url = "http://files.renoise.com/demo/Renoise_3_0_1_Demo_x86.tar.bz2";
-            sha256 = "0dgqvib4xh2yhgh2wajj11wsb6xiiwgfkhyz32g8vnyaij5q8f58";
-        }
-        else
-        requireFile {
-            url = "http://backstage.renoise.com/frontend/app/index.html#/login";
-            name = "rns_3_0_1_reg_x86.tar.gz";
-            sha256 = "1swax2jz0gswdpzz8alwjfd8rhigc2yfspj7p8wvdvylqrf7n8q7";
-        }
-    else throw "platform is not suppored by Renoise";
+          releasePath
+    else throw "Platform is not supported. Use instalation native to your platform https://www.renoise.com/";
+
+  buildInputs = [ alsa-lib libjack2 libX11 libXcursor libXext libXrandr ];
 
   installPhase = ''
     cp -r Resources $out
 
     mkdir -p $out/lib/
-
-    mv $out/AudioPluginServer* $out/lib/
 
     cp renoise $out/renoise
 
@@ -50,12 +46,40 @@ stdenv.mkDerivation rec {
     mkdir $out/bin
     ln -s $out/renoise $out/bin/renoise
 
-    patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) --set-rpath $out/lib $out/renoise
+    # Desktop item
+    mkdir -p $out/share/applications
+    cp -r Installer/renoise.desktop $out/share/applications/renoise.desktop
+
+    # Desktop item icons
+    mkdir -p $out/share/icons/hicolor/{48x48,64x64,128x128}/apps
+    cp Installer/renoise-48.png $out/share/icons/hicolor/48x48/apps/renoise.png
+    cp Installer/renoise-64.png $out/share/icons/hicolor/64x64/apps/renoise.png
+    cp Installer/renoise-128.png $out/share/icons/hicolor/128x128/apps/renoise.png
+  '';
+
+  postFixup = ''
+    patchelf \
+      --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) \
+      --set-rpath ${mpg123}/lib:$out/lib \
+      $out/renoise
+
+    for path in $out/AudioPluginServer*; do
+      patchelf \
+        --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) \
+        --set-rpath $out/lib \
+        $path
+    done
+
+    substituteInPlace $out/share/applications/renoise.desktop \
+      --replace Exec=renoise Exec=$out/bin/renoise
   '';
 
   meta = {
     description = "Modern tracker-based DAW";
-    homepage = http://www.renoise.com/;
-    license = stdenv.lib.licenses.unfree;
+    homepage = "https://www.renoise.com/";
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+    license = lib.licenses.unfree;
+    maintainers = [];
+    platforms = [ "x86_64-linux" ];
   };
 }

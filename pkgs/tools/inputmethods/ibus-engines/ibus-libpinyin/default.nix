@@ -1,31 +1,68 @@
-{ stdenv, fetchFromGitHub, autoreconfHook
-, intltool, pkgconfig, sqlite, libpinyin, db
-, ibus, glib, gtk3, python3, pygobject3
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, gettext
+, pkg-config
+, wrapGAppsHook
+, sqlite
+, libpinyin
+, db
+, ibus
+, glib
+, gtk3
+, python3
+, lua
+, opencc
+, libsoup
+, json-glib
 }:
 
 stdenv.mkDerivation rec {
-  name = "ibus-libpinyin-${version}";
-  version = "1.8.0";
+  pname = "ibus-libpinyin";
+  version = "1.15.3";
 
   src = fetchFromGitHub {
-    owner  = "libpinyin";
-    repo   = "ibus-libpinyin";
-    rev    = version;
-    sha256 = "1d85kzlhav0ay798i88yqyrjbkv3y7w2aiadpmcjgscyd5ccsnnz";
+    owner = "libpinyin";
+    repo = "ibus-libpinyin";
+    rev = version;
+    hash = "sha256-6M4tgIpMQul3R8xI29vyPIWX0n6YItZhdVA8vT9FIRw=";
   };
 
-  buildInputs = [ ibus glib sqlite libpinyin python3 gtk3 db ];
-  nativeBuildInputs = [ autoreconfHook intltool pkgconfig ];
+  nativeBuildInputs = [
+    autoreconfHook
+    gettext
+    pkg-config
+    wrapGAppsHook
+  ];
 
-  postAutoreconf = ''
-    intltoolize
-  '';
+  configureFlags = [
+    "--enable-cloud-input-mode"
+    "--enable-opencc"
+  ];
 
-  meta = with stdenv.lib; {
+  buildInputs = [
+    ibus
+    glib
+    sqlite
+    libpinyin
+    (python3.withPackages (pypkgs: with pypkgs; [
+      pygobject3
+      (toPythonModule ibus)
+    ]))
+    gtk3
+    db
+    lua
+    opencc
+    libsoup
+    json-glib
+  ];
+
+  meta = with lib; {
     isIbusEngine = true;
-    description  = "IBus interface to the libpinyin input method";
-    license      = licenses.gpl2;
-    maintainers  = with maintainers; [ ericsagnes ];
-    platforms    = platforms.linux;
+    description = "IBus interface to the libpinyin input method";
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ linsui ericsagnes ];
+    platforms = platforms.linux;
   };
 }

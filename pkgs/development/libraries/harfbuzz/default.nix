@@ -1,56 +1,116 @@
-{ stdenv, fetchurl, pkgconfig, glib, freetype, cairo, libintlOrEmpty
-, icu, graphite2, harfbuzz # The icu variant uses and propagates the non-icu one.
+{ lib
+, stdenv
+, fetchurl
+, fetchpatch
+, pkg-config
+, glib
+, freetype
+, fontconfig
+, libintl
+, meson
+, ninja
+, gobject-introspection
+, buildPackages
+, withIntrospection ? stdenv.hostPlatform.emulatorAvailable buildPackages
+, icu
+, graphite2
+, harfbuzz # The icu variant uses and propagates the non-icu one.
+, ApplicationServices
+, CoreText
+, withCoreText ? false
 , withIcu ? false # recommended by upstream as default, but most don't needed and it's big
 , withGraphite2 ? true # it is small and major distros do include it
+, python3
+, gtk-doc
+, docbook-xsl-nons
+, docbook_xml_dtd_43
+# for passthru.tests
+, gimp
+, gtk3
+, gtk4
+, mapnik
+, qt5
 }:
 
-let
-  version = "1.3.4";
-  inherit (stdenv.lib) optional optionals optionalString;
-in
-
-stdenv.mkDerivation {
-  name = "harfbuzz${optionalString withIcu "-icu"}-${version}";
+stdenv.mkDerivation rec {
+  pname = "harfbuzz${lib.optionalString withIcu "-icu"}";
+  version = "7.3.0";
 
   src = fetchurl {
-    url = "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-${version}.tar.bz2";
-    sha256 = "0ava7y24797k5ps3ghq2ccjjds97ri1gx32v6546a6pgmpyad2ki";
+    url = "https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz";
+    hash = "sha256-IHcHiXSaybqEbfM5g9vaItuDbHDZ9dBQy5qlNHCUqPs=";
   };
 
-  outputs = [ "out" "dev" ];
+  postPatch = ''
+    patchShebangs src/*.py test
+  '' + lib.optionalString stdenv.isDarwin ''
+    # ApplicationServices.framework headers have cast-align warnings.
+    substituteInPlace src/hb.hh \
+      --replace '#pragma GCC diagnostic error   "-Wcast-align"' ""
+  '';
+
+  outputs = [ "out" "dev" "devdoc" ];
   outputBin = "dev";
 
-  configureFlags = [
-    ( "--with-graphite2=" + (if withGraphite2 then "yes" else "no") ) # not auto-detected by default
-    ( "--with-icu=" +       (if withIcu       then "yes" else "no") )
+  mesonFlags = [
+    # upstream recommends cairo, but it is only used for development purposes
+    # and is not part of the library.
+    # Cairo causes transitive (build) dependencies on various X11 or other
+    # GUI-related libraries, so it shouldn't be re-added lightly.
+    (lib.mesonEnable "cairo" false)
+    # chafa is only used in a development utility, not in the library
+    (lib.mesonEnable "chafa" false)
+    (lib.mesonEnable "coretext" withCoreText)
+    (lib.mesonEnable "graphite" withGraphite2)
+    (lib.mesonEnable "icu" withIcu)
+    (lib.mesonEnable "introspection" withIntrospection)
   ];
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ glib freetype cairo ] # recommended by upstream
-    ++ libintlOrEmpty;
-  propagatedBuildInputs = []
-    ++ optional withGraphite2 graphite2
-    ++ optionals withIcu [ icu harfbuzz ]
-    ;
+  depsBuildBuild = [
+    pkg-config
+  ];
+
+  nativeBuildInputs = [
+    meson
+    ninja
+    libintl
+    pkg-config
+    python3
+    glib
+    gtk-doc
+    docbook-xsl-nons
+    docbook_xml_dtd_43
+  ] ++ lib.optional withIntrospection gobject-introspection;
+
+  buildInputs = [ glib freetype ]
+    ++ lib.optionals withCoreText [ ApplicationServices CoreText ];
+
+  propagatedBuildInputs = lib.optional withGraphite2 graphite2
+    ++ lib.optionals withIcu [ icu harfbuzz ];
+
+  doCheck = true;
 
   # Slightly hacky; some pkgs expect them in a single directory.
-  postInstall = optionalString withIcu ''
+  postFixup = lib.optionalString withIcu ''
     rm "$out"/lib/libharfbuzz.* "$dev/lib/pkgconfig/harfbuzz.pc"
-    ln -s {'${harfbuzz.out}',"$out"}/lib/libharfbuzz.la
     ln -s {'${harfbuzz.dev}',"$dev"}/lib/pkgconfig/harfbuzz.pc
-    ${optionalString stdenv.isDarwin ''
+    ${lib.optionalString stdenv.isDarwin ''
       ln -s {'${harfbuzz.out}',"$out"}/lib/libharfbuzz.dylib
       ln -s {'${harfbuzz.out}',"$out"}/lib/libharfbuzz.0.dylib
     ''}
   '';
 
-  meta = with stdenv.lib; {
+  passthru.tests = {
+    inherit gimp gtk3 gtk4 mapnik;
+    inherit (qt5) qtbase;
+  };
+
+  meta = with lib; {
     description = "An OpenType text shaping engine";
-    homepage = http://www.freedesktop.org/wiki/Software/HarfBuzz;
-    downloadPage = "https://www.freedesktop.org/software/harfbuzz/release/";
+    homepage = "https://harfbuzz.github.io/";
+    changelog = "https://github.com/harfbuzz/harfbuzz/raw/${version}/NEWS";
     maintainers = [ maintainers.eelco ];
-    platforms = with platforms; linux ++ darwin;
-    inherit version;
-    updateWalker = true;
+    license = licenses.mit;
+    platforms = platforms.unix;
   };
 }

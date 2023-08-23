@@ -1,19 +1,47 @@
-{ stdenv, lib, buildGoPackage, consul-ui, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
 
-buildGoPackage rec {
-  name = "consul-${version}";
-  version = "0.7.0";
+buildGoModule rec {
+  pname = "consul";
+  version = "1.16.1";
   rev = "v${version}";
 
-  goPackagePath = "github.com/hashicorp/consul";
-
+  # Note: Currently only release tags are supported, because they have the Consul UI
+  # vendored. See
+  #   https://github.com/NixOS/nixpkgs/pull/48714#issuecomment-433454834
+  # If you want to use a non-release commit as `src`, you probably want to improve
+  # this derivation so that it can build the UI's JavaScript from source.
+  # See https://github.com/NixOS/nixpkgs/pull/49082 for something like that.
+  # Or, if you want to patch something that doesn't touch the UI, you may want
+  # to apply your changes as patches on top of a release commit.
   src = fetchFromGitHub {
     owner = "hashicorp";
-    repo = "consul";
+    repo = pname;
     inherit rev;
-    sha256 = "04h5y5vixjh9np9lsrk02ypbqwcq855h7l1jlnl1vmfq3sfqjds7";
+    hash = "sha256-EEreAhxBQm6Wj1JFGfC9Ql3NARPXNOhqZkzIDJ2NMkg=";
   };
 
-  # Keep consul.ui for backward compatability
-  passthru.ui = consul-ui;
+  passthru.tests.consul = nixosTests.consul;
+
+  # This corresponds to paths with package main - normally unneeded but consul
+  # has a split module structure in one repo
+  subPackages = ["." "connect/certgen"];
+
+  vendorHash = "sha256-zERHmtmGrPrUPJ2fFc+J0pWKLKQc9TTSFkN2RUOXOoM=";
+
+  doCheck = false;
+
+  ldflags = [
+    "-X github.com/hashicorp/consul/version.GitDescribe=v${version}"
+    "-X github.com/hashicorp/consul/version.Version=${version}"
+    "-X github.com/hashicorp/consul/version.VersionPrerelease="
+  ];
+
+  meta = with lib; {
+    description = "Tool for service discovery, monitoring and configuration";
+    homepage = "https://www.consul.io/";
+    platforms = platforms.linux ++ platforms.darwin;
+    license = licenses.mpl20;
+    maintainers = with maintainers; [ pradeepchhetri vdemeester nh2 techknowlogick];
+    mainProgram = "consul";
+  };
 }

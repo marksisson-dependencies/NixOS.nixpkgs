@@ -38,43 +38,43 @@ in {
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = "Whether to enable the dspam spam filter.";
+        description = lib.mdDoc "Whether to enable the dspam spam filter.";
       };
 
       user = mkOption {
         type = types.str;
         default = "dspam";
-        description = "User for the dspam daemon.";
+        description = lib.mdDoc "User for the dspam daemon.";
       };
 
       group = mkOption {
         type = types.str;
         default = "dspam";
-        description = "Group for the dspam daemon.";
+        description = lib.mdDoc "Group for the dspam daemon.";
       };
 
       storageDriver = mkOption {
         type = types.str;
         default = "hash";
-        description =  "Storage driver backend to use for dspam.";
+        description =  lib.mdDoc "Storage driver backend to use for dspam.";
       };
 
       domainSocket = mkOption {
         type = types.nullOr types.path;
         default = defaultSock;
-        description = "Path to local domain socket which is used for communication with the daemon. Set to null to disable UNIX socket.";
+        description = lib.mdDoc "Path to local domain socket which is used for communication with the daemon. Set to null to disable UNIX socket.";
       };
 
       extraConfig = mkOption {
         type = types.lines;
         default = "";
-        description = "Additional dspam configuration.";
+        description = lib.mdDoc "Additional dspam configuration.";
       };
 
       maintenanceInterval = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "If set, maintenance script will be run at specified (in systemd.timer format) interval";
+        description = lib.mdDoc "If set, maintenance script will be run at specified (in systemd.timer format) interval";
       };
 
     };
@@ -86,16 +86,16 @@ in {
 
   config = mkIf cfg.enable (mkMerge [
     {
-      users.extraUsers = optionalAttrs (cfg.user == "dspam") (singleton
-        { name = "dspam";
+      users.users = optionalAttrs (cfg.user == "dspam") {
+        dspam = {
           group = cfg.group;
           uid = config.ids.uids.dspam;
-        });
+        };
+      };
 
-      users.extraGroups = optionalAttrs (cfg.group == "dspam") (singleton
-        { name = "dspam";
-          gid = config.ids.gids.dspam;
-        });
+      users.groups = optionalAttrs (cfg.group == "dspam") {
+        dspam.gid = config.ids.gids.dspam;
+      };
 
       environment.systemPackages = [ dspam ];
 
@@ -113,19 +113,14 @@ in {
           Group = cfg.group;
           RuntimeDirectory = optional (cfg.domainSocket == defaultSock) "dspam";
           RuntimeDirectoryMode = optional (cfg.domainSocket == defaultSock) "0750";
-          PermissionsStartOnly = true;
+          StateDirectory = "dspam";
+          StateDirectoryMode = "0750";
+          LogsDirectory = "dspam";
+          LogsDirectoryMode = "0750";
           # DSPAM segfaults on just about every error
           Restart = "on-abort";
           RestartSec = "1s";
         };
-
-        preStart = ''
-          mkdir -m750 -p /var/lib/dspam
-          chown -R "${cfg.user}:${cfg.group}" /var/lib/dspam
-
-          mkdir -m750 -p /var/log/dspam
-          chown -R "${cfg.user}:${cfg.group}" /var/log/dspam
-        '';
       };
     }
 

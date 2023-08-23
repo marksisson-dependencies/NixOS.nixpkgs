@@ -1,36 +1,76 @@
-{ stdenv, fetchurl, nettools, glibcLocales, pythonPackages }:
+{ lib
+, stdenv
+, buildPythonPackage
+, fetchPypi
+, spake2
+, pynacl
+, six
+, attrs
+, twisted
+, autobahn
+, automat
+, hkdf
+, tqdm
+, click
+, humanize
+, txtorcon
+, nettools
+, mock
+, magic-wormhole-transit-relay
+, magic-wormhole-mailbox-server
+, pytestCheckHook
+}:
 
-pythonPackages.buildPythonApplication rec {
-  name = "magic-wormhole-${version}";
-  version = "0.8.1";
+buildPythonPackage rec {
+  pname = "magic-wormhole";
+  version = "0.12.0";
 
-  src = fetchurl {
-    url = "mirror://pypi/m/magic-wormhole/${name}.tar.gz";
-    sha256 = "1yh5nbhh9z1am2pqnb5qqyq1zjl1m7z6jnkmvry2q14qwspw9had";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "0q41j99718y7m95zg1vaybnsp31lp6lhyqkbv4yqz5ys6jixh3qv";
   };
 
-  buildInputs = [ nettools glibcLocales ];
-  propagatedBuildInputs = with pythonPackages; [ autobahn cffi click hkdf pynacl spake2 tqdm ];
+  propagatedBuildInputs = [
+    spake2
+    pynacl
+    six
+    attrs
+    twisted
+    autobahn
+    automat
+    hkdf
+    tqdm
+    click
+    humanize
+    txtorcon
+  ] ++ autobahn.optional-dependencies.twisted
+  ++ twisted.optional-dependencies.tls;
 
-  patchPhase = ''
+  nativeCheckInputs = [
+    mock
+    magic-wormhole-transit-relay
+    magic-wormhole-mailbox-server
+    pytestCheckHook
+  ];
+
+  disabledTests = [
+    # Expected: (<class 'wormhole.errors.WrongPasswordError'>,) Got: Failure instance: Traceback (failure with no frames): <class 'wormhole.errors.LonelyError'>:
+    "test_welcome"
+  ];
+
+  postPatch = lib.optionalString stdenv.isLinux ''
     sed -i -e "s|'ifconfig'|'${nettools}/bin/ifconfig'|" src/wormhole/ipaddrs.py
-    sed -i -e "s|if (os.path.dirname(os.path.abspath(wormhole))|if not os.path.abspath(wormhole).startswith('/nix/store') and (os.path.dirname(os.path.abspath(wormhole))|" src/wormhole/test/test_scripts.py
-    # XXX: disable one test due to warning:
-    # setlocale: LC_ALL: cannot change locale (en_US.UTF-8)
-    sed -i -e "s|def test_text_subprocess|def skip_test_text_subprocess|" src/wormhole/test/test_scripts.py
   '';
 
-  checkPhase = ''
-    export PATH="$PATH:$out/bin"
-    export LANG="en_US.UTF-8"
-    export LC_ALL="en_US.UTF-8"
-    ${pythonPackages.python.interpreter} -m wormhole.test.run_trial wormhole
+  postInstall = ''
+    install -Dm644 docs/wormhole.1 $out/share/man/man1/wormhole.1
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Securely transfer data between computers";
-    homepage = "https://github.com/warner/magic-wormhole";
+    homepage = "https://github.com/magic-wormhole/magic-wormhole";
     license = licenses.mit;
     maintainers = with maintainers; [ asymmetric ];
+    mainProgram = "wormhole";
   };
 }

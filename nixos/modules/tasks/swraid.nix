@@ -1,56 +1,76 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }: let
 
-{
+  cfg = config.boot.swraid;
 
-  environment.systemPackages = [ pkgs.mdadm ];
+in {
+  imports = [
+    (lib.mkRenamedOptionModule [ "boot" "initrd" "services" "swraid" "enable" ] [ "boot" "swraid" "enable" ])
+    (lib.mkRenamedOptionModule [ "boot" "initrd" "services" "swraid" "mdadmConf" ] [ "boot" "swraid" "mdadmConf" ])
+  ];
 
-  services.udev.packages = [ pkgs.mdadm ];
 
-  boot.initrd.availableKernelModules = [ "md_mod" "raid0" "raid1" "raid456" ];
+  options.boot.swraid = {
+    enable = lib.mkEnableOption (lib.mdDoc "swraid support using mdadm") // {
+      description = lib.mdDoc ''
+        Whether to enable support for Linux MD RAID arrays.
 
-  boot.initrd.extraUdevRulesCommands = ''
-    cp -v ${pkgs.mdadm}/lib/udev/rules.d/*.rules $out/
-  '';
+        When this is enabled, mdadm will be added to the system path,
+        and MD RAID arrays will be detected and activated
+        automatically, both in stage-1 (initramfs) and in stage-2 (the
+        final NixOS system).
 
-  systemd.services.mdadm-shutdown = {
-    wantedBy = [ "final.target"];
-    after = [ "umount.target" ];
-
-    unitConfig = {
-      DefaultDependencies = false;
+        This should be enabled if you want to be able to access and/or
+        boot from MD RAID arrays. {command}`nixos-generate-config`
+        should detect it correctly in the standard installation
+        procedure.
+      '';
+      default = lib.versionOlder config.system.stateVersion "23.11";
+      defaultText = lib.mdDoc "`true` if stateVersion is older than 23.11";
     };
 
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = ''${pkgs.mdadm}/bin/mdadm --wait-clean --scan'';
-    };
-  };
-
-  systemd.services."mdmon@" = {
-    description = "MD Metadata Monitor on /dev/%I";
-
-    unitConfig.DefaultDependencies = false;
-
-    serviceConfig = {
-      Type = "forking";
-      Environment = "IMSM_NO_PLATFORM=1";
-      ExecStart = ''${pkgs.mdadm}/bin/mdmon --offroot --takeover %I'';
-      KillMode = "none";
+    mdadmConf = lib.mkOption {
+      description = lib.mdDoc "Contents of {file}`/etc/mdadm.conf`.";
+      type = lib.types.lines;
+      default = "";
     };
   };
 
-  systemd.services."mdadm-grow-continue@" = {
-    description = "Manage MD Reshape on /dev/%I";
+  config = lib.mkIf cfg.enable {
+    environment.systemPackages = [ pkgs.mdadm ];
 
-    unitConfig.DefaultDependencies = false;
+    services.udev.packages = [ pkgs.mdadm ];
 
-    serviceConfig = {
-      ExecStart = ''${pkgs.mdadm}/bin/mdadm --grow --continue /dev/%I'';
-      StandardInput = "null";
-      StandardOutput = "null";
-      StandardError = "null";
-      KillMode = "none";
+    systemd.packages = [ pkgs.mdadm ];
+
+    boot.initrd = {
+      availableKernelModules = [ "md_mod" "raid0" "raid1" "raid10" "raid456" ];
+
+      extraUdevRulesCommands = lib.mkIf (!config.boot.initrd.systemd.enable) ''
+        cp -v ${pkgs.mdadm}/lib/udev/rules.d/*.rules $out/
+      '';
+
+      extraUtilsCommands = ''
+        # Add RAID mdadm tool.
+        copy_bin_and_libs ${pkgs.mdadm}/sbin/mdadm
+        copy_bin_and_libs ${pkgs.mdadm}/sbin/mdmon
+      '';
+
+      extraUtilsCommandsTest = ''
+        $out/bin/mdadm --version
+      '';
+
+      extraFiles."/etc/mdadm.conf".source = pkgs.writeText "mdadm.conf" config.boot.swraid.mdadmConf;
+
+      systemd = {
+        contents."/etc/mdadm.conf" = lib.mkIf (cfg.mdadmConf != "") {
+          text = cfg.mdadmConf;
+        };
+
+        packages = [ pkgs.mdadm ];
+        initrdBin = [ pkgs.mdadm ];
+      };
+
+      services.udev.packages = [ pkgs.mdadm ];
     };
   };
- 
 }

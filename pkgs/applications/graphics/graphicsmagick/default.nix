@@ -1,47 +1,26 @@
-{ stdenv, fetchurl, fetchpatch, bzip2, freetype, graphviz, ghostscript
+{ lib, stdenv, fetchurl, bzip2, freetype, graphviz, ghostscript
 , libjpeg, libpng, libtiff, libxml2, zlib, libtool, xz, libX11
-, libwebp, quantumdepth ? 8 }:
+, libwebp, quantumdepth ? 8, fixDarwinDylibNames, nukeReferences
+, runCommand
+, graphicsmagick  # for passthru.tests
+}:
 
-let version = "1.3.25"; in
-
-stdenv.mkDerivation {
-  name = "graphicsmagick-${version}";
+stdenv.mkDerivation rec {
+  pname = "graphicsmagick";
+  version = "1.3.39";
 
   src = fetchurl {
     url = "mirror://sourceforge/graphicsmagick/GraphicsMagick-${version}.tar.xz";
-    sha256 = "17xcc7pfcmiwpfr1g8ys5a7bdnvqzka53vg3kkzhwwz0s99gljyn";
+    sha256 = "sha256-4wscpY6HPQoe4gg4RyRCTbLTwzpUA04mHRTo+7j40E8=";
   };
 
   patches = [
     ./disable-popen.patch
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-7996_CVE-2016-7997.patch";
-      sha256 = "0xsby2z8n7cnnln7szjznq7iaabq323wymvdjra59yb41aix74r2";
-    })
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-7800_part1.patch";
-      sha256 = "02s0x9bkbnm5wrd0d2x9ld4d9z5xqpfk310lyylyr5zlnhqxmwgn";
-    })
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-7800_part2.patch";
-      sha256 = "1h4xv3i1aq5avsd584rwa5sa7ca8f7w9ggmh7j2llqq5kymwsv5f";
-    })
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-8682.patch";
-      sha256 = "1wfirw2yi5y72657kvnbgjs0f9b3rs9nvk8gjbwhb9a03z9ws0y5";
-    })
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-8683.patch";
-      sha256 = "102252zb34nj6alk1nhh1wbn3apd2v9rzk7clmm237332yj72vif";
-    })
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/g/graphicsmagick/1.3.25-5/debian/patches/CVE-2016-8684.patch";
-      sha256 = "1p36gpz904wnmbz1n64x4pdpg8lp9zs3gx0awklxqdvgl8m82vvy";
-    })
   ];
 
   configureFlags = [
     "--enable-shared"
+    "--with-frozenpaths"
     "--with-quantum-depth=${toString quantumdepth}"
     "--with-gslib=yes"
   ];
@@ -51,16 +30,34 @@ stdenv.mkDerivation {
       zlib libtool libwebp
     ];
 
-  nativeBuildInputs = [ xz ];
+  nativeBuildInputs = [ xz nukeReferences ]
+  ++ lib.optional stdenv.hostPlatform.isDarwin fixDarwinDylibNames;
+
+  # Remove CFLAGS from the binaries to avoid closure bloat.
+  # In the past we have had -dev packages in the closure of the binaries soley due to the string references.
+  postConfigure = ''
+    nuke-refs -e $out ./magick/magick_config.h
+  '';
 
   postInstall = ''
     sed -i 's/-ltiff.*'\'/\'/ $out/bin/*
   '';
 
+  passthru = {
+    tests = {
+      issue-157920 = runCommand "issue-157920-regression-test" {
+        buildInputs = [ graphicsmagick ];
+      } ''
+        gm convert ${graphviz}/share/graphviz/doc/pdf/neatoguide.pdf jpg:$out
+      '';
+    };
+  };
+
   meta = {
-    homepage = http://www.graphicsmagick.org;
+    homepage = "http://www.graphicsmagick.org";
     description = "Swiss army knife of image processing";
-    license = stdenv.lib.licenses.mit;
-    platforms = stdenv.lib.platforms.all;
+    license = lib.licenses.mit;
+    platforms = lib.platforms.all;
+    mainProgram = "gm";
   };
 }

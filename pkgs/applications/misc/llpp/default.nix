@@ -1,46 +1,63 @@
-{ stdenv, lib, makeWrapper, fetchgit, pkgconfig, ninja, ocaml, findlib, mupdf, lablgl
-, gtk3, openjpeg, jbig2dec, mujs, xsel, openssl, freetype, ncurses }:
+{ stdenv, lib, substituteAll, makeWrapper, fetchFromGitHub, fetchpatch, ocaml, pkg-config, mupdf, libX11, jbig2dec, openjpeg, libjpeg , lcms2, harfbuzz,
+libGLU, libGL, gumbo, freetype, zlib, xclip, inotify-tools, procps }:
 
-assert lib.versionAtLeast (lib.getVersion ocaml) "4.02";
+assert lib.versionAtLeast (lib.getVersion ocaml) "4.07";
 
-let ocamlVersion = (builtins.parseDrvName (ocaml.name)).version;
-in stdenv.mkDerivation rec {
-  name = "llpp-${version}";
-  version = "21-git-2016-05-07";
+stdenv.mkDerivation rec {
+  pname = "llpp";
+  version = "41";
 
-  src = fetchgit {
-    url = "git://repo.or.cz/llpp.git";
-    rev = "1beb003ca0f4ed90fda2823cb07c2eb674fc3ca4";
-    sha256 = "1r59yfm81zmiij401d3wc3zb1zc873ss02gkplbwi4lad2l0chba";
-    fetchSubmodules = false;
+  src = fetchFromGitHub {
+    owner = "criticic";
+    repo = pname;
+    rev = "v${version}";
+    hash = "sha256-Doj0zLYI1pi7eK01+29xFLYPtc8+fWzj10292+PmToE=";
   };
 
-  buildInputs = [ pkgconfig ninja makeWrapper ocaml findlib mupdf lablgl
-                  gtk3 jbig2dec openjpeg mujs openssl freetype ncurses ];
+  patches = [
+    (fetchpatch {
+      name = "system-makedeps.patch";
+      url = "https://aur.archlinux.org/cgit/aur.git/plain/system-makedeps.patch?h=llpp&id=0d2913056aaf3dbf7431e57b7b08b55568ba076c";
+      hash = "sha256-t9PLXsM8+exCeYqJBe0LSDK0D2rpktmozS8qNcEAcHo=";
+    })
+  ];
+
+  postPatch = ''
+    sed -i "2d;s/ver=.*/ver=${version}/" build.bash
+  '';
+
+  strictDeps = true;
+
+  nativeBuildInputs = [ makeWrapper ocaml pkg-config ];
+  buildInputs = [ mupdf libX11 libGLU libGL freetype zlib gumbo jbig2dec openjpeg libjpeg lcms2 harfbuzz ];
 
   dontStrip = true;
 
   configurePhase = ''
-    sed -i -e 's+-I \$srcdir/mupdf/include -I \$srcdir/mupdf/thirdparty/freetype/include+-I ${freetype.dev}/include+' build.sh
-    sed -i -e 's+-lmupdf +-lfreetype -lz -lharfbuzz -ljbig2dec -lopenjp2 -ljpeg -lmupdf +' build.sh
-    sed -i -e 's+-L\$srcdir/mupdf/build/native ++' build.sh
+    mkdir -p build/mupdf/thirdparty
+    ln -s ${freetype.dev} build/mupdf/thirdparty/freetype
   '';
 
   buildPhase = ''
-    sh ./build.sh build
+    bash ./build.bash build
   '';
 
   installPhase = ''
-    install -d $out/bin $out/lib
+    install -d $out/bin
     install build/llpp $out/bin
+    install misc/llpp.inotify $out/bin/llpp.inotify
+
     wrapProgram $out/bin/llpp \
-        --prefix CAML_LD_LIBRARY_PATH ":" "${lablgl}/lib/ocaml/${ocamlVersion}/site-lib/lablgl" \
-        --prefix CAML_LD_LIBRARY_PATH ":" "$out/lib" \
-        --prefix PATH ":" "${xsel}/bin"
+        --prefix PATH ":" "${xclip}/bin"
+
+    wrapProgram $out/bin/llpp.inotify \
+        --prefix PATH ":" "$out/bin" \
+        --prefix PATH ":" "${inotify-tools}/bin" \
+        --prefix PATH ":" "${procps}/bin"
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://repo.or.cz/w/llpp.git;
+  meta = with lib; {
+    homepage = "https://repo.or.cz/w/llpp.git";
     description = "A MuPDF based PDF pager written in OCaml";
     platforms = platforms.linux;
     maintainers = with maintainers; [ pSub ];

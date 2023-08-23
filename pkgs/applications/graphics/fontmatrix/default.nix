@@ -1,22 +1,32 @@
-{ stdenv, fetchurl, cmake, qt4 }:
+{ lib, mkDerivation, fetchpatch, fetchFromGitHub, cmake, qttools, qtwebkit }:
 
-stdenv.mkDerivation rec {
-  name = "fontmatrix-0.6.0";
-  src = fetchurl {
-    url = "http://fontmatrix.be/archives/${name}-Source.tar.gz";
-    sha256 = "bcc5e929d95d2a0c9481d185144095c4e660255220a7ae6640298163ee77042c";
+mkDerivation rec {
+  pname = "fontmatrix";
+  version = "0.6.0-qt5";
+
+  src = fetchFromGitHub {
+    owner = "fcoiffie";
+    repo = "fontmatrix";
+    rev = "1ff8382d8c85c18d9962918f461341ff4fe21993";
+    sha256 = "0yx1gbsjj9ddq1kiqplif1w5x5saw250zbmhmd4phqmaqzr60w0h";
   };
 
-  buildInputs = [ qt4 ];
+  # Add missing QAction include
+  patches = [ (fetchpatch {
+    url = "https://github.com/fcoiffie/fontmatrix/commit/dc6de8c414ae21516b72daead79c8db88309b102.patch";
+    sha256 = "092860fdyf5gq67jqfxnlgwzjgpizi6j0njjv3m62aiznrhig7c8";
+  })];
+
+  buildInputs = [ qttools qtwebkit ];
 
   nativeBuildInputs = [ cmake ];
 
   hardeningDisable = [ "format" ];
 
-  meta = {
+  meta = with lib; {
     description = "Fontmatrix is a free/libre font explorer for Linux, Windows and Mac";
-    homepage = http://fontmatrix.be/;
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+    homepage = "https://github.com/fontmatrix/fontmatrix";
+    license = licenses.gpl2Plus;
+    platforms = platforms.linux;
   };
 }

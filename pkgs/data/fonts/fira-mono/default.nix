@@ -1,24 +1,24 @@
-{ stdenv, fetchurl, unzip }:
+{ lib, stdenvNoCC, fetchzip }:
 
-stdenv.mkDerivation rec {
-  name = "fira-mono-3.206";
+stdenvNoCC.mkDerivation rec {
+  pname = "fira-mono";
+  version = "4.202";
 
-  src = fetchurl {
-    url = http://www.carrois.com/downloads/fira_mono_3_2/FiraMonoFonts3206.zip;
-    sha256 = "1z65x0dw5dq6rs6p9wyfrir50rlh95vgzsxr8jcd40nqazw4jhpi";
+  src = fetchzip {
+    url = "https://github.com/mozilla/Fira/archive/${version}.zip";
+    hash = "sha256-HLReqgL0PXF5vOpwLN0GiRwnzkjGkEVEyOEV2Z4R0oQ=";
   };
 
-  buildInputs = [ unzip ];
-  phases = [ "unpackPhase" "installPhase" ];
-  sourceRoot = "FiraMonoFonts3206";
-
   installPhase = ''
-    mkdir -p $out/share/fonts/opentype
-    find . -name "*.otf" -exec cp -v {} $out/share/fonts/opentype \;
+    runHook preInstall
+
+    install -Dm644 otf/FiraMono*.otf -t $out/share/fonts/opentype
+
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://www.carrois.com/fira-4-1/;
+  meta = with lib; {
+    homepage = "https://mozilla.github.io/Fira/";
     description = "Monospace font for Firefox OS";
     longDescription = ''
       Fira Mono is a monospace font designed by Erik Spiekermann,

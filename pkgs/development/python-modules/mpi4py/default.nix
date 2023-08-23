@@ -1,25 +1,22 @@
-{ stdenv, fetchurl, python, buildPythonPackage, mpi, openssh, isPy3k, isPyPy }:
+{ lib, fetchPypi, fetchpatch, python, buildPythonPackage, mpi, openssh }:
 
 buildPythonPackage rec {
-  name = "mpi4py-1.3.1";
+  pname = "mpi4py";
+  version = "3.1.4";
 
-  src = fetchurl {
-    url = "https://bitbucket.org/mpi4py/mpi4py/downloads/${name}.tar.gz";
-    sha256 = "e7bd2044aaac5a6ea87a87b2ecc73b310bb6efe5026031e33067ea3c2efc3507";
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-F4WPLrxiMiDQEg0fqNQo0DPd50nEvDWzPYGmatf5NIA=";
   };
 
   passthru = {
     inherit mpi;
   };
 
-  # The tests in the `test_spawn` module fail in the chroot build environment.
-  # However, they do pass in a pure, or non-pure nix-shell. Hence, we
-  # deactivate these particular tests.
-  # Unfortunately, the command-line arguments to `./setup.py test` are not
-  # correctly passed to the test-runner. Hence, these arguments are patched
-  # directly into `setup.py`.
-  patchPhase = ''
-    sed 's/err = main(cmd.args or \[\])/err = main(cmd.args or ["-v", "-e", "test_spawn"])/' -i setup.py
+  postPatch = ''
+    substituteInPlace test/test_spawn.py --replace \
+                      "unittest.skipMPI('openmpi(<3.0.0)')" \
+                      "unittest.skipMPI('openmpi')"
   '';
 
   configurePhase = "";
@@ -36,21 +33,23 @@ buildPythonPackage rec {
     # sometimes packages specify where files should be installed outside the usual
     # python lib prefix, we override that back so all infrastructure (setup hooks)
     # work as expected
+
+    # Needed to run the tests reliably. See:
+    # https://bitbucket.org/mpi4py/mpi4py/issues/87/multiple-test-errors-with-openmpi-30
+    export OMPI_MCA_rmaps_base_oversubscribe=yes
   '';
 
   setupPyBuildFlags = ["--mpicc=${mpi}/bin/mpicc"];
 
-  buildInputs = [ mpi ];
-  # Requires openssh for tests. Tests of dependent packages will also fail,
-  # if openssh is not present. E.g. h5py with mpi support.
-  propagatedBuildInputs = [ openssh ];
+  nativeBuildInputs = [ mpi ];
 
-  disabled = isPy3k || isPyPy;
+  __darwinAllowLocalNetworking = true;
 
-  meta = {
-    description =
-      "Python bindings for the Message Passing Interface standard";
-    homepage = "http://code.google.com/p/mpi4py/";
-    license = stdenv.lib.licenses.bsd3;
+  nativeCheckInputs = [ openssh ];
+
+  meta = with lib; {
+    description = "Python bindings for the Message Passing Interface standard";
+    homepage = "https://github.com/mpi4py/mpi4py";
+    license = licenses.bsd2;
   };
 }

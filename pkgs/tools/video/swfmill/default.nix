@@ -1,21 +1,23 @@
-{ stdenv, fetchurl
-, pkgconfig, libxslt, freetype, libpng, libxml2
+{ lib, stdenv, fetchurl
+, pkg-config, libxslt, freetype, libpng, libxml2
 }:
 
 stdenv.mkDerivation rec {
-  name = "swfmill-0.3.3";
+  pname = "swfmill";
+  version = "0.3.6";
 
   src = fetchurl {
-    url = "http://swfmill.org/releases/${name}.tar.gz";
-    sha256 = "15mcpql448vvgsbxs7wd0vdk1ln6rdcpnif6i2zjm5l4xng55s7r";
+    url = "http://swfmill.org/releases/swfmill-${version}.tar.gz";
+    sha256 = "sha256-2yT2OWOVf67AK7FLi2HNr3CWd0+M/eudNXPi4ZIxVI4=";
   };
 
-  buildInputs = [ pkgconfig libxslt freetype libpng libxml2 ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ libxslt freetype libpng libxml2 ];
 
   meta = {
     description = "An xml2swf and swf2xml processor with import functionalities";
     homepage = "http://swfmill.org";
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+    license = lib.licenses.gpl2;
+    platforms = lib.platforms.linux;
   };
 }

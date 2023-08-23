@@ -1,22 +1,32 @@
-{ stdenv, fetchurl, acl, attr, zlib }:
+{ lib, stdenv, fetchurl, acl, attr, libiconv, zlib }:
 
 stdenv.mkDerivation rec {
-  name = "libisofs-${version}";
-  version = "1.4.6";
+  pname = "libisofs";
+  version = "1.5.6.pl01";
+
+  outputs = [ "out" "dev" ];
 
   src = fetchurl {
-    url = "http://files.libburnia-project.org/releases/${name}.tar.gz";
-    sha256 = "02m5g6lbmmkh2xc5xzq5zaf3ma6v31gls66aj886b3cq9qw0paql";
+    url = "http://files.libburnia-project.org/releases/${pname}-${version}.tar.gz";
+    hash = "sha256-rB/TONZBdEyh+xVnkXGIt5vIwlBoMt1WiF/smGVrnyU=";
   };
 
-  buildInputs = [ attr zlib ];
-  propagatedBuildInputs = [ acl ];
+  buildInputs = lib.optionals stdenv.isLinux [
+    acl
+    attr
+  ] ++ lib.optionals stdenv.isDarwin [
+    libiconv
+  ] ++ [
+    zlib
+  ];
 
-  meta = with stdenv.lib; {
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     homepage = "http://libburnia-project.org/";
     description = "A library to create an ISO-9660 filesystem with extensions like RockRidge or Joliet";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ abbradar vrthra ];
-    platforms = with platforms; linux;
+    platforms = with platforms; unix;
   };
 }

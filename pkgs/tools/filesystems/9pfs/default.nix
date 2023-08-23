@@ -1,30 +1,28 @@
-{ lib, stdenv, fetchFromGitHub, fuse }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, fuse, gitUpdater }:
 
 stdenv.mkDerivation rec {
-  name = "9pfs";
+  pname = "9pfs";
+  version = "0.3";
 
   src = fetchFromGitHub {
-    owner = "spewspew";
+    owner = "ftrvxmtrx";
     repo = "9pfs";
-    rev = "7f4ca4cd750d650c1215b92ac3cc2a28041960e4";
-    sha256 = "007s2idsn6bspmfxv1qabj39ggkgvn6gwdbhczwn04lb4c6gh3xc";
+    rev = version;
+    sha256 = "sha256-ywWG/H2ilt36mjlDSgIzYpardCFXpmbLiml6wy47XuA=";
   };
 
-  preConfigure =
-    ''
-      substituteInPlace Makefile --replace '-g bin' ""
-      installFlagsArray+=(BIN=$out/bin MAN=$out/share/man/man1)
-      mkdir -p $out/bin $out/share/man/man1
-    '';
-
+  makeFlags = [ "BIN=$(out)/bin" "MAN=$(out)/share/man/man1" ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ fuse ];
-
   enableParallelBuilding = true;
 
+  passthru.updateScript = gitUpdater { };
+
   meta = {
-    homepage = https://github.com/spewspew/9pfs;
+    homepage = "https://github.com/ftrvxmtrx/9pfs";
     description = "FUSE-based client of the 9P network filesystem protocol";
     maintainers = [ lib.maintainers.eelco ];
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.unix;
+    license = with lib.licenses; [ lpl-102 bsd2 ];
   };
 }

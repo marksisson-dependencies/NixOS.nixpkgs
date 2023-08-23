@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   inherit (lib) mkOption mkIf types;
@@ -13,7 +13,7 @@ in
 
       screenrc = mkOption {
         default = "";
-        description = ''
+        description = lib.mdDoc ''
           The contents of /etc/screenrc file.
         '';
         type = types.lines;
@@ -24,7 +24,10 @@ in
   ###### implementation
 
   config = mkIf (cfg.screenrc != "") {
-    environment.etc."screenrc".text = cfg.screenrc;
+    environment.etc.screenrc.text = cfg.screenrc;
+
+    environment.systemPackages = [ pkgs.screen ];
+    security.pam.services.screen = {};
   };
 
 }

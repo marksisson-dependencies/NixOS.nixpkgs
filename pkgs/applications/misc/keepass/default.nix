@@ -1,24 +1,39 @@
-{ stdenv, lib, fetchurl, buildDotnetPackage, makeWrapper, unzip, makeDesktopItem, icoutils, gtk2, plugins ? [] }:
-
-# KeePass looks for plugins in under directory in which KeePass.exe is
-# located. It follows symlinks where looking for that directory, so
-# buildEnv is not enough to bring KeePass and plugins together.
-#
-# This derivation patches KeePass to search for plugins in specified
-# plugin derivations in the Nix store and nowhere else.
-with builtins; buildDotnetPackage rec {
-  baseName = "keepass";
-  version = "2.34";
+{ lib, fetchurl, buildDotnetPackage, substituteAll, makeWrapper, makeDesktopItem,
+  unzip, icoutils, gtk2, xorg, xdotool, xsel, coreutils, unixtools, glib, plugins ? [] }:
+let
+  inherit (builtins) add length readFile replaceStrings unsafeDiscardStringContext toString map;
+in buildDotnetPackage rec {
+  pname = "keepass";
+  version = "2.53.1";
 
   src = fetchurl {
     url = "mirror://sourceforge/keepass/KeePass-${version}-Source.zip";
-    sha256 = "e3f184e4deddd1aa5ee2b52e2373c772d3f3975e5eddb2fd729eb27b437011aa";
+    hash = "sha256-R7KWxlxrhl55nOaDNYwA/cJJl+kd5ZYy6eZVqyrxxnM=";
   };
 
   sourceRoot = ".";
 
-  buildInputs = [ unzip makeWrapper icoutils ];
+  nativeBuildInputs = [ makeWrapper unzip ];
+  buildInputs = [ icoutils ];
 
+  patches = [
+    (substituteAll {
+      src = ./fix-paths.patch;
+      xsel = "${xsel}/bin/xsel";
+      xprop = "${xorg.xprop}/bin/xprop";
+      xdotool = "${xdotool}/bin/xdotool";
+      uname = "${coreutils}/bin/uname";
+      whereis = "${unixtools.whereis}/bin/whereis";
+      gsettings = "${glib}/bin/gsettings";
+    })
+  ];
+
+  # KeePass looks for plugins in under directory in which KeePass.exe is
+  # located. It follows symlinks where looking for that directory, so
+  # buildEnv is not enough to bring KeePass and plugins together.
+  #
+  # This derivation patches KeePass to search for plugins in specified
+  # plugin derivations in the Nix store and nowhere else.
   pluginLoadPathsPatch =
     let outputLc = toString (add 7 (length plugins));
         patchTemplate = readFile ./keepass-plugins.patch;
@@ -55,14 +70,15 @@ with builtins; buildDotnetPackage rec {
     icon = "keepass";
     desktopName = "Keepass";
     genericName = "Password manager";
-    categories = "Application;Utility;";
-    mimeType = stdenv.lib.concatStringsSep ";" [
-      "application/x-keepass2"
-      ""
-    ];
+    categories = [ "Utility" ];
+    mimeTypes = [ "application/x-keepass2" ];
   };
 
-  outputFiles = [ "Build/KeePass/Release/*" "Build/KeePassLib/Release/*" ];
+  outputFiles = [
+    "Build/KeePass/Release/*"
+    "Build/KeePassLib/Release/*"
+    "Ext/KeePass.config.xml" # contains <PreferUserConfiguration>true</PreferUserConfiguration>
+  ];
   dllFiles = [ "KeePassLib.dll" ];
   exeFiles = [ "KeePass.exe" ];
 
@@ -70,11 +86,11 @@ with builtins; buildDotnetPackage rec {
   # after loading. It is brought into plugins bin/ directory using
   # buildEnv in the plugin derivation. Wrapper below makes sure it
   # is found and does not pollute output path.
-  binPaths = lib.concatStrings (lib.intersperse ":" (map (x: x + "/bin") plugins));
+  binPaths = lib.concatStringsSep ":" (map (x: x + "/bin") plugins);
 
-  dynlibPath = stdenv.lib.makeLibraryPath [ gtk2 ];
+  dynlibPath = lib.makeLibraryPath [ gtk2 ];
 
-  postInstall = 
+  postInstall =
   let
     extractFDeskIcons = ./extractWinRscIconsToStdFreeDesktopDir.sh;
   in
@@ -97,9 +113,10 @@ with builtins; buildDotnetPackage rec {
 
   meta = {
     description = "GUI password manager with strong cryptography";
-    homepage = http://www.keepass.info/;
-    maintainers = with stdenv.lib.maintainers; [ amorsillo obadz jraygauthier ];
-    platforms = with stdenv.lib.platforms; all;
-    license = stdenv.lib.licenses.gpl2;
+    homepage = "http://www.keepass.info/";
+    maintainers = with lib.maintainers; [ amorsillo obadz ];
+    platforms = with lib.platforms; all;
+    license = lib.licenses.gpl2;
+    mainProgram = "keepass";
   };
 }

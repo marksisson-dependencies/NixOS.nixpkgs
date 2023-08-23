@@ -1,69 +1,145 @@
-{ stdenv, fetchurl, fetchpatch, pkgconfig, perl, pam, nspr, nss, openldap
-, db, cyrus_sasl, svrcore, icu, net_snmp, kerberos, pcre, perlPackages
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoconf
+, automake
+, cargo
+, libtool
+, pkg-config
+, cracklib
+, lmdb
+, json_c
+, linux-pam
+, libevent
+, libxcrypt
+, nspr
+, nss
+, openldap
+, withOpenldap ? true
+, db
+, withBdb ? true
+, cyrus_sasl
+, icu
+, net-snmp
+, withNetSnmp ? true
+, krb5
+, pcre2
+, python3
+, rustPlatform
+, rustc
+, openssl
+, withSystemd ? lib.meta.availableOn stdenv.hostPlatform systemd, systemd
+, zlib
+, rsync
+, withCockpit ? true
+, withAsan ? false
 }:
-let
-  version = "1.3.5.4";
-in
-stdenv.mkDerivation rec {
-  name = "389-ds-base-${version}";
 
-  src = fetchurl {
-    url = "http://directory.fedoraproject.org/binaries/${name}.tar.bz2";
-    sha256 = "1f1r4wky8x39jdabnd277f6m0snnzh9f0wvsr8x4rnvkckjphbx8";
+stdenv.mkDerivation rec {
+  pname = "389-ds-base";
+  version = "2.4.3";
+
+  src = fetchFromGitHub {
+    owner = "389ds";
+    repo = pname;
+    rev = "${pname}-${version}";
+    hash = "sha256-bUjL1fjzyrq9jjpB/xbRCAISiPBwrlXbbDqT0aLOVOc=";
   };
 
+  cargoDeps = rustPlatform.fetchCargoTarball {
+    inherit src;
+    sourceRoot = "${src.name}/src";
+    name = "${pname}-${version}";
+    hash = "sha256-FlrHaz1whwzDvm3MA+wEaQpq7h2X9ZDnQc3f73vLZ58=";
+  };
+
+  nativeBuildInputs = [
+    autoconf
+    automake
+    libtool
+    pkg-config
+    python3
+    cargo
+    rustc
+  ]
+  ++ lib.optional withCockpit rsync;
+
   buildInputs = [
-    pkgconfig perl pam nspr nss openldap db cyrus_sasl svrcore icu
-    net_snmp kerberos pcre
-  ] ++ (with perlPackages; [ MozillaLdap NetAddrIP DBFile ]);
+    cracklib
+    lmdb
+    json_c
+    linux-pam
+    libevent
+    libxcrypt
+    nspr
+    nss
+    cyrus_sasl
+    icu
+    krb5
+    pcre2
+    openssl
+    zlib
+  ]
+  ++ lib.optional withSystemd systemd
+  ++ lib.optional withOpenldap openldap
+  ++ lib.optional withBdb db
+  ++ lib.optional withNetSnmp net-snmp;
 
-  # TODO: Fix bin/ds-logpipe.py, bin/logconv, bin/cl-dump
-
-  patches = [ ./perl-path.patch
-    # https://fedorahosted.org/389/ticket/48354
-    (fetchpatch {
-      name = "389-ds-base-CVE-2016-5416.patch";
-      url = "https://fedorahosted.org/389/changeset/3c2cd48b7d2cb0579f7de6d460bcd0c9bb1157bd/?format=diff&new=3c2cd48b7d2cb0579f7de6d460bcd0c9bb1157bd";
-      addPrefixes = true;
-      sha256 = "1kv3a3di1cihkaf8xdbb5mzvhm4c3frx8rc5mji8xgjyj9ni6xja";
-    })
-  ];
+  postPatch = ''
+    patchShebangs ./buildnum.py ./ldap/servers/slapd/mkDBErrStrs.py
+  '';
 
   preConfigure = ''
-    # Create perl paths for library imports in perl scripts
-    PERLPATH=""
-    for P in $(echo $PERL5LIB | sed 's/:/ /g'); do
-      PERLPATH="$PERLPATH $(echo $P/*/*)"
-    done
-    export PERLPATH
+    ./autogen.sh --prefix="$out"
+  '';
+
+  preBuild = ''
+    mkdir -p ./vendor
+    tar -xzf ${cargoDeps} -C ./vendor --strip-components=1
   '';
 
   configureFlags = [
-    "--sysconfdir=/etc"
-    "--localstatedir=/var"
+    "--enable-rust-offline"
+    "--enable-autobind"
+  ]
+  ++ lib.optionals withSystemd [
+    "--with-systemd"
+    "--with-systemdsystemunitdir=${placeholder "out"}/etc/systemd/system"
+  ] ++ lib.optionals withOpenldap [
     "--with-openldap"
-    "--with-db=${db}"
-    "--with-sasl=${cyrus_sasl.dev}"
-    "--with-netsnmp=${net_snmp}"
+  ] ++ lib.optionals withBdb [
+    "--with-db-inc=${lib.getDev db}/include"
+    "--with-db-lib=${lib.getLib db}/lib"
+  ] ++ lib.optionals withNetSnmp [
+    "--with-netsnmp-inc=${lib.getDev net-snmp}/include"
+    "--with-netsnmp-lib=${lib.getLib net-snmp}/lib"
+  ] ++ lib.optionals (!withCockpit) [
+    "--disable-cockpit"
+  ] ++ lib.optionals withAsan [
+    "--enable-asan"
+    "--enable-debug"
   ];
-  
-  preInstall = ''
-    # The makefile doesn't create this directory for whatever reason
-    mkdir -p $out/lib/dirsrv
-  '';
+
+  enableParallelBuilding = true;
+  # Disable parallel builds as those lack some dependencies:
+  #   ld: cannot find -lslapd: No such file or directory
+  # https://hydra.nixos.org/log/h38bj77gav0r6jbi4bgzy1lfjq22k2wy-389-ds-base-2.3.1.drv
+  enableParallelInstalling = false;
+
+  doCheck = true;
 
   installFlags = [
-    "sysconfdir=\${out}/etc"
-    "localstatedir=\${TMPDIR}"
+    "sysconfdir=${placeholder "out"}/etc"
+    "localstatedir=${placeholder "TMPDIR"}"
   ];
 
   passthru.version = version;
 
-  meta = with stdenv.lib; {
-    homepage = https://directory.fedoraproject.org/;
+  meta = with lib; {
+    homepage = "https://www.port389.org/";
     description = "Enterprise-class Open Source LDAP server for Linux";
-    license = licenses.gpl2;
+    license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ wkennington ];
+    maintainers = [ maintainers.ners ];
   };
 }

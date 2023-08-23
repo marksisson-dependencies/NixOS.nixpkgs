@@ -1,131 +1,259 @@
-{ stdenv, fetchurl, fetchFromGitHub, optipng, cairo, unzip, pythonPackages, pkgconfig, pngquant, which, imagemagick }:
+{ stdenv
+, stdenvNoCC
+, lib
+, gitUpdater
+, fetchFromGitHub
+, fetchurl
+, cairo
+, nixosTests
+, pkg-config
+, pngquant
+, which
+, imagemagick
+, zopfli
+, buildPackages
+, variants ? [ ]
+}:
+let
+  notoLongDescription = ''
+    When text is rendered by a computer, sometimes characters are
+    displayed as “tofu”. They are little boxes to indicate your device
+    doesn’t have a font to display the text.
 
+    Google has been developing a font family called Noto, which aims to
+    support all languages with a harmonious look and feel. Noto is
+    Google’s answer to tofu. The name noto is to convey the idea that
+    Google’s goal is to see “no more tofu”.  Noto has multiple styles and
+    weights, and freely available to all.
+  '';
+in
 rec {
-  # 18MB
-  noto-fonts = let version = "git-2016-03-29"; in stdenv.mkDerivation {
-    name = "noto-fonts-${version}";
+  mkNoto =
+    { pname
+    , variants ? [ ]
+    , longDescription ? notoLongDescription
+    }:
+    stdenvNoCC.mkDerivation rec {
+      inherit pname;
+      version = "23.8.1";
 
-    src = fetchFromGitHub {
-      owner = "googlei18n";
-      repo = "noto-fonts";
-      rev = "e8b0af48b15d64bd490edab4418b5e396cf29644";
-      sha256 = "02yv12fbb4n1gp9g9m0qxnj6adpg9hfsr9377h2d4xsf6sxcgy6f";
+      src = fetchFromGitHub {
+        owner = "notofonts";
+        repo = "notofonts.github.io";
+        rev = "noto-monthly-release-${version}";
+        hash = "sha256-TYCJzioZcNFV8N5wLr7Fo69g/p5GQF/tbGgYoLUV7Us=";
+      };
+
+      _variants = map (variant: builtins.replaceStrings [ " " ] [ "" ] variant) variants;
+
+      installPhase = ''
+        # We check availability in order of variable -> otf -> ttf
+        # unhinted -- the hinted versions use autohint
+        # maintaining maximum coverage.
+        #
+        # We have a mix of otf and ttf fonts
+        local out_font=$out/share/fonts/noto
+      '' + (if _variants == [ ] then ''
+        for folder in $(ls -d fonts/*/); do
+          if [[ -d "$folder"unhinted/variable-ttf ]]; then
+            install -m444 -Dt $out_font "$folder"unhinted/variable-ttf/*.ttf
+          elif [[ -d "$folder"unhinted/otf ]]; then
+            install -m444 -Dt $out_font "$folder"unhinted/otf/*.otf
+          else
+            install -m444 -Dt $out_font "$folder"unhinted/ttf/*.ttf
+          fi
+        done
+      '' else ''
+        for variant in $_variants; do
+          if [[ -d fonts/"$variant"/unhinted/variable-ttf ]]; then
+            install -m444 -Dt $out_font fonts/"$variant"/unhinted/variable-ttf/*.ttf
+          elif [[ -d fonts/"$variant"/unhinted/otf ]]; then
+            install -m444 -Dt $out_font fonts/"$variant"/unhinted/otf/*.otf
+          else
+            install -m444 -Dt $out_font fonts/"$variant"/unhinted/ttf/*.ttf
+          fi
+        done
+      '');
+
+      passthru.updateScript = gitUpdater {
+        rev-prefix = "noto-monthly-release-";
+      };
+
+      meta = with lib; {
+        description = "Beautiful and free fonts for many languages";
+        homepage = "https://www.google.com/get/noto/";
+        inherit longDescription;
+        license = licenses.ofl;
+        platforms = platforms.all;
+        maintainers = with maintainers; [ mathnerd314 emily jopejoe1 ];
+      };
     };
 
-    phases = [ "unpackPhase" "installPhase" ];
-
-    installPhase = ''
-      mkdir -p $out/share/fonts/noto
-      cp hinted/*.ttf $out/share/fonts/noto
-      # Also copy unhinted & alpha fonts for better glyph coverage,
-      # if they don't have a hinted version
-      # (see https://groups.google.com/d/msg/noto-font/ZJSkZta4n5Y/tZBnLcPdbS0J)
-      cp -n unhinted/*.ttf $out/share/fonts/noto
-      cp -n alpha/*.ttf $out/share/fonts/noto
-    '';
-
-    preferLocalBuild = true;
-
-    meta = with stdenv.lib; {
+  mkNotoCJK = { typeface, version, sha256 }:
+    stdenvNoCC.mkDerivation {
+      pname = "noto-fonts-cjk-${lib.toLower typeface}";
       inherit version;
-      description = "Beautiful and free fonts for many languages";
-      homepage = https://www.google.com/get/noto/;
-      longDescription =
-      ''
-        When text is rendered by a computer, sometimes characters are displayed as
-        “tofu”. They are little boxes to indicate your device doesn’t have a font to
-        display the text.
 
-        Google has been developing a font family called Noto, which aims to support all
-        languages with a harmonious look and feel. Noto is Google’s answer to tofu. The
-        name noto is to convey the idea that Google’s goal is to see “no more tofu”.
-        Noto has multiple styles and weights, and freely available to all.
+      src = fetchFromGitHub {
+        owner = "googlefonts";
+        repo = "noto-cjk";
+        rev = "${typeface}${version}";
+        inherit sha256;
+        sparseCheckout = [ "${typeface}/Variable/OTC" ];
+      };
 
-        This package also includes the Arimo, Cousine, and Tinos fonts.
+      installPhase = ''
+        install -m444 -Dt $out/share/fonts/opentype/noto-cjk ${typeface}/Variable/OTC/*.otf.ttc
       '';
-      license = licenses.asl20;
-      platforms = platforms.all;
-      maintainers = with maintainers; [ mathnerd314 ];
+
+      passthru.tests.noto-fonts = nixosTests.noto-fonts;
+
+      meta = with lib; {
+        description = "Beautiful and free fonts for CJK languages";
+        homepage = "https://www.google.com/get/noto/help/cjk/";
+        longDescription = ''
+          Noto ${typeface} CJK is a ${lib.toLower typeface} typeface designed as
+          an intermediate style between the modern and traditional. It is
+          intended to be a multi-purpose digital font for user interface
+          designs, digital content, reading on laptops, mobile devices, and
+          electronic books. Noto ${typeface} CJK comprehensively covers
+          Simplified Chinese, Traditional Chinese, Japanese, and Korean in a
+          unified font family. It supports regional variants of ideographic
+          characters for each of the four languages. In addition, it supports
+          Japanese kana, vertical forms, and variant characters (itaiji); it
+          supports Korean hangeul — both contemporary and archaic.
+        '';
+        license = licenses.ofl;
+        platforms = platforms.all;
+        maintainers = with maintainers; [ mathnerd314 emily ];
+      };
     };
+
+  noto-fonts = mkNoto {
+    pname = "noto-fonts";
   };
-  # 89MB
-  noto-fonts-cjk = let version = "1.004"; in stdenv.mkDerivation {
-    name = "noto-fonts-cjk-${version}";
 
-    src = fetchurl {
-      # Same as https://noto-website.storage.googleapis.com/pkgs/NotoSansCJK.ttc.zip but versioned & with no extra SIL license file
-      url = "https://raw.githubusercontent.com/googlei18n/noto-cjk/40d9f5b179a59a06b98373c76bdc3e2119e4e6b2/NotoSansCJK.ttc.zip";
-      sha256 = "1vg3si6slvk8cklq6s5c76s84kqjc4wvwzr4ysljzjpgzra2rfn6";
-    };
-
-    nativeBuildInputs = [ unzip ];
-
-    phases = [ "unpackPhase" "installPhase" ];
-
-    sourceRoot = ".";
-
-    installPhase = ''
-      mkdir -p $out/share/fonts/noto
-      cp *.ttc $out/share/fonts/noto
+  noto-fonts-lgc-plus = mkNoto {
+    pname = "noto-fonts-lgc-plus";
+    variants = [
+      "Noto Sans"
+      "Noto Serif"
+      "Noto Sans Mono"
+      "Noto Music"
+      "Noto Sans Symbols"
+      "Noto Sans Symbols 2"
+      "Noto Sans Math"
+    ];
+    longDescription = ''
+      This package provides the Noto Fonts, but only for latin, greek
+      and cyrillic scripts, as well as some extra fonts. To create a
+      custom Noto package with custom variants, see the `mkNoto`
+      helper function.
     '';
+  };
 
-    preferLocalBuild = true;
+  noto-fonts-cjk-sans = mkNotoCJK {
+    typeface = "Sans";
+    version = "2.004";
+    sha256 = "sha256-IgalJkiOAVjNxKaPAQWfb5hKeqclliR4qVXCq63FGWY=";
+  };
 
-    meta = with stdenv.lib; {
+  noto-fonts-cjk-serif = mkNotoCJK {
+    typeface = "Serif";
+    version = "2.001";
+    sha256 = "sha256-y1103SS0qkZMhEL5+7kQZ+OBs5tRaqkqOcs4796Fzhg=";
+  };
+
+  noto-fonts-emoji =
+    let
+      version = "2.038";
+      emojiPythonEnv =
+        buildPackages.python3.withPackages (p: with p; [ fonttools nototools ]);
+    in
+    stdenvNoCC.mkDerivation {
+      pname = "noto-fonts-emoji";
       inherit version;
-      description = "Beautiful and free fonts for CJK languages";
-      homepage = https://www.google.com/get/noto/help/cjk/;
-      longDescription =
-      ''
-        Noto Sans CJK is a sans serif typeface designed as an intermediate style
-        between the modern and traditional. It is intended to be a multi-purpose
-        digital font for user interface designs, digital content, reading on laptops,
-        mobile devices, and electronic books. Noto Sans CJK comprehensively covers
-        Simplified Chinese, Traditional Chinese, Japanese, and Korean in a unified font
-        family. It supports regional variants of ideographic characters for each of the
-        four languages. In addition, it supports Japanese kana, vertical forms, and
-        variant characters (itaiji); it supports Korean hangeul — both contemporary and
-        archaic.
+
+      src = fetchFromGitHub {
+        owner = "googlefonts";
+        repo = "noto-emoji";
+        rev = "v${version}";
+        sha256 = "1rgmcc6nqq805iqr8kvxxlk5cf50q714xaxk3ld6rjrd69kb8ix9";
+      };
+
+      depsBuildBuild = [
+        buildPackages.stdenv.cc
+        pkg-config
+        cairo
+      ];
+
+      nativeBuildInputs = [
+        imagemagick
+        zopfli
+        pngquant
+        which
+        emojiPythonEnv
+      ];
+
+      postPatch = ''
+        patchShebangs *.py
+        patchShebangs third_party/color_emoji/*.py
+        # remove check for virtualenv, since we handle
+        # python requirements using python.withPackages
+        sed -i '/ifndef VIRTUAL_ENV/,+2d' Makefile
+
+        # Make the build verbose so it won't get culled by Hydra thinking that
+        # it somehow got stuck doing nothing.
+        sed -i 's;\t@;\t;' Makefile
       '';
-      license = licenses.ofl;
-      platforms = platforms.all;
-      maintainers = with maintainers; [ mathnerd314 ];
+
+      enableParallelBuilding = true;
+
+      installPhase = ''
+        runHook preInstall
+        mkdir -p $out/share/fonts/noto
+        cp NotoColorEmoji.ttf $out/share/fonts/noto
+        runHook postInstall
+      '';
+
+      meta = with lib; {
+        description = "Color and Black-and-White emoji fonts";
+        homepage = "https://github.com/googlefonts/noto-emoji";
+        license = with licenses; [ ofl asl20 ];
+        platforms = platforms.all;
+        maintainers = with maintainers; [ mathnerd314 sternenseemann ];
+      };
     };
-  };
-  # 12MB
-  noto-fonts-emoji = let version = "git-2016-03-17"; in stdenv.mkDerivation {
-    name = "noto-fonts-emoji-${version}";
 
-    src = fetchFromGitHub {
-      owner = "googlei18n";
-      repo = "noto-emoji";
-      rev = "c6379827aaa9cb0baca1a08a9d44ae74ca505236";
-      sha256 = "1zh1b617cjr5laha6lx0ys4k1c3az2zkgzjwc2nlb7dsdmfw1n0q";
+  noto-fonts-emoji-blob-bin =
+    let
+      pname = "noto-fonts-emoji-blob-bin";
+      version = "15.0";
+    in
+    stdenvNoCC.mkDerivation {
+      inherit pname version;
+
+      src = fetchurl {
+        url = "https://github.com/C1710/blobmoji/releases/download/v${version}/Blobmoji.ttf";
+        hash = "sha256-3MPWZ1A2ups171dNIiFTJ3C1vZiGy6I8ZF70aUfrePk=";
+      };
+
+      dontUnpack = true;
+
+      installPhase = ''
+        runHook preInstall
+
+        install -Dm 444 $src $out/share/fonts/blobmoji/Blobmoji.ttf
+
+        runHook postInstall
+      '';
+
+      meta = with lib; {
+        description = "Noto Emoji with extended Blob support";
+        homepage = "https://github.com/C1710/blobmoji";
+        license = with licenses; [ ofl asl20 ];
+        platforms = platforms.all;
+        maintainers = with maintainers; [ rileyinman jk ];
+      };
     };
-
-    buildInputs = [ cairo ];
-    nativeBuildInputs = [ pngquant optipng which cairo pkgconfig imagemagick ]
-                     ++ (with pythonPackages; [ python fonttools nototools ]);
-
-    postPatch = ''
-      sed -i 's,^PNGQUANT :=.*,PNGQUANT := ${pngquant}/bin/pngquant,' Makefile
-      patchShebangs flag_glyph_name.py
-    '';
-
-    enableParallelBuilding = true;
-
-    installPhase = ''
-      mkdir -p $out/share/fonts/noto
-      cp NotoColorEmoji.ttf fonts/NotoEmoji-Regular.ttf $out/share/fonts/noto
-    '';
-
-    meta = with stdenv.lib; {
-      inherit version;
-      description = "Color and Black-and-White emoji fonts";
-      homepage = https://github.com/googlei18n/noto-emoji;
-      license = licenses.asl20;
-      platforms = platforms.all;
-      maintainers = with maintainers; [ mathnerd314 ];
-    };
-  };
 }

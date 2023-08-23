@@ -1,23 +1,35 @@
-{ stdenv, fetchurl, gtk3, pythonPackages, intltool,
-  pango, gsettings_desktop_schemas }:
+{ lib, fetchFromGitHub, gtk3, pythonPackages, intltool, gexiv2,
+  pango, gobject-introspection, wrapGAppsHook, gettext,
+# Optional packages:
+ enableOSM ? true, osm-gps-map, glib-networking,
+ enableGraphviz ? true, graphviz,
+ enableGhostscript ? true, ghostscript
+ }:
 
 let
   inherit (pythonPackages) python buildPythonApplication;
 in buildPythonApplication rec {
-  version = "4.1.1";
-  name = "gramps-${version}";
+  version = "5.1.4";
+  pname = "gramps";
 
-  buildInputs = [ intltool gtk3 ];
+  nativeBuildInputs = [ wrapGAppsHook intltool gettext gobject-introspection ];
+  buildInputs = [ gtk3 pango gexiv2 ]
+    # Map support
+    ++ lib.optionals enableOSM [ osm-gps-map glib-networking ]
+    # Graphviz support
+    ++ lib.optional enableGraphviz graphviz
+    # Ghostscript support
+    ++ lib.optional enableGhostscript ghostscript
+  ;
 
-  # Currently broken
-  doCheck = false;
-
-  src = fetchurl {
-    url = "mirror://sourceforge/gramps/Stable/${version}/${name}.tar.gz";
-    sha256 = "0jdps7yx2mlma1hdj64wssvnqd824xdvw0bmn2dnal5fn3h7h060";
+  src = fetchFromGitHub {
+    owner = "gramps-project";
+    repo = "gramps";
+    rev = "v${version}";
+    sha256 = "00358nzyw686ypqv45imc5k9frcqnhla0hpx9ynna3iy6iz5006x";
   };
 
-  pythonPath = with pythonPackages; [ pygobject3 pycairo ] ++ [ pango ];
+  pythonPath = with pythonPackages; [ bsddb3 pyicu pygobject3 pycairo ];
 
   # Same installPhase as in buildPythonApplication but without --old-and-unmanageble
   # install flag.
@@ -35,7 +47,7 @@ in buildPythonApplication rec {
     eapth="$out/lib/${python.libPrefix}"/site-packages/easy-install.pth
     if [ -e "$eapth" ]; then
         # move colliding easy_install.pth to specifically named one
-        mv "$eapth" $(dirname "$eapth")/${name}.pth
+        mv "$eapth" $(dirname "$eapth")/${pname}-${version}.pth
     fi
 
     rm -f "$out/lib/${python.libPrefix}"/site-packages/site.py*
@@ -43,16 +55,13 @@ in buildPythonApplication rec {
     runHook postInstall
   '';
 
-  # gobjectIntrospection package, wrap accordingly
-  preFixup = ''
-    wrapProgram $out/bin/gramps \
-      --prefix GI_TYPELIB_PATH : "$GI_TYPELIB_PATH" \
-      --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH:$out/share"
-  '';
+  # https://github.com/NixOS/nixpkgs/issues/149812
+  # https://nixos.org/manual/nixpkgs/stable/#ssec-gnome-hooks-gobject-introspection
+  strictDeps = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Genealogy software";
-    homepage = http://gramps-project.org;
+    homepage = "https://gramps-project.org";
     license = licenses.gpl2;
   };
 }

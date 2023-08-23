@@ -1,29 +1,63 @@
-{ stdenv, fetchurl, alsaLib, gtk2, pkgconfig }:
+{
+  alsa-lib
+, fetchFromGitHub
+, gtk3
+, lib
+, libpulseaudio
+, pkg-config
+, stdenv
+, wrapGAppsHook
+}:
 
-stdenv.mkDerivation rec {
-  name = "praat-${version}";
-  version = "5.4.17";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "praat";
+  version = "6.3.14";
 
-  src = fetchurl {
-    url = "https://github.com/praat/praat/archive/v${version}.tar.gz";
-    sha256 = "0s2hrksghg686059vc90h3ywhd2702pqcvy99icw27q5mdk6dqsx";
+  src = fetchFromGitHub {
+    owner = "praat";
+    repo = "praat";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-HN4w7n0nh7voL/QKhGQwCcGfzn+nyFOwluESlP3B6VM=";
   };
 
+  nativeBuildInputs = [
+    pkg-config
+    wrapGAppsHook
+  ];
+
+  buildInputs = [
+    alsa-lib
+    gtk3
+    libpulseaudio
+  ];
+
+  makeFlags = [
+    "AR=${stdenv.cc.targetPrefix}ar"
+  ];
+
   configurePhase = ''
-    cp makefiles/makefile.defs.linux.alsa makefile.defs
+    runHook preConfigure
+
+    cp makefiles/makefile.defs.linux.pulse makefile.defs
+
+    runHook postConfigure
   '';
 
   installPhase = ''
-    mkdir -p $out/bin
-    cp praat $out/bin
+    runHook preInstall
+
+    install -Dt $out/bin praat
+
+    runHook postInstall
   '';
 
-  buildInputs = [ alsaLib gtk2 pkgconfig ];
+  enableParallelBuilding = true;
 
   meta = {
     description = "Doing phonetics by computer";
-    homepage = http://www.fon.hum.uva.nl/praat/;
-    license = stdenv.lib.licenses.gpl2Plus; # Has some 3rd-party code in it though
-    platforms = stdenv.lib.platforms.linux;
+    homepage = "https://www.fon.hum.uva.nl/praat/";
+    license = lib.licenses.gpl2Plus; # Has some 3rd-party code in it though
+    maintainers = with lib.maintainers; [ orivej ];
+    platforms = lib.platforms.linux;
   };
-}
+})

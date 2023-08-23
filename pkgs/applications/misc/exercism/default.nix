@@ -1,23 +1,28 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, nix-update-script }:
 
-buildGoPackage rec {
-  name    = "exercism-${version}";
-  version = "2.3.0";
-
-  goPackagePath = "github.com/exercism/cli";
+buildGoModule rec {
+  pname = "exercism";
+  version = "3.2.0";
 
   src = fetchFromGitHub {
-    owner  = "exercism";
-    repo   = "cli";
-    rev    = "v${version}";
-    sha256 = "1zhvvmsh5kw739kylk0bqj1wa6vjyahz43dlxdpv42h8gfiiksf5";
+    owner = "exercism";
+    repo  = "cli";
+    rev   = "refs/tags/v${version}";
+    hash  = "sha256-+DXmbbs9oo667o5P0OVcfBMMIvyBzEAdbrq9i+U7p0k=";
   };
 
-  meta = with stdenv.lib; {
+  vendorHash = "sha256-wQGnGshsRJLe3niHDoyr3BTxbwrV3L66EjJ8x633uHY=";
+
+  doCheck = false;
+
+  subPackages = [ "./exercism" ];
+
+  passthru.updateScript = nix-update-script { };
+
+  meta = with lib; {
+   inherit (src.meta) homepage;
    description = "A Go based command line tool for exercism.io";
-   homepage    = http://exercism.io/cli;
    license     = licenses.mit;
-   maintainers = [ maintainers.rbasso ];
-   platforms   = platforms.linux;
+   maintainers = [ maintainers.rbasso maintainers.nobbz ];
   };
 }

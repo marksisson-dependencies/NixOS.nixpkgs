@@ -1,18 +1,51 @@
-{ stdenv, fetchurl, glib, pkgconfig, perl, intltool, gobjectIntrospection }:
+{ lib, stdenv
+, fetchurl
+, glib
+, pkg-config
+, perl
+, gettext
+, gobject-introspection
+, gnome
+, gtk-doc
+, deterministic-uname
+}:
+
 stdenv.mkDerivation rec {
-  name = "libgtop-${version}";
-  major = "2.34";
-  version = "${major}.1";
+  pname = "libgtop";
+  version = "2.41.1";
+
+  outputs = [ "out" "dev" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/libgtop/${major}/${name}.tar.xz";
-    sha256 = "c89978a76662b18d392edbe0d1b794f5a9a399a5ccf22a02d5b9e28b5ed609e2";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "Q+qa0T98r5gwPmQXKxkb6blrqzQLAZ3u7HIlHuFA/js=";
   };
 
-  propagatedBuildInputs = [ glib ];
-  nativeBuildInputs = [ pkgconfig perl intltool gobjectIntrospection ];
+  nativeBuildInputs = [
+    # uname output embedded in https://gitlab.gnome.org/GNOME/libgtop/-/blob/master/src/daemon/Makefile.am
+    deterministic-uname
+    pkg-config
+    gtk-doc
+    perl
+    gettext
+    gobject-introspection
+  ];
 
-  meta = {
-    platforms = stdenv.lib.platforms.linux;
+  propagatedBuildInputs = [
+    glib
+  ];
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      versionPolicy = "odd-unstable";
+    };
+  };
+
+  meta = with lib; {
+    description = "A library that reads information about processes and the running system";
+    license = licenses.gpl2Plus;
+    maintainers = teams.gnome.members;
+    platforms = platforms.unix;
   };
 }

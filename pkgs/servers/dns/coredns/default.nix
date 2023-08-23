@@ -1,27 +1,47 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
+{ lib
+, stdenv
+, buildGoModule
+, fetchFromGitHub
+, installShellFiles
+}:
 
-buildGoPackage rec {
-  name = "coredns-${version}";
-  version = "001";
-
-  goPackagePath = "github.com/miekg/coredns";
-  subPackages = [ "." ];
+buildGoModule rec {
+  pname = "coredns";
+  version = "1.11.0";
 
   src = fetchFromGitHub {
-    owner = "miekg";
+    owner = "coredns";
     repo = "coredns";
     rev = "v${version}";
-    sha256 = "1ybi0v40bsndiffm41hak3b3w22l1in392zcy75bpf2mklxywnak";
+    sha256 = "sha256-Mn8hOsODTlnl6PJaevMcyIKkIx/1Lk2HGA7fSSizR20=";
   };
 
-  patches = [ ./pull-278.patch ];
+  vendorHash = "sha256-9LFwrG6RxZaCLxrNabdnq++U5Aw+d2w90Zqt/wszNTY=";
 
-  goDeps = ./deps.nix;
+  nativeBuildInputs = [ installShellFiles ];
 
-  meta = with stdenv.lib; {
-    homepage = https://coredns.io;
+  outputs = [ "out" "man" ];
+
+  postPatch = ''
+    substituteInPlace test/file_cname_proxy_test.go \
+      --replace "TestZoneExternalCNAMELookupWithProxy" \
+                "SkipZoneExternalCNAMELookupWithProxy"
+
+    substituteInPlace test/readme_test.go \
+      --replace "TestReadme" "SkipReadme"
+  '' + lib.optionalString stdenv.isDarwin ''
+    # loopback interface is lo0 on macos
+    sed -E -i 's/\blo\b/lo0/' plugin/bind/setup_test.go
+  '';
+
+  postInstall = ''
+    installManPage man/*
+  '';
+
+  meta = with lib; {
+    homepage = "https://coredns.io";
     description = "A DNS server that runs middleware";
     license = licenses.asl20;
-    maintainers = [ maintainers.rushmorem ];
+    maintainers = with maintainers; [ rushmorem rtreffer deltaevo ];
   };
 }

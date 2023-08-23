@@ -11,7 +11,7 @@ with lib;
     hardware.cpu.amd.updateMicrocode = mkOption {
       default = false;
       type = types.bool;
-      description = ''
+      description = lib.mdDoc ''
         Update the CPU microcode for AMD processors.
       '';
     };
@@ -22,7 +22,8 @@ with lib;
   ###### implementation
 
   config = mkIf config.hardware.cpu.amd.updateMicrocode {
-    boot.initrd.prepend = [ "${pkgs.microcodeAmd}/amd-ucode.img" ];
+    # Microcode updates must be the first item prepended in the initrd
+    boot.initrd.prepend = mkOrder 1 [ "${pkgs.microcodeAmd}/amd-ucode.img" ];
   };
 
 }

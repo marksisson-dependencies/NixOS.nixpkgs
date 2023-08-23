@@ -1,27 +1,51 @@
-{ stdenv, procps, coreutils, fetchurl, jdk, jre, ant, gettext, which }:
+{ lib
+, stdenv
+, ps
+, coreutils
+, fetchurl
+, jdk
+, jre
+, ant
+, gettext
+, which
+, java-service-wrapper
+}:
 
-stdenv.mkDerivation rec {
-  name = "i2p-0.9.26";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "i2p";
+  version = "2.3.0";
+
   src = fetchurl {
-    url = "https://github.com/i2p/i2p.i2p/archive/${name}.tar.gz";
-    sha256 = "0h672w69a5xzgcrls64bpss3ga9hgpnrq90dr5lb5912pwwq9pa1";
+    urls = map (mirror: "${mirror}/${finalAttrs.version}/i2psource_${finalAttrs.version}.tar.bz2") [
+      "https://download.i2p2.de/releases"
+      "https://files.i2p-projekt.de"
+      "https://download.i2p2.no/releases"
+    ];
+    sha256 = "sha256-oKj7COnHLq7yLxVbnJqg6pD7Mx0rvPdvgmSfC57+X1s=";
   };
+
   buildInputs = [ jdk ant gettext which ];
   patches = [ ./i2p.patch ];
+
   buildPhase = ''
     export JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF8"
     ant preppkg-linux-only
-    '';
+  '';
+
   installPhase = ''
     set -B
     mkdir -p $out/{bin,share}
     cp -r pkg-temp/* $out
-    cp installer/lib/wrapper/linux64/* $out
+
+    cp ${java-service-wrapper}/bin/wrapper $out/i2psvc
+    cp ${java-service-wrapper}/lib/wrapper.jar $out/lib
+    cp ${java-service-wrapper}/lib/libwrapper.so $out/lib
+
     sed -i $out/i2prouter -i $out/runplain.sh \
       -e "s#uname#${coreutils}/bin/uname#" \
       -e "s#which#${which}/bin/which#" \
       -e "s#%gettext%#${gettext}/bin/gettext#" \
-      -e "s#/usr/ucb/ps#${procps}/bin/ps#" \
+      -e "s#/usr/ucb/ps#${ps}/bin/ps#" \
       -e "s#/usr/bin/tr#${coreutils}/bin/tr#" \
       -e "s#%INSTALL_PATH#$out#" \
       -e 's#%USER_HOME#$HOME#' \
@@ -31,14 +55,31 @@ stdenv.mkDerivation rec {
     mv $out/man $out/share/
     chmod +x $out/bin/* $out/i2psvc
     rm $out/{osid,postinstall.sh,INSTALL-headless.txt}
-    '';
+  '';
 
-  meta = with stdenv.lib; {
-    homepage = https://geti2p.net;
+  meta = with lib; {
     description = "Applications and router for I2P, anonymity over the Internet";
-    maintainers = [ maintainers.joelmo ];
-    license = licenses.gpl2;
-    # TODO: support other systems, just copy appropriate lib/wrapper.. to $out
-    platforms = [ "x86_64-linux" ];
+    homepage = "https://geti2p.net";
+    sourceProvenance = with sourceTypes; [
+      fromSource
+      binaryBytecode # source bundles dependencies as jars
+    ];
+    license = with licenses; [
+      asl20
+      boost
+      bsd2
+      bsd3
+      cc-by-30
+      cc0
+      epl10
+      gpl2
+      gpl3
+      lgpl21Only
+      lgpl3Only
+      mit
+      publicDomain
+    ];
+    platforms = [ "x86_64-linux" "i686-linux" ];
+    maintainers = with maintainers; [ joelmo ];
   };
-}
+})

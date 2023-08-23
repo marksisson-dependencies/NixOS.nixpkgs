@@ -1,37 +1,38 @@
-{ stdenv, fetchurl, p7zip }:
+{ lib, stdenv, fetchurl, libarchive }:
 
-stdenv.mkDerivation  {
-  name = "win-virtio-0.1.105-1";
-  version = "0.1.105-1";
-
-  phases = [ "buildPhase" "installPhase" ];
+stdenv.mkDerivation rec {
+  pname = "win-virtio";
+  version = "0.1.229-1";
 
   src = fetchurl {
-    url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.105-1/virtio-win.iso";
-    sha256 = "065gz7s77y0q9kfqbr27451sr28rm9azpi88sqjkfph8c6r8q3wc";
+    url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-${version}/virtio-win.iso";
+    hash = "sha256-yIoN3jRgXq7mz4ifPioMKvPK65G130WhJcpPcBrLu+A=";
   };
 
-  buildPhase = ''
-    ${p7zip}/bin/7z x $src
-    '';
+  nativeBuildInputs = [
+    libarchive
+  ];
 
-  installPhase =
-    let
-      copy = arch: version: {input, output}: "mkdir -p $out/${arch}/${output}; cp ${input}/${version}/${arch}/* $out/${arch}/${output}/.";
-      virtio = [{input="Balloon"; output="vioballoon";}
-                {input="NetKVM"; output="vionet";}
-                {input="vioscsi"; output="vioscsi";}
-                {input="vioserial"; output="vioserial";}
-                {input="viostor"; output="viostor";}
-                {input="viorng"; output="viorng";}
-               ];
-    in
-      stdenv.lib.concatStringsSep "\n" ((map (copy "amd64" "w8.1") virtio) ++ (map (copy "x86" "w8.1") virtio));
+  unpackCmd = "mkdir source; bsdtar -xf $curSrc -C source";
 
-  meta = with stdenv.lib; {
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out
+    cp -R ./. $out/
+
+    runHook postInstall
+  '';
+
+  passthru.updateScript = ./update.sh;
+
+  meta = with lib; {
     description = "Windows VirtIO Drivers";
-    homepage = "https://fedoraproject.org/wiki/Windows_Virtio_Drivers";
-    maintainers = [ maintainers.tstrobel ];
+    homepage = "https://docs.fedoraproject.org/en-US/quick-docs/creating-windows-virtual-machines-using-virtio-drivers/index.html";
+    changelog = "https://fedorapeople.org/groups/virt/virtio-win/CHANGELOG";
+    license = [ licenses.bsd3 ];
+    maintainers = with maintainers; [ anthonyroussel ];
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     platforms = platforms.linux;
   };
 }

@@ -1,25 +1,32 @@
-{ stdenv, fetchurl, pkgconfig, mesa_noglu }:
+{ lib, stdenv, fetchurl, pkg-config, libGL, ApplicationServices
+, testers
+}:
 
-stdenv.mkDerivation rec {
-  name = "glu-9.0.0";
+stdenv.mkDerivation (finalAttrs: {
+  pname = "glu";
+  version = "9.0.2";
 
-  src = fetchurl {
-    url = "ftp://ftp.freedesktop.org/pub/mesa/glu/${name}.tar.bz2";
-    sha256 = "04nzlil3a6fifcmb95iix3yl8mbxdl66b99s62yzq8m7g79x0yhz";
+  src = let
+    inherit (finalAttrs) pname version;
+  in fetchurl {
+    url = "https://mesa.freedesktop.org/archive/${pname}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-bnKA/1hcah2d/N8vykiSUWNLM3e/wzwp5AAkZqONAtQ=";
   };
-  postPatch = ''
-    echo 'Cflags: -I''${includedir}' >> glu.pc.in
-  '';
 
-  buildInputs = [ pkgconfig ];
-  propagatedBuildInputs = [ mesa_noglu ];
+  nativeBuildInputs = [ pkg-config ];
+  propagatedBuildInputs = [ libGL ]
+    ++ lib.optional stdenv.isDarwin ApplicationServices;
 
   outputs = [ "out" "dev" ];
 
+  passthru.tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
+
   meta = {
     description = "OpenGL utility library";
-    homepage = http://cgit.freedesktop.org/mesa/glu/;
-    license = stdenv.lib.licenses.sgi-b-20;
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://cgit.freedesktop.org/mesa/glu/";
+    license = lib.licenses.sgi-b-20;
+    pkgConfigModules = [ "glu" ];
+    platforms = lib.platforms.unix;
+    broken = stdenv.hostPlatform.isAndroid;
   };
-}
+})

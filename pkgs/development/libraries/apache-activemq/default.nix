@@ -1,15 +1,13 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "apache-activemq-${version}";
-  version = "5.13.4";
+  pname = "apache-activemq";
+  version = "5.18.2";
 
   src = fetchurl {
-    sha256 = "0sp806bmv9vs19zbzlv71ag09p1jbl2wn2wpxfwa20mndri8lsmz";
-    url = "mirror://apache/activemq/${version}/${name}-bin.tar.gz";
+    sha256 = "sha256-zT3z7C95HUf0NRvA5dX5iAwiCkUaMYIO2/g5li7IQwo=";
+    url = "mirror://apache/activemq/${version}/${pname}-${version}-bin.tar.gz";
   };
-
-  phases = [ "unpackPhase" "installPhase" ];
 
   installPhase = ''
     mkdir -p $out
@@ -21,10 +19,11 @@ stdenv.mkDerivation rec {
   '';
 
   meta = {
-    homepage = http://activemq.apache.org/;
+    homepage = "https://activemq.apache.org/";
     description = "Messaging and Integration Patterns server written in Java";
-    license = stdenv.lib.licenses.asl20;
-    platforms = stdenv.lib.platforms.unix;
+    sourceProvenance = with lib.sourceTypes; [ binaryBytecode ];
+    license = lib.licenses.asl20;
+    platforms = lib.platforms.unix;
   };
 
 }

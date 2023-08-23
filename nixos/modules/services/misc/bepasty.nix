@@ -2,10 +2,10 @@
 
 with lib;
 let
-  gunicorn = pkgs.pythonPackages.gunicorn;
-  bepasty = pkgs.pythonPackages.bepasty-server;
-  gevent = pkgs.pythonPackages.gevent;
-  python = pkgs.pythonPackages.python;
+  gunicorn = pkgs.python3Packages.gunicorn;
+  bepasty = pkgs.bepasty;
+  gevent = pkgs.python3Packages.gevent;
+  python = pkgs.python3Packages.python;
   cfg = config.services.bepasty;
   user = "bepasty";
   group = "bepasty";
@@ -13,31 +13,30 @@ let
 in
 {
   options.services.bepasty = {
-    enable = mkEnableOption "Bepasty servers";
+    enable = mkEnableOption (lib.mdDoc "Bepasty servers");
 
     servers = mkOption {
       default = {};
-      description = ''
+      description = lib.mdDoc ''
         configure a number of bepasty servers which will be started with
         gunicorn.
         '';
-      type = with types ; attrsOf (submodule ({
+      type = with types ; attrsOf (submodule ({ config, ... } : {
 
         options = {
 
           bind = mkOption {
             type = types.str;
-            description = ''
+            description = lib.mdDoc ''
               Bind address to be used for this server.
               '';
             example = "0.0.0.0:8000";
             default = "127.0.0.1:8000";
           };
 
-
           dataDir = mkOption {
             type = types.str;
-            description = ''
+            description = lib.mdDoc ''
               Path to the directory where the pastes will be saved to
               '';
             default = default_home+"/data";
@@ -45,7 +44,7 @@ in
 
           defaultPermissions = mkOption {
             type = types.str;
-            description = ''
+            description = lib.mdDoc ''
               default permissions for all unauthenticated accesses.
               '';
             example = "read,create,delete";
@@ -54,7 +53,7 @@ in
 
           extraConfig = mkOption {
             type = types.lines;
-            description = ''
+            description = lib.mdDoc ''
               Extra configuration for bepasty server to be appended on the
               configuration.
               see https://bepasty-server.readthedocs.org/en/latest/quickstart.html#configuring-bepasty
@@ -71,15 +70,33 @@ in
 
           secretKey = mkOption {
             type = types.str;
-            description = ''
+            description = lib.mdDoc ''
               server secret for safe session cookies, must be set.
+
+              Warning: this secret is stored in the WORLD-READABLE Nix store!
+
+              It's recommended to use {option}`secretKeyFile`
+              which takes precedence over {option}`secretKey`.
               '';
             default = "";
           };
 
+          secretKeyFile = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = lib.mdDoc ''
+              A file that contains the server secret for safe session cookies, must be set.
+
+              {option}`secretKeyFile` takes precedence over {option}`secretKey`.
+
+              Warning: when {option}`secretKey` is non-empty {option}`secretKeyFile`
+              defaults to a file in the WORLD-READABLE Nix store containing that secret.
+              '';
+          };
+
           workDir = mkOption {
             type = types.str;
-            description = ''
+            description = lib.mdDoc ''
               Path to the working directory (used for config and pidfile).
               Defaults to the users home directory.
               '';
@@ -87,11 +104,22 @@ in
           };
 
         };
+        config = {
+          secretKeyFile = mkDefault (
+            if config.secretKey != ""
+            then toString (pkgs.writeTextFile {
+              name = "bepasty-secret-key";
+              text = config.secretKey;
+            })
+            else null
+          );
+        };
       }));
     };
   };
 
   config = mkIf cfg.enable {
+
     environment.systemPackages = [ bepasty ];
 
     # creates gunicorn systemd service for each configured server
@@ -115,7 +143,7 @@ in
           serviceConfig = {
             Type = "simple";
             PrivateTmp = true;
-            ExecStartPre = assert server.secretKey != ""; pkgs.writeScript "bepasty-server.${name}-init" ''
+            ExecStartPre = assert server.secretKeyFile != null; pkgs.writeScript "bepasty-server.${name}-init" ''
               #!/bin/sh
               mkdir -p "${server.workDir}"
               mkdir -p "${server.dataDir}"
@@ -123,7 +151,7 @@ in
               cat > ${server.workDir}/bepasty-${name}.conf <<EOF
               SITENAME="${name}"
               STORAGE_FILESYSTEM_DIRECTORY="${server.dataDir}"
-              SECRET_KEY="${server.secretKey}"
+              SECRET_KEY="$(cat "${server.secretKeyFile}")"
               DEFAULT_PERMISSIONS="${server.defaultPermissions}"
               ${server.extraConfig}
               EOF
@@ -140,16 +168,12 @@ in
         })
     ) cfg.servers;
 
-    users.extraUsers = [{
-      uid = config.ids.uids.bepasty;
-      name = user;
-      group = group;
-      home = default_home;
-    }];
+    users.users.${user} =
+      { uid = config.ids.uids.bepasty;
+        group = group;
+        home = default_home;
+      };
 
-    users.extraGroups = [{
-      name = group;
-      gid = config.ids.gids.bepasty;
-    }];
+    users.groups.${group}.gid = config.ids.gids.bepasty;
   };
 }

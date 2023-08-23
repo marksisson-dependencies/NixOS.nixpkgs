@@ -1,56 +1,85 @@
-{ stdenv, fetchurl, fetchpatch, pkgconfig, libsepol, pcre
-, enablePython ? true, swig ? null, python ? null
+{ lib, stdenv, fetchurl, fetchpatch, buildPackages, pcre, pkg-config, libsepol
+, enablePython ? !stdenv.hostPlatform.isStatic, swig ? null, python3 ? null
+, fts
 }:
 
-assert enablePython -> swig != null && python != null;
+assert enablePython -> swig != null && python3 != null;
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "libselinux-${version}";
-  version = "2.4";
-  inherit (libsepol) se_release se_url;
+  pname = "libselinux";
+  version = "3.3";
+  inherit (libsepol) se_url;
+
+  outputs = [ "bin" "out" "dev" "man" ] ++ optional enablePython "py";
 
   src = fetchurl {
-    url = "${se_url}/${se_release}/libselinux-${version}.tar.gz";
-    sha256 = "0yqg73ns97jwjh1iyv0jr5qxb8k5sqq5ywfkx11lzfn5yj8k0126";
+    url = "${se_url}/${version}/libselinux-${version}.tar.gz";
+    sha256 = "0mvh793g7fg6wb6zqhkdyrv80x6k84ypqwi8ii89c91xcckyxzdc";
   };
 
-  buildInputs = [ pkgconfig libsepol pcre ]
-             ++ optionals enablePython [ swig python ];
+  patches = [
+    # Make it possible to disable shared builds (for pkgsStatic).
+    #
+    # We can't use fetchpatch because it processes includes/excludes
+    # /after/ stripping the prefix, which wouldn't work here because
+    # there would be no way to distinguish between
+    # e.g. libselinux/src/Makefile and libsepol/src/Makefile.
+    #
+    # This is a static email, so we shouldn't have to worry about
+    # normalizing the patch.
+    (fetchurl {
+      url = "https://lore.kernel.org/selinux/20211113141616.361640-1-hi@alyssa.is/raw";
+      sha256 = "16a2s2ji9049892i15yyqgp4r20hi1hij4c1s4s8law9jsx65b3n";
+      postFetch = ''
+        mv "$out" $TMPDIR/patch
+        ${buildPackages.patchutils_0_3_3}/bin/filterdiff \
+            -i 'a/libselinux/*' --strip 1 <$TMPDIR/patch >"$out"
+      '';
+    })
+  ];
 
-  # Avoid this false warning:
-  # avc_internal.c: In function 'avc_netlink_receive':
-  # avc_internal.c:105:25: error: cast increases required alignment of target type [-Werror=cast-align]
-  #  struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
-  #                         ^
+  nativeBuildInputs = [ pkg-config python3 ] ++ optionals enablePython [ swig ];
+  buildInputs = [ libsepol pcre fts ] ++ optionals enablePython [ python3 ];
 
-  NIX_CFLAGS_COMPILE = "-std=gnu89 -Wno-error=cast-align";
+  # drop fortify here since package uses it by default, leading to compile error:
+  # command-line>:0:0: error: "_FORTIFY_SOURCE" redefined [-Werror]
+  hardeningDisable = [ "fortify" ];
 
-  # Unreleased upstream patch that fixes Python package issue arising
-  # from recent SWIG changes.
-  patches = optional enablePython (fetchpatch {
-    name = "fix-python-swig.patch";
-    url = "https://github.com/SELinuxProject/selinux/commit/a9604c30a5e2f71007d31aa6ba41cf7b95d94822.patch";
-    sha256 = "0mjrclh0sd8m7vq0wvl6pg29ss415j3kn0266v8ixy4fprafagfp";
-    stripLen = 1;
-  });
+  env.NIX_CFLAGS_COMPILE = "-Wno-error";
 
-  postPatch = optionalString enablePython ''
-    sed -i -e 's|\$(LIBDIR)/libsepol.a|${libsepol}/lib/libsepol.a|' src/Makefile
+  makeFlags = [
+    "PREFIX=$(out)"
+    "INCDIR=$(dev)/include/selinux"
+    "INCLUDEDIR=$(dev)/include"
+    "MAN3DIR=$(man)/share/man/man3"
+    "MAN5DIR=$(man)/share/man/man5"
+    "MAN8DIR=$(man)/share/man/man8"
+    "SBINDIR=$(bin)/sbin"
+    "SHLIBDIR=$(out)/lib"
+
+    "LIBSEPOLA=${lib.getLib libsepol}/lib/libsepol.a"
+    "ARCH=${stdenv.hostPlatform.linuxArch}"
+  ] ++ optionals stdenv.hostPlatform.isStatic [
+    "DISABLE_SHARED=y"
+  ] ++ optionals enablePython [
+    "PYTHON=${python3.pythonForBuild.interpreter}"
+    "PYTHONLIBDIR=$(py)/${python3.sitePackages}"
+  ];
+
+  postPatch = lib.optionalString stdenv.hostPlatform.isMusl ''
+    substituteInPlace src/procattr.c \
+      --replace "#include <unistd.h>" ""
   '';
 
-  preBuild = ''
-    # Build fails without this precreated
-    mkdir -p $out/include
-
-    makeFlagsArray+=("PREFIX=$out")
-    makeFlagsArray+=("DESTDIR=$out")
+  preInstall = optionalString enablePython ''
+    mkdir -p $py/${python3.sitePackages}/selinux
   '';
 
   installTargets = [ "install" ] ++ optional enablePython "install-pywrap";
 
-  meta = libsepol.meta // {
+  meta = removeAttrs libsepol.meta ["outputsToInstall"] // {
     description = "SELinux core library";
   };
 }

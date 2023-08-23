@@ -1,53 +1,37 @@
-{ stdenv, lib, gox, gotools, buildGoPackage, fetchFromGitHub
-, fetchgit, fetchhg, fetchbzr, fetchsvn }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, installShellFiles
+}:
 
-stdenv.mkDerivation rec {
-  name = "packer-${version}";
-  version = "0.10.1";
+buildGoModule rec {
+  pname = "packer";
+  version = "1.9.4";
 
-  src = (import ./deps.nix {
-    inherit stdenv lib gox gotools buildGoPackage fetchgit fetchhg fetchbzr fetchsvn;
-  }).out;
+  src = fetchFromGitHub {
+    owner = "hashicorp";
+    repo = "packer";
+    rev = "v${version}";
+    hash = "sha256-oGEG9uGjZTpJjQBnVlffFpNc5sb7HyD/ibpnQUhtTH4=";
+  };
 
-  buildInputs = [ src.go gox gotools ];
+  vendorHash = "sha256-vHVx9vFPvctWNzibfZlN7mEYngYd6q7s9gMIM0FX0Ao=";
 
-  configurePhase = ''
-    export GOPATH=$PWD/share/go
-    export XC_ARCH=$(go env GOARCH)
-    export XC_OS=$(go env GOOS)
+  subPackages = [ "." ];
 
-    mkdir $GOPATH/bin
+  ldflags = [ "-s" "-w" ];
 
-    cd $GOPATH/src/github.com/mitchellh/packer
+  nativeBuildInputs = [ installShellFiles ];
 
-    # Don't fetch the deps
-    substituteInPlace "Makefile" --replace ': deps' ':'
-
-    # Avoid using git
-    sed \
-      -e "s|GITBRANCH:=.*||" \
-      -e "s|GITSHA:=.*|GITSHA=${src.rev}|" \
-      -i Makefile
-    sed \
-      -e "s|GIT_COMMIT=.*|GIT_COMMIT=${src.rev}|" \
-      -e "s|GIT_DIRTY=.*|GIT_DIRTY=|" \
-      -i "scripts/build.sh"
+  postInstall = ''
+    installShellCompletion --zsh contrib/zsh-completion/_packer
   '';
 
-  buildPhase = ''
-    make generate releasebin
-  '';
-
-  installPhase = ''
-    mkdir -p $out/bin
-    mv bin/* $out/bin
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A tool for creating identical machine images for multiple platforms from a single source configuration";
-    homepage    = http://www.packer.io;
+    homepage    = "https://www.packer.io";
     license     = licenses.mpl20;
-    maintainers = with maintainers; [ cstrahan zimbatm ];
-    platforms   = platforms.unix;
+    maintainers = with maintainers; [ cstrahan zimbatm ma27 techknowlogick qjoly ];
+    changelog   = "https://github.com/hashicorp/packer/blob/v${version}/CHANGELOG.md";
   };
 }

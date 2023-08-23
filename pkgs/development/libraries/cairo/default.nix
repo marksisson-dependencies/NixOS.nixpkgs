@@ -1,78 +1,128 @@
-{ stdenv, fetchurl, fetchFromGitHub, fetchpatch, pkgconfig, libiconv
-, libintlOrEmpty, expat, zlib, libpng, pixman, fontconfig, freetype, xorg
+{ config, lib, stdenv, fetchurl, fetchpatch, pkg-config, libiconv
+, libintl, expat, zlib, libpng, pixman, fontconfig, freetype
+, x11Support? !stdenv.isDarwin, libXext, libXrender
 , gobjectSupport ? true, glib
-, xcbSupport ? true # no longer experimental since 1.12
-, glSupport ? true, mesa_noglu ? null # mesa is no longer a big dependency
+, xcbSupport ? x11Support, libxcb, xcbutil # no longer experimental since 1.12
+, libGLSupported ? lib.elem stdenv.hostPlatform.system lib.platforms.mesaPlatforms
+, glSupport ? x11Support && config.cairo.gl or (libGLSupported && stdenv.isLinux)
+, libGL # libGLU libGL is no longer a big dependency
 , pdfSupport ? true
 , darwin
+, testers
 }:
 
-assert glSupport -> mesa_noglu != null;
-
-with { inherit (stdenv.lib) optional optionals; };
-
-stdenv.mkDerivation rec {
-  name = "cairo-1.14.6";
+let
+  inherit (lib) optional optionals;
+in stdenv.mkDerivation (finalAttrs: let
+  inherit (finalAttrs) pname version;
+in {
+  pname = "cairo";
+  version = "1.16.0";
 
   src = fetchurl {
-    url = "http://cairographics.org/releases/${name}.tar.xz";
-    sha256 = "0lmjlzmghmr27y615px9hkm552x7ap6pmq9mfbzr6smp8y2b6g31";
-  };
-
-  infinality = fetchFromGitHub {
-    owner = "bohoomil";
-    repo = "fontconfig-ultimate";
-    rev = "730f5e77580677e86522c1f2119aa78803741759";
-    sha256 = "1hbrdpm6xcczs2c2iid7by8h7dsd0jcf7an88s150njyqnjzxjg7";
+    url = "https://cairographics.org/${if lib.mod (builtins.fromJSON (lib.versions.minor version)) 2 == 0 then "releases" else "snapshots"}/${pname}-${version}.tar.xz";
+    sha256 = "0c930mk5xr2bshbdljv005j3j8zr47gqmkry3q6qgvqky6rjjysy";
   };
 
   patches = [
-    # from https://bugs.freedesktop.org/show_bug.cgi?id=98165
+    # Fixes CVE-2018-19876; see Nixpkgs issue #55384
+    # CVE information: https://nvd.nist.gov/vuln/detail/CVE-2018-19876
+    # Upstream PR: https://gitlab.freedesktop.org/cairo/cairo/merge_requests/5
+    #
+    # This patch is the merged commit from the above PR.
     (fetchpatch {
-      name = "cairo-CVE-2016-9082.patch";
-      url = "https://bugs.freedesktop.org/attachment.cgi?id=127421";
-      sha256 = "03sfyaclzlglip4pvfjb4zj4dmm8mlphhxl30mb6giinkc74bfri";
+      name   = "CVE-2018-19876.patch";
+      url    = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/6edf572ebb27b00d3c371ba5ae267e39d27d5b6d.patch";
+      hash = "sha256-wZ51BZWlXByFY3/CTn7el2A9aYkwL1FygJ2zqnN+UIQ=";
     })
-  ];
 
-  prePatch = ''
-    patches="$patches $(echo $infinality/*_cairo-iu/*.patch)"
-  '';
+    # Fix PDF output.
+    # https://gitlab.freedesktop.org/cairo/cairo/issues/342
+    (fetchpatch {
+      url = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/5e34c5a9640e49dcc29e6b954c4187cfc838dbd1.patch";
+      hash = "sha256-yCwsDUY7efVvOZkA6a0bPS+RrVc8Yk9bfPwWHeOjq5o=";
+    })
+
+    # Fixes CVE-2020-35492; see https://github.com/NixOS/nixpkgs/issues/120364.
+    # CVE information: https://nvd.nist.gov/vuln/detail/CVE-2020-35492
+    # Upstream PR: https://gitlab.freedesktop.org/cairo/cairo/merge_requests/85
+    (fetchpatch {
+      name = "CVE-2020-35492.patch";
+      includes = [ "src/cairo-image-compositor.c" ];
+      url = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/78266cc8c0f7a595cfe8f3b694bfb9bcc3700b38.patch";
+      hash = "sha256-cXKzLMENx4/BHXLZg3Kfkx3esCnaNaB7WvjNfL77FhE=";
+    })
+
+    # Workaround https://gitlab.freedesktop.org/cairo/cairo/-/issues/121
+    ./skip-configure-stderr-check.patch
+
+    # Fixes cairo crash on macOS Big Sur
+    # Upstream PR: https://gitlab.freedesktop.org/cairo/cairo/-/issues/420
+    (fetchpatch {
+      url = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/e22d7212acb454daccc088619ee147af03883974.diff";
+      hash = "sha256-8G98nsPz3MLEWPDX9F0jKgXC4hC4NNdFQLSpmW3ay2s=";
+    })
+
+    # Fix clang build failures on newer LLVM versions
+    # Upstream PR: https://gitlab.freedesktop.org/cairo/cairo/-/merge_requests/119
+    (fetchpatch {
+      name = "fix-types.patch";
+      url = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/38e486b34d435130f2fb38c429e6016c3c82cd53.patch";
+      hash = "sha256-vmluOJSuTRiQHmbBBVCxOIkZ0O0ZEo0J4mgrUPn0SIo=";
+    })
+
+    # Fix unexpected color addition on grayscale images (usually text).
+    # Upstream fix: https://gitlab.freedesktop.org/cairo/cairo/-/merge_requests/114
+    # Can be removed after 1.18 release
+    (fetchpatch {
+      name = "fix-grayscale-anialias.patch";
+      url = "https://gitlab.freedesktop.org/cairo/cairo/-/commit/4f4d89506f58a64b4829b1bb239bab9e46d63727.diff";
+      hash = "sha256-mbTg67e7APfdELsuMAgXdY3xokWbGtHF7VDD5UyYqKM=";
+    })
+
+  ];
 
   outputs = [ "out" "dev" "devdoc" ];
   outputBin = "dev"; # very small
+  separateDebugInfo = true;
 
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
+  ];
+
+  buildInputs = [
     libiconv
-  ] ++ libintlOrEmpty ++ optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+    libintl
+  ] ++ optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
     CoreGraphics
+    CoreText
     ApplicationServices
     Carbon
   ]);
 
-  propagatedBuildInputs =
-    with xorg; [ libXext fontconfig expat freetype pixman zlib libpng libXrender ]
+  propagatedBuildInputs = [ fontconfig expat freetype pixman zlib libpng ]
+    ++ optionals x11Support [ libXext libXrender ]
     ++ optionals xcbSupport [ libxcb xcbutil ]
     ++ optional gobjectSupport glib
-    ++ optional glSupport mesa_noglu
+    ++ optional glSupport libGL
     ; # TODO: maybe liblzo but what would it be for here?
 
-  configureFlags = if stdenv.isDarwin then [
+  configureFlags = [
+    "--enable-tee"
+  ] ++ (if stdenv.isDarwin then [
     "--disable-dependency-tracking"
     "--enable-quartz"
     "--enable-quartz-font"
     "--enable-quartz-image"
     "--enable-ft"
-  ] else ([ "--enable-tee" ]
-    ++ optional xcbSupport "--enable-xcb"
+  ] else (optional xcbSupport "--enable-xcb"
     ++ optional glSupport "--enable-gl"
     ++ optional pdfSupport "--enable-pdf"
-  );
+  )) ++ optional (!x11Support) "--disable-xlib";
 
   preConfigure =
   # On FreeBSD, `-ldl' doesn't exist.
-    stdenv.lib.optionalString stdenv.isFreeBSD
+    lib.optionalString stdenv.isFreeBSD
        '' for i in "util/"*"/Makefile.in" boilerplate/Makefile.in
           do
             cat "$i" | sed -es/-ldl//g > t
@@ -85,15 +135,19 @@ stdenv.mkDerivation rec {
     # `-I' flags to be propagated.
     sed -i "src/cairo.pc.in" \
         -es'|^Cflags:\(.*\)$|Cflags: \1 -I${freetype.dev}/include/freetype2 -I${freetype.dev}/include|g'
+    substituteInPlace configure --replace strings $STRINGS
     '';
 
   enableParallelBuilding = true;
 
-  postInstall = stdenv.lib.optionalString stdenv.isDarwin glib.flattenInclude;
+  doCheck = false; # fails
 
-  meta = with stdenv.lib; {
+  postInstall = lib.optionalString stdenv.isDarwin glib.flattenInclude;
+
+  passthru.tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
+
+  meta = with lib; {
     description = "A 2D graphics library with support for multiple output devices";
-
     longDescription = ''
       Cairo is a 2D graphics library with support for multiple output
       devices.  Currently supported output targets include the X
@@ -105,11 +159,13 @@ stdenv.mkDerivation rec {
       media while taking advantage of display hardware acceleration
       when available (e.g., through the X Render Extension).
     '';
-
-    homepage = http://cairographics.org/;
-
+    homepage = "http://cairographics.org/";
     license = with licenses; [ lgpl2Plus mpl10 ];
-
+    pkgConfigModules = [
+      "cairo-ps"
+      "cairo-svg"
+    ] ++ lib.optional gobjectSupport "cairo-gobject"
+      ++ lib.optional pdfSupport "cairo-pdf";
     platforms = platforms.all;
   };
-}
+})

@@ -1,6 +1,6 @@
-{ stdenv, pkgs, callPackage, fetchFromGitHub, faust2jack, faust2lv2, helmholtz, mrpeach, puredata-with-plugins }:
+{ lib, stdenv, fetchFromGitHub, faust2jack, faust2lv2, helmholtz, mrpeach, puredata-with-plugins }:
 stdenv.mkDerivation rec {
-  name = "VoiceOfFaust-${version}";
+  pname = "VoiceOfFaust";
   version = "1.1.4";
 
   src = fetchFromGitHub {
@@ -18,9 +18,11 @@ stdenv.mkDerivation rec {
 
   runtimeInputs = [ pitchTracker ];
 
+  dontWrapQtApps = true;
+
   patchPhase = ''
     sed -i "s@pd -nodac@${pitchTracker}/bin/pd -nodac@g" launchers/synthWrapper
-    sed -i "s@../PureData/OscSendVoc.pd@$out/PureData/OscSendVoc.pd@g" launchers/synthWrapper
+    sed -i "s@../PureData/OscSendVoc.pd@$out/PureData/OscSendVoc.pd@g" launchers/pitchTracker
   '';
 
   buildPhase = ''
@@ -32,10 +34,8 @@ stdenv.mkDerivation rec {
   installPhase = ''
     mkdir -p $out/bin
 
-    for file in ./*; do
-      if test -x "$file" && test -f "$file"; then
-        cp "$file" "$out/bin"
-      fi
+    for f in $(find . -executable -type f); do
+      cp $f $out/bin/
     done
 
     cp launchers/* $out/bin/
@@ -49,8 +49,8 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "Turn your voice into a synthesizer";
-    homepage = https://github.com/magnetophon/VoiceOfFaust;
-    license = stdenv.lib.licenses.gpl3;
-    maintainers = [ stdenv.lib.maintainers.magnetophon ];
+    homepage = "https://github.com/magnetophon/VoiceOfFaust";
+    license = lib.licenses.gpl3;
+    maintainers = [ lib.maintainers.magnetophon ];
   };
 }

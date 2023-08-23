@@ -1,40 +1,74 @@
-{ stdenv, fetchzip, ocaml, transitional ? false }:
+{ lib, stdenv, fetchFromGitHub, ocaml, findlib, perl, makeWrapper
+, rresult, bos, ocaml_pcre, re, camlp-streams
+}:
 
-let
-  metafile = ./META;
-in
+if lib.versionOlder ocaml.version "4.02"
+then throw "camlp5 is not available for OCaml ${ocaml.version}"
+else
 
-stdenv.mkDerivation {
+let params =
+  if lib.versionAtLeast ocaml.version "4.12"
+  then rec {
+    version = "8.00.05";
 
-  name = "camlp5${if transitional then "_transitional" else ""}-6.17";
+    src = fetchFromGitHub {
+      owner = "camlp5";
+      repo = "camlp5";
+      rev = version;
+      hash = "sha256-Havr3RB6iUP7QzV+LUGwMHtGzmRdS5RqYsqJ0N5w6gE=";
+    };
 
-  src = fetchzip {
-    url = https://github.com/camlp5/camlp5/archive/rel617.tar.gz;
-    sha256 = "0finmr6y0lyd7mnl61kmvwd32cmmf64m245vdh1iy0139rxf814c";
-  };
+    nativeBuildInputs = [ makeWrapper ocaml findlib perl ];
+    buildInputs = [ bos ocaml_pcre re rresult ];
+    propagatedBuildInputs = [ camlp-streams ];
 
-  buildInputs = [ ocaml ];
+    postFixup = ''
+      for p in camlp5 camlp5o camlp5r camlp5sch mkcamlp5 ocpp5
+      do
+        wrapProgram $out/bin/$p \
+        --suffix CAML_LD_LIBRARY_PATH : ${ocaml_pcre}/lib/ocaml/${ocaml.version}/site-lib/stublibs
+      done
+    '';
+  } else rec {
+    version = "7.14";
+    src = fetchFromGitHub {
+      owner = "camlp5";
+      repo = "camlp5";
+      rev = "rel${builtins.replaceStrings [ "." ] [ "" ] version}";
+      sha256 = "1dd68bisbpqn5lq2pslm582hxglcxnbkgfkwhdz67z4w9d5nvr7w";
+    };
+    nativeBuildInputs = [ ocaml perl ];
+  }
+; in
+
+stdenv.mkDerivation (params // {
+
+  pname = "ocaml${ocaml.version}-camlp5";
+
+  strictDeps = true;
 
   prefixKey = "-prefix ";
 
-  preConfigure = "configureFlagsArray=(" +  (if transitional then "--transitional" else "--strict") +
-                  " --libdir $out/lib/ocaml/${ocaml.version}/site-lib)";
+  preConfigure = ''
+    configureFlagsArray=(--strict --libdir $out/lib/ocaml/${ocaml.version}/site-lib)
+    patchShebangs ./config/find_stuffversion.pl etc/META.pl
+  '';
 
-  buildFlags = "world.opt";
+  buildFlags = [ "world.opt" ];
 
-  postInstall = "cp ${metafile} $out/lib/ocaml/${ocaml.version}/site-lib/camlp5/META";
+  dontStrip = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Preprocessor-pretty-printer for OCaml";
     longDescription = ''
       Camlp5 is a preprocessor and pretty-printer for OCaml programs.
       It also provides parsing and printing tools.
     '';
-    homepage = https://camlp5.github.io/;
+    homepage = "https://camlp5.github.io/";
     license = licenses.bsd3;
     platforms = ocaml.meta.platforms or [];
     maintainers = with maintainers; [
-      z77z vbgl
+      maggesi vbgl
     ];
   };
-}
+})

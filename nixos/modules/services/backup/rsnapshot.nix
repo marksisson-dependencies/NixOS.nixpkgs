@@ -2,7 +2,7 @@
 
 with lib;
 
-let 
+let
   cfg = config.services.rsnapshot;
   cfgfile = pkgs.writeText "rsnapshot.conf" ''
     config_version	1.2
@@ -22,11 +22,10 @@ in
 {
   options = {
     services.rsnapshot = {
-      enable = mkEnableOption "rsnapshot backups";
+      enable = mkEnableOption (lib.mdDoc "rsnapshot backups");
       enableManualRsnapshot = mkOption {
-        description = "Whether to enable manual usage of the rsnapshot command with this module.";
+        description = lib.mdDoc "Whether to enable manual usage of the rsnapshot command with this module.";
         default = true;
-        example = false;
         type = types.bool;
       };
 
@@ -38,7 +37,7 @@ in
           backup	/home/	localhost/
         '';
         type = types.lines;
-        description = ''
+        description = lib.mdDoc ''
           rsnapshot configuration option in addition to the defaults from
           rsnapshot and this module.
 
@@ -53,8 +52,8 @@ in
       cronIntervals = mkOption {
         default = {};
         example = { hourly = "0 * * * *"; daily = "50 21 * * *"; };
-        type = types.attrsOf types.string;
-        description = ''
+        type = types.attrsOf types.str;
+        description = lib.mdDoc ''
           Periodicity at which intervals should be run by cron.
           Note that the intervals also have to exist in configuration
           as retain options.

@@ -1,70 +1,104 @@
-{ stdenv 
-, fetchurl 
-, pkgconfig
-, automake
-, autoconf
-, libtool
-, ncurses
+{ lib
+, stdenv
+, fetchurl
 , readline
-, which
-, python ? null 
-, mpi ? null
+, xorg
+, mpi
+, cmake
+, bison
+, flex
+, git
+, perl
+, gsl
+, xcbuild
+, python3
+, useMpi ? false
+, useIv ? true
+, useCore ? false
+, useRx3d ? false
 }:
 
+
 stdenv.mkDerivation rec {
-  name = "neuron-${version}";
-  version = "7.4";
-  
-  nativeBuildInputs = [ which pkgconfig automake autoconf libtool ];
-  buildInputs = [ ncurses readline python mpi  ];
+  pname = "neuron";
+  version = "8.2.2";
 
-  src = fetchurl {
-    url = "http://www.neuron.yale.edu/ftp/neuron/versions/v${version}/nrn-${version}.tar.gz";
-    sha256 = "1rid8cmv5mca0vqkgwahm0prkwkbdvchgw2bdwvx4adkn8bbl0ql";
-  };
+  # format is for pythonModule conversion
+  format = "other";
 
-  patches = (stdenv.lib.optional (stdenv.isDarwin) [ ./neuron-carbon-disable.patch ]);
+  nativeBuildInputs = [
+    cmake
+    bison
+    flex
+    git
+  ] ++ lib.optionals useCore [ perl gsl ]
+  ++ lib.optionals stdenv.isDarwin [ xcbuild ];
 
-  enableParallelBuilding = true;
+  buildInputs = lib.optionals useIv [
+    xorg.libX11.dev
+    xorg.libXcomposite.dev
+    xorg.libXext.dev
+  ];
 
-  ## neuron install by default everything under prefix/${host_arch}/*
-  ## override this to support nix standard file hierarchy 
-  ## without issues: install everything under prefix/
-  preConfigure = ''
-    ./build.sh
-    export prefix="''${prefix} --exec-prefix=''${out}" 
+  propagatedBuildInputs = [
+    readline
+    python3
+    python3.pkgs.wheel
+    python3.pkgs.setuptools
+    python3.pkgs.scikit-build
+    python3.pkgs.matplotlib
+  ] ++ lib.optionals useMpi [
+    mpi
+  ] ++ lib.optionals useMpi [
+    python3.pkgs.mpi4py
+  ] ++ lib.optionals useRx3d [
+    python3.pkgs.cython
+    python3.pkgs.numpy
+  ];
+
+  patches = [ ./neuron_darwin_rpath.patch ];
+
+  # Patch build shells for cmake (bin, src, cmake) and submodules (external)
+  postPatch = ''
+    patchShebangs ./bin ./src ./external ./cmake
+    sed -e 's#DESTDIR =#DESTDIR = '"$out"'#' -i external/coreneuron/extra/nrnivmodl_core_makefile.in
   '';
 
-  configureFlags = with stdenv.lib;
-                    [ "--without-x" "--with-readline=${readline}" ]
-                    ++  optionals (python != null)  [ "--with-nrnpython=${python.interpreter}" ]
-                    ++ (if mpi != null then ["--with-mpi" "--with-paranrn"] 
-                        else ["--without-mpi"]);
-                        
-                        
-  postInstall = stdenv.lib.optionals (python != null) [ ''
-    ## standardise python neuron install dir if any
-    if [[ -d $out/lib/python ]]; then
-        mkdir -p ''${out}/${python.sitePackages}
-        mv ''${out}/lib/python/*  ''${out}/${python.sitePackages}/
-    fi
-  ''];
-  
-  propagatedBuildInputs = [ readline ncurses which libtool ];  
+  cmakeFlags = [
+    "-DNRN_ENABLE_INTERVIEWS=${if useIv then "ON" else "OFF"}"
+    "-DNRN_ENABLE_MPI=${if useMpi then "ON" else "OFF"}"
+    "-DNRN_ENABLE_CORENEURON=${if useCore then "ON" else "OFF"}"
+    "-DNRN_ENABLE_RX3D=${if useRx3d then "ON" else "OFF"}"
+  ];
 
-  meta = with stdenv.lib; {
+  postInstall = ''
+    mkdir -p $out/${python3.sitePackages}
+    mv $out/lib/python/* $out/${python3.sitePackages}/
+    rm -rf $out/lib/python build
+    for entry in $out/lib/*.so; do
+      # remove references to build
+      patchelf --set-rpath $(patchelf --print-rpath $entry | tr ':' '\n' | sed '/^\/build/d' | tr '\n' ':') $entry
+    done
+  '';
+
+  src = fetchurl {
+    url = "https://github.com/neuronsimulator/nrn/releases/download/${version}/full-src-package-${version}.tar.gz";
+    sha256 = "sha256-orGeBxu3pu4AyAW5P1EGJv8G0dOUZcSOjpUaloqicZU=";
+  };
+
+  meta = with lib; {
     description = "Simulation environment for empirically-based simulations of neurons and networks of neurons";
-
-    longDescription = "NEURON is a simulation environment for developing and exercising models of 
-                neurons and networks of neurons. It is particularly well-suited to problems where 
-                cable properties of cells play an important role, possibly including extracellular 
-                potential close to the membrane), and where cell membrane properties are complex, 
-                involving many ion-specific channels, ion accumulation, and second messengers";
-
-    license     = licenses.bsd3;
-    homepage    = http://www.neuron.yale.edu/neuron;
-    maintainers = [ maintainers.adev ];
-    platforms   = platforms.all;
-  };  
+    longDescription = ''
+      NEURON is a simulation environment for developing and exercising models of
+      neurons and networks of neurons. It is particularly well-suited to problems where
+      cable properties of cells play an important role, possibly including extracellular
+      potential close to the membrane), and where cell membrane properties are complex,
+      involving many ion-specific channels, ion accumulation, and second messengers
+    '';
+    sourceProvenance = with sourceTypes; [ fromSource ];
+    license = licenses.bsd3;
+    homepage = "http://www.neuron.yale.edu/neuron";
+    maintainers = with maintainers; [ adev davidcromp ];
+    platforms = platforms.all;
+  };
 }
-

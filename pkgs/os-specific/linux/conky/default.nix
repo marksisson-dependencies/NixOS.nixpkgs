@@ -1,7 +1,7 @@
-{ stdenv, fetchFromGitHub, pkgconfig, cmake
+{ config, lib, stdenv, fetchFromGitHub, pkg-config, cmake
 
 # dependencies
-, glib, libXinerama
+, glib, libXinerama, catch2
 
 # optional features without extra dependencies
 , mpdSupport          ? true
@@ -15,7 +15,7 @@
                             , docbook_xsl ? null , docbook_xml_dtd_44 ? null
 
 , ncursesSupport      ? true      , ncurses       ? null
-, x11Support          ? true      , xlibsWrapper           ? null
+, x11Support          ? true      , freetype, xorg
 , xdamageSupport      ? x11Support, libXdamage    ? null
 , doubleBufferSupport ? x11Support
 , imlib2Support       ? x11Support, imlib2        ? null
@@ -26,11 +26,14 @@
 , toluapp ? null
 
 , wirelessSupport     ? true      , wirelesstools ? null
+, nvidiaSupport       ? false     , libXNVCtrl ? null
+, pulseSupport        ? config.pulseaudio or false, libpulseaudio ? null
 
 , curlSupport         ? true      , curl ? null
 , rssSupport          ? curlSupport
 , weatherMetarSupport ? curlSupport
 , weatherXoapSupport  ? curlSupport
+, journalSupport      ? true, systemd ? null
 , libxml2 ? null
 }:
 
@@ -40,7 +43,6 @@ assert docsSupport         -> docbook2x != null && libxslt != null
 
 assert ncursesSupport      -> ncurses != null;
 
-assert x11Support          -> xlibsWrapper != null;
 assert xdamageSupport      -> x11Support && libXdamage != null;
 assert imlib2Support       -> x11Support && imlib2     != null;
 assert luaSupport          -> lua != null;
@@ -49,48 +51,51 @@ assert luaImlib2Support    -> luaSupport && imlib2Support
 assert luaCairoSupport     -> luaSupport && toluapp != null
                                          && cairo   != null;
 assert luaCairoSupport || luaImlib2Support
-                           -> lua.luaversion == "5.1";
+                           -> lua.luaversion == "5.4";
 
 assert wirelessSupport     -> wirelesstools != null;
+assert nvidiaSupport       -> libXNVCtrl != null;
+assert pulseSupport        -> libpulseaudio != null;
 
 assert curlSupport         -> curl != null;
 assert rssSupport          -> curlSupport && libxml2 != null;
 assert weatherMetarSupport -> curlSupport;
 assert weatherXoapSupport  -> curlSupport && libxml2 != null;
+assert journalSupport      -> systemd != null;
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "conky-${version}";
-  version = "1.10.5";
+  pname = "conky";
+  version = "1.19.4";
 
   src = fetchFromGitHub {
     owner = "brndnmtthws";
     repo = "conky";
     rev = "v${version}";
-    sha256 = "1x1b7h4s8f8qbiyas7sw5v2nq5h2wy3q7hsp1ah4l7191jjidqix";
+    hash = "sha256-XptnokBWtBx0W2k2C9jVwIYH8pOrDUbuQLvh8JrW/w8=";
   };
 
   postPatch = ''
     sed -i -e '/include.*CheckIncludeFile)/i include(CheckIncludeFiles)' \
       cmake/ConkyPlatformChecks.cmake
   '' + optionalString docsSupport ''
-    # Drop examples, since they contain non-ASCII characters that break docbook2x :(
-    sed -i 's/ Example: .*$//' doc/config_settings.xml
+    substituteInPlace cmake/Conky.cmake --replace "# set(RELEASE true)" "set(RELEASE true)"
 
-    substituteInPlace cmake/Docbook.cmake \
-      --replace "http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl" "${docbook_xsl}/xml/xsl/docbook/html/docbook.xsl"
-    substituteInPlace doc/docs.xml \
-      --replace "http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd" "${docbook_xml_dtd_44}/xml/dtd/docbook/docbookx.dtd"
-    substituteInPlace cmake/Conky.cmake --replace "#set(RELEASE true)" "set(RELEASE true)"
+    cp ${catch2}/include/catch2/catch.hpp tests/catch2/catch.hpp
   '';
 
-  NIX_LDFLAGS = "-lgcc_s";
+  env = {
+    # For some reason -Werror is on by default, causing the project to fail compilation.
+    NIX_CFLAGS_COMPILE = "-Wno-error";
+    NIX_LDFLAGS = "-lgcc_s";
+  };
 
-  buildInputs = [ pkgconfig glib cmake libXinerama ]
-    ++ optionals docsSupport        [ docbook2x libxslt man less ]
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ glib libXinerama ]
+    ++ optionals docsSupport        [ docbook2x docbook_xsl docbook_xml_dtd_44 libxslt man less ]
     ++ optional  ncursesSupport     ncurses
-    ++ optional  x11Support         xlibsWrapper
+    ++ optionals x11Support         [ freetype xorg.libICE xorg.libX11 xorg.libXext xorg.libXft xorg.libSM ]
     ++ optional  xdamageSupport     libXdamage
     ++ optional  imlib2Support      imlib2
     ++ optional  luaSupport         lua
@@ -100,6 +105,9 @@ stdenv.mkDerivation rec {
     ++ optional  curlSupport        curl
     ++ optional  rssSupport         libxml2
     ++ optional  weatherXoapSupport libxml2
+    ++ optional  nvidiaSupport      libXNVCtrl
+    ++ optional  pulseSupport       libpulseaudio
+    ++ optional  journalSupport     systemd
     ;
 
   cmakeFlags = []
@@ -118,10 +126,20 @@ stdenv.mkDerivation rec {
     ++ optional weatherMetarSupport "-DBUILD_WEATHER_METAR=ON"
     ++ optional weatherXoapSupport  "-DBUILD_WEATHER_XOAP=ON"
     ++ optional wirelessSupport     "-DBUILD_WLAN=ON"
+    ++ optional nvidiaSupport       "-DBUILD_NVIDIA=ON"
+    ++ optional pulseSupport        "-DBUILD_PULSEAUDIO=ON"
+    ++ optional journalSupport      "-DBUILD_JOURNAL=ON"
     ;
 
-  meta = with stdenv.lib; {
-    homepage = http://conky.sourceforge.net/;
+  # `make -f src/CMakeFiles/conky.dir/build.make src/CMakeFiles/conky.dir/conky.cc.o`:
+  # src/conky.cc:137:23: fatal error: defconfig.h: No such file or directory
+  enableParallelBuilding = false;
+
+  doCheck = true;
+
+  meta = with lib; {
+    homepage = "https://conky.cc";
+    changelog = "https://github.com/brndnmtthws/conky/releases/tag/v${version}";
     description = "Advanced, highly configurable system monitor based on torsmo";
     maintainers = [ maintainers.guibert ];
     license = licenses.gpl3Plus;

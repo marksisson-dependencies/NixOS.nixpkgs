@@ -1,35 +1,38 @@
-{ stdenv, fetchurl, cmake, makeQtWrapper, exiv2, graphicsmagick
-, qtbase, qtdeclarative, qtmultimedia, qtquickcontrols, qttools
-}:
+{ mkDerivation, lib, fetchurl, cmake, exiv2, graphicsmagick, libraw
+, qtbase, qtdeclarative, qtmultimedia, qtquickcontrols2, qttools, qtgraphicaleffects
+, extra-cmake-modules, poppler, kimageformats, libarchive, pugixml, wrapQtAppsHook}:
 
-let
-  version = "1.3";
-in
-stdenv.mkDerivation rec {
-  name = "photoqt-${version}";
+mkDerivation rec {
+  pname = "photoqt";
+  version = "3.1";
+
   src = fetchurl {
-    url = "http://photoqt.org/pkgs/photoqt-${version}.tar.gz";
-    sha256 = "0j2kvxfb5pd9abciv161nkcsyam6n8kfqs8ymwj2mxiqflwbmfl1";
+    url = "https://${pname}.org/pkgs/${pname}-${version}.tar.gz";
+    hash = "sha256-hihfqE7XIlSAxPg3Kzld3LrYS97wDH//GGqpBpBwFm0=";
   };
 
+  nativeBuildInputs = [ cmake extra-cmake-modules qttools wrapQtAppsHook ];
+
   buildInputs = [
-    cmake makeQtWrapper qtbase qtquickcontrols qttools exiv2 graphicsmagick
-    qtmultimedia qtdeclarative
+    qtbase qtquickcontrols2 exiv2 graphicsmagick poppler
+    qtmultimedia qtdeclarative libraw qtgraphicaleffects
+    kimageformats libarchive pugixml
+  ];
+
+  cmakeFlags = [
+    "-DFREEIMAGE=OFF"
+    "-DDEVIL=OFF"
+    "-DCHROMECAST=OFF"
   ];
 
   preConfigure = ''
     export MAGICK_LOCATION="${graphicsmagick}/include/GraphicsMagick"
   '';
 
-  postInstall = ''
-    wrapQtProgram $out/bin/photoqt
-  '';
-
   meta = {
-    homepage = "http://photoqt.org/";
+    homepage = "https://photoqt.org/";
     description = "Simple, yet powerful and good looking image viewer";
-    license = stdenv.lib.licenses.gpl2Plus;
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.eduarrrd ];
+    license = lib.licenses.gpl2Plus;
+    platforms = lib.platforms.unix;
   };
 }

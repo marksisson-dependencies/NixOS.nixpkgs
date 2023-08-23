@@ -1,31 +1,59 @@
-{lib, fetchurl, mercurial, python2Packages}:
+{ lib
+, fetchurl
+, python3Packages
+, mercurial
+, qt5
+}:
 
-python2Packages.buildPythonApplication rec {
-    name = "tortoisehg-${version}";
-    version = "3.9.2";
+python3Packages.buildPythonApplication rec {
+  pname = "tortoisehg";
+  version = "6.2.2";
 
-    src = fetchurl {
-      url = "https://bitbucket.org/tortoisehg/targz/downloads/${name}.tar.gz";
-      sha256 = "17wcsf91z7dnb7c8vyagasj5vvmas6ms5lx1ny4pnm94qzslkfh2";
-    };
+  src = fetchurl {
+    url = "https://www.mercurial-scm.org/release/tortoisehg/targz/tortoisehg-${version}.tar.gz";
+    sha256 = "sha256-Xbvg/FcuX/AL2reWsaM2oaFyLby3+HDCfYtRyswE7DA=";
+  };
 
-    pythonPath = with python2Packages; [ pyqt4 mercurial qscintilla iniparse ];
+  # Extension point for when thg's mercurial is lagging behind mainline.
+  tortoiseMercurial = mercurial;
 
-    propagatedBuildInputs = with python2Packages; [ qscintilla iniparse ];
+  propagatedBuildInputs = with python3Packages; [
+    tortoiseMercurial
+    qscintilla-qt5
+    iniparse
+  ];
+  nativeBuildInputs = [ qt5.wrapQtAppsHook ];
 
-    doCheck = false;
-    dontStrip = true;
-    buildPhase = "";
-    installPhase = ''
-      ${python2Packages.python.executable} setup.py install --prefix=$out
-      ln -s $out/bin/thg $out/bin/tortoisehg     #convenient alias
-    '';
+  doCheck = true;
+  postInstall = ''
+    mkdir -p $out/share/doc/tortoisehg
+    cp COPYING.txt $out/share/doc/tortoisehg/Copying.txt
+    # convenient alias
+    ln -s $out/bin/thg $out/bin/tortoisehg
+    wrapQtApp $out/bin/thg
+  '';
 
-    meta = {
-      description = "Qt based graphical tool for working with Mercurial";
-      homepage = http://tortoisehg.bitbucket.org/;
-      license = lib.licenses.gpl2;
-      platforms = lib.platforms.linux;
-      maintainers = [ "abcz2.uprola@gmail.com" ];
-    };
+  checkPhase = ''
+    export QT_QPA_PLATFORM=offscreen
+    echo "test: thg smoke test"
+    $out/bin/thg -h > help.txt &
+    sleep 1s
+    if grep "list of commands" help.txt; then
+      echo "thg help output was captured. Seems like package in a working state."
+      exit 0
+    else
+      echo "thg help output was not captured. Seems like package is broken."
+      exit 1
+    fi
+  '';
+
+  passthru.mercurial = tortoiseMercurial;
+
+  meta = {
+    description = "Qt based graphical tool for working with Mercurial";
+    homepage = "https://tortoisehg.bitbucket.io/";
+    license = lib.licenses.gpl2Only;
+    platforms = lib.platforms.linux;
+    maintainers = with lib.maintainers; [ danbst gbtb ];
+  };
 }

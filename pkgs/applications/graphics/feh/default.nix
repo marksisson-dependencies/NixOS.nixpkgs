@@ -1,40 +1,47 @@
-{ stdenv, fetchurl, makeWrapper, xorg, imlib2, libjpeg, libpng
-, curl, libexif, perlPackages }:
+{ lib, stdenv, fetchFromGitHub, makeWrapper
+, xorg, imlib2, libjpeg, libpng
+, curl, libexif, jpegexiforient, perl
+, enableAutoreload ? !stdenv.hostPlatform.isDarwin }:
 
 stdenv.mkDerivation rec {
-  name = "feh-2.17.1";
+  pname = "feh";
+  version = "3.10";
 
-  src = fetchurl {
-    url = "http://feh.finalrewind.org/${name}.tar.bz2";
-    sha256 = "0lyq17kkmjxj3vxpmri56linr1bnfmx5568pgrcjgd3amnj1is59";
+  src = fetchFromGitHub {
+    owner = "derf";
+    repo = pname;
+    rev = version;
+    hash = "sha256-9NJ6zgQHcFJPmRlqJuCMXcKjLvDPUG+QvKGTJlWvWK4=";
   };
 
-  outputs = [ "out" "doc" ];
+  outputs = [ "out" "man" "doc" ];
 
-  nativeBuildInputs = [ makeWrapper xorg.libXt ]
-    ++ stdenv.lib.optionals doCheck [ perlPackages.TestCommand perlPackages.TestHarness ];
+  nativeBuildInputs = [ makeWrapper ];
 
-  buildInputs = [ xorg.libX11 xorg.libXinerama imlib2 libjpeg libpng curl libexif ];
+  buildInputs = [ xorg.libXt xorg.libX11 xorg.libXinerama imlib2 libjpeg libpng curl libexif ];
 
-  preBuild = ''
-    makeFlags="PREFIX=$out exif=1"
-  '';
+  makeFlags = [
+    "PREFIX=${placeholder "out"}" "exif=1"
+  ] ++ lib.optional stdenv.isDarwin "verscmp=0"
+    ++ lib.optional enableAutoreload "inotify=1";
 
+  installTargets = [ "install" ];
   postInstall = ''
-    wrapProgram "$out/bin/feh" --prefix PATH : "${libjpeg.bin}/bin" \
+    wrapProgram "$out/bin/feh" --prefix PATH : "${lib.makeBinPath [ libjpeg jpegexiforient ]}" \
                                --add-flags '--theme=feh'
   '';
 
-  checkPhase = ''
-    PERL5LIB="${perlPackages.TestCommand}/lib/perl5/site_perl" make test
-  '';
+  nativeCheckInputs = lib.singleton (perl.withPackages (p: [ p.TestCommand ]));
   doCheck = true;
 
-  meta = {
+  meta = with lib; {
     description = "A light-weight image viewer";
-    homepage = https://derf.homelinux.org/projects/feh/;
-    license = stdenv.lib.licenses.mit;
-    maintainers = with stdenv.lib.maintainers; [viric];
-    platforms = with stdenv.lib.platforms; unix;
+    homepage = "https://feh.finalrewind.org/";
+    # released under a variant of the MIT license
+    # https://spdx.org/licenses/MIT-feh.html
+    license = licenses.mit-feh;
+    maintainers = with maintainers; [ viric willibutz globin ma27 ];
+    platforms = platforms.unix;
+    mainProgram = "feh";
   };
 }

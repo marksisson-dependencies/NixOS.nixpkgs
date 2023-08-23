@@ -1,15 +1,27 @@
-{ stdenv, fetchurl, pkgconfig, makeDesktopItem, unzip
-, qtbase, qttools, makeQtWrapper, qtmultimedia, qtquick1, qtquickcontrols
-, openssl, protobuf, qmakeHook
+{ mkDerivation
+, lib
+, fetchFromGitHub
+, pkg-config
+, makeDesktopItem
+, qtbase
+, qttools
+, qtmultimedia
+, qtquick1
+, qtquickcontrols
+, openssl
+, protobuf
+, qmake
 }:
 
-stdenv.mkDerivation rec {
-  name = "ricochet-${version}";
-  version = "1.1.2";
+mkDerivation rec {
+  pname = "ricochet";
+  version = "1.1.4";
 
-  src = fetchurl {
-    url = "https://github.com/ricochet-im/ricochet/archive/v${version}.tar.gz";
-    sha256 = "1szb5vmlqal0vhan87kgbks184f7xbfay1hr3d3vm8r1lvcjjfkr";
+  src = fetchFromGitHub {
+    owner = "ricochet-im";
+    repo = "ricochet";
+    rev = "v${version}";
+    sha256 = "sha256-CGVTHa0Hqj90WvB6ZbA156DVgzv/R7blsU550y2Ai9c=";
   };
 
   desktopItem = makeDesktopItem {
@@ -19,15 +31,20 @@ stdenv.mkDerivation rec {
     desktopName = "Ricochet";
     genericName = "Ricochet";
     comment = meta.description;
-    categories = "Office;Email;";
+    categories = [ "Office" "Email" ];
   };
 
   buildInputs = [
-    qtbase qttools qtmultimedia qtquick1 qtquickcontrols
-    openssl protobuf
+    qtbase
+    qttools
+    qtmultimedia
+    qtquick1
+    qtquickcontrols
+    openssl
+    protobuf
   ];
 
-  nativeBuildInputs = [ pkgconfig makeQtWrapper qmakeHook ];
+  nativeBuildInputs = [ pkg-config qmake ];
 
   preConfigure = ''
     export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags openssl)"
@@ -38,7 +55,6 @@ stdenv.mkDerivation rec {
   installPhase = ''
     mkdir -p $out/bin
     cp ricochet $out/bin
-    wrapQtProgram $out/bin/ricochet
 
     mkdir -p $out/share/applications
     cp $desktopItem/share/applications"/"* $out/share/applications
@@ -47,11 +63,14 @@ stdenv.mkDerivation rec {
     cp icons/ricochet.png $out/share/pixmaps/ricochet.png
   '';
 
-  meta = with stdenv.lib; {
+  # RCC: Error in 'translation/embedded.qrc': Cannot find file 'ricochet_en.qm'
+  enableParallelBuilding = false;
+
+  meta = with lib; {
     description = "Anonymous peer-to-peer instant messaging";
     homepage = "https://ricochet.im";
     license = licenses.bsd3;
-    maintainers = [ maintainers.codsl maintainers.jgillich ];
+    maintainers = [ maintainers.codsl maintainers.jgillich maintainers.np ];
     platforms = platforms.linux;
   };
 }
