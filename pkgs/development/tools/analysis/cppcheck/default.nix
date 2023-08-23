@@ -1,28 +1,43 @@
-{ lib
-, stdenv
+{ docbook_xsl
+, docbook_xml_dtd_45
 , fetchFromGitHub
 , installShellFiles
-, pcre
-, python3
+, lib
 , libxslt
-, docbook_xsl
-, docbook_xml_dtd_45
+, pcre
+, pkg-config
+, python3
+, stdenv
 , which
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "cppcheck";
-  version = "2.10.1";
+  version = "2.11.1";
 
   src = fetchFromGitHub {
     owner = "danmar";
     repo = "cppcheck";
-    rev = version;
-    hash = "sha256-tN7MYMRBakdL++ZeY2u9s2B2wyAU7iaOB/hsv2GXI6s=";
+    rev = finalAttrs.version;
+    hash = "sha256-ZQ1EgnC2JBc0AvSW8PtgMzJoWSPt04Xfh8dqOU+KMfw=";
   };
 
-  buildInputs = [ pcre (python3.withPackages (ps: [ps.pygments])) ];
-  nativeBuildInputs = [ installShellFiles libxslt docbook_xsl docbook_xml_dtd_45 which ];
+  strictDeps = true;
+
+  nativeBuildInputs = [
+    docbook_xsl
+    docbook_xml_dtd_45
+    installShellFiles
+    libxslt
+    pkg-config
+    python3
+    which
+  ];
+
+  buildInputs = [
+    pcre
+    (python3.withPackages (ps: [ ps.pygments ]))
+  ];
 
   makeFlags = [ "PREFIX=$(out)" "MATCHCOMPILER=yes" "FILESDIR=$(out)/share/cppcheck" "HAVE_RULES=yes" ];
 
@@ -30,16 +45,21 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
+  postPatch = ''
+    substituteInPlace Makefile \
+      --replace 'PCRE_CONFIG = $(shell which pcre-config)' 'PCRE_CONFIG = $(PKG_CONFIG) libpcre'
+  '';
+
   postBuild = ''
     make DB2MAN=${docbook_xsl}/xml/xsl/docbook/manpages/docbook.xsl man
   '';
 
-  # test/testcondition.cpp:4949(TestCondition::alwaysTrueContainer): Assertion failed.
-  doCheck = !(stdenv.isLinux && stdenv.isAarch64);
-
   postInstall = ''
     installManPage cppcheck.1
   '';
+
+  # test/testcondition.cpp:4949(TestCondition::alwaysTrueContainer): Assertion failed.
+  doCheck = !(stdenv.isLinux && stdenv.isAarch64);
 
   doInstallCheck = true;
   installCheckPhase = ''
@@ -51,15 +71,15 @@ stdenv.mkDerivation rec {
     runHook postInstallCheck
   '';
 
-  meta = with lib; {
+  meta = {
     description = "A static analysis tool for C/C++ code";
+    homepage = "http://cppcheck.sourceforge.net/";
+    license = lib.licenses.gpl3Plus;
     longDescription = ''
       Check C/C++ code for memory leaks, mismatching allocation-deallocation,
       buffer overruns and more.
     '';
-    homepage = "http://cppcheck.sourceforge.net/";
-    license = licenses.gpl3Plus;
-    platforms = platforms.unix;
-    maintainers = with maintainers; [ joachifm ];
+    maintainers = with lib.maintainers; [ joachifm ];
+    platforms = lib.platforms.unix;
   };
-}
+})

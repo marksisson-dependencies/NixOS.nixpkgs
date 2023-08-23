@@ -27,11 +27,11 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "PortfolioPerformance";
-  version = "0.61.3";
+  version = "0.65.1";
 
   src = fetchurl {
     url = "https://github.com/buchen/portfolio/releases/download/${version}/PortfolioPerformance-${version}-linux.gtk.x86_64.tar.gz";
-    hash = "sha256-OtFHTZQ+K3CQPEcuirvp8MmW9IC5lEpg42A6FSZVTTA=";
+    hash = "sha256-VfYuqrz9YDHwY0atKXYkzHJW/lXlVWGgo5QjMTMeB+g=";
   };
 
   nativeBuildInputs = [

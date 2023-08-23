@@ -24,13 +24,13 @@
 
 stdenv.mkDerivation rec {
   pname = "dino";
-  version = "0.4.1";
+  version = "0.4.3";
 
   src = fetchFromGitHub {
     owner = "dino";
     repo = "dino";
     rev = "v${version}";
-    sha256 = "sha256-1czey1/Zn96JneCUnhPMyffG9FVV4bA9aidNB7Ozkpo=";
+    sha256 = "sha256-smy/t6wTCnG0kuRFKwyeLENKqOQDhL0fZTtj3BHo6kw=";
   };
 
   postPatch = ''
@@ -46,11 +46,11 @@ stdenv.mkDerivation rec {
     pkg-config
     wrapGAppsHook
     gettext
+    gobject-introspection
   ];
 
   buildInputs = [
     qrencode
-    gobject-introspection
     glib
     glib-networking # required for TLS support
     libadwaita

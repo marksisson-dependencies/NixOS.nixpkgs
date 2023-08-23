@@ -6,13 +6,13 @@
 
 let
   pname = "trilium-desktop";
-  version = "0.59.1";
+  version = "0.60.4";
 
   linuxSource.url = "https://github.com/zadam/trilium/releases/download/v${version}/trilium-linux-x64-${version}.tar.xz";
-  linuxSource.sha256 = "04jmpz8riz71vzs13yy0prwfq3sji36n7mgap80q2xwx445bxrka";
+  linuxSource.sha256 = "02vbghvi2sbh943rslgm712x9zccvpjab3jvr5b1bw4bq5fzppgq";
 
   darwinSource.url = "https://github.com/zadam/trilium/releases/download/v${version}/trilium-mac-x64-${version}.zip";
-  darwinSource.sha256 = "014phlv5mkn5pzbr9gwgy87d57wnkxa6g0pi3k2d4d29fj9v1f44";
+  darwinSource.sha256 = "0z6dk16xdzkiyxrm1yh3iz5351c8sdzvk8v5l3jdqy7davxw9f86";
 
   meta = metaCommon // {
     mainProgram = "trilium";
@@ -42,6 +42,7 @@ let
         comment = meta.description;
         desktopName = "Trilium Notes";
         categories = [ "Office" ];
+        startupWMClass = "trilium notes";
       })
     ];
 

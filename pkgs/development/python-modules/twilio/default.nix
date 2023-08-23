@@ -1,10 +1,14 @@
 { lib
+, aiohttp
+, aiohttp-retry
+, aiounittest
 , buildPythonPackage
 , cryptography
 , django
 , fetchFromGitHub
 , mock
 , multidict
+, pyngrok
 , pyjwt
 , pytestCheckHook
 , pythonOlder
@@ -14,25 +18,29 @@
 
 buildPythonPackage rec {
   pname = "twilio";
-  version = "7.16.4";
+  version = "8.6.0";
   format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "twilio";
     repo = "twilio-python";
     rev = "refs/tags/${version}";
-    hash = "sha256-OB7jW+I5oAE2TGPWmuIcXcABY1v1FMjo8UT83Xn4DB8=";
+    hash = "sha256-ATspn/cY9DJahcsesnzwDOCEKYoUbqSoeOR3+kLou0s=";
   };
 
   propagatedBuildInputs = [
+    aiohttp
+    aiohttp-retry
     pyjwt
+    pyngrok
     pytz
     requests
   ];
 
   nativeCheckInputs = [
+    aiounittest
     cryptography
     django
     mock
@@ -44,6 +52,12 @@ buildPythonPackage rec {
     # Tests require network access
     "test_set_default_user_agent"
     "test_set_user_agent_extensions"
+  ];
+
+  disabledTestPaths = [
+    # Tests require API token
+    "tests/cluster/test_webhook.py"
+    "tests/cluster/test_cluster.py"
   ];
 
   pythonImportsCheck = [

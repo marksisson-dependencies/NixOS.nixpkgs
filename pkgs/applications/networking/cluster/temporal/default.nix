@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "temporal";
-  version = "1.20.0";
+  version = "1.21.2";
 
   src = fetchFromGitHub {
     owner = "temporalio";
     repo = "temporal";
     rev = "v${version}";
-    hash = "sha256-YZzGAOPCljTMmyt1t0gjbgn+IelntCo/275+SjOJiJE=";
+    hash = "sha256-4iosKxGjH2O2y2wkAs/tuCH+SXTj6FhrPqS9qgL+vTQ=";
   };
 
-  vendorHash = "sha256-UMqkgQsnOxFcXgbm+oi3JGjqmbwaKEh6s5bzivGVAM8=";
+  vendorHash = "sha256-rgUdoFR7Qcp1h7v63DAWwx6NWSwWrJ6C6/b2tx2kCCw=";
 
   excludedPackages = [ "./build" ];
 
@@ -24,6 +24,9 @@ buildGoModule rec {
 
   installPhase = ''
     runHook preInstall
+
+    mkdir -p $out/share
+    cp -r ./schema $out/share/
 
     install -Dm755 "$GOPATH/bin/server" -T $out/bin/temporal-server
     install -Dm755 "$GOPATH/bin/cassandra" -T $out/bin/temporal-cassandra-tool

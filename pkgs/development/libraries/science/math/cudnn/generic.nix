@@ -1,11 +1,11 @@
-{
-  stdenv,
+{ stdenv,
+  backendStdenv,
   lib,
   zlib,
   useCudatoolkitRunfile ? false,
   cudaVersion,
   cudaMajorVersion,
-  cudatoolkit, # if cuda>=11: only used for .cc
+  cudatoolkit, # For cuda < 11
   libcublas ? null, # cuda <11 doesn't ship redist packages
   autoPatchelfHook,
   autoAddOpenGLRunpathHook,
@@ -26,7 +26,6 @@
   maxCudaVersion,
 }:
 assert useCudatoolkitRunfile || (libcublas != null); let
-  inherit (cudatoolkit) cc;
   inherit (lib) lists strings trivial versions;
 
   # majorMinorPatch :: String -> String
@@ -46,7 +45,7 @@ assert useCudatoolkitRunfile || (libcublas != null); let
     then cudatoolkit
     else libcublas;
 in
-  stdenv.mkDerivation {
+  backendStdenv.mkDerivation {
     pname = "cudatoolkit-${cudaMajorVersion}-cudnn";
     version = versionTriple;
 
@@ -63,7 +62,10 @@ in
 
     # Used by autoPatchelfHook
     buildInputs = [
-      cc.cc.lib # libstdc++
+      # Note this libstdc++ isn't from the (possibly older) nvcc-compatible
+      # stdenv, but from the (newer) stdenv that the rest of nixpkgs uses
+      stdenv.cc.cc.lib
+
       zlib
       cudatoolkit_root
     ];
@@ -92,6 +94,7 @@ in
     # Without --add-needed autoPatchelf forgets $ORIGIN on cuda>=8.0.5.
     postFixup = strings.optionalString (strings.versionAtLeast versionTriple "8.0.5") ''
       patchelf $out/lib/libcudnn.so --add-needed libcudnn_cnn_infer.so
+      patchelf $out/lib/libcudnn_ops_infer.so --add-needed libcublas.so --add-needed libcublasLt.so
     '';
 
     passthru = {

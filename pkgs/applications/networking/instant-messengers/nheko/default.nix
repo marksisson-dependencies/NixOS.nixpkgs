@@ -4,7 +4,7 @@
 , cmake
 , asciidoc
 , pkg-config
-, boost17x
+, boost179
 , cmark
 , coeurl
 , curl
@@ -51,7 +51,7 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    boost17x
+    boost179
     cmark
     coeurl
     curl
@@ -82,9 +82,6 @@ stdenv.mkDerivation rec {
   cmakeFlags = [
     "-DCOMPILE_QML=ON" # see https://github.com/Nheko-Reborn/nheko/issues/389
   ];
-
-  # https://github.com/NixOS/nixpkgs/issues/201254
-  NIX_LDFLAGS = lib.optionalString (stdenv.isLinux && stdenv.isAarch64 && stdenv.cc.isGNU) "-lgcc";
 
   preFixup = lib.optionalString voipSupport ''
     # add gstreamer plugins path to the wrapper
