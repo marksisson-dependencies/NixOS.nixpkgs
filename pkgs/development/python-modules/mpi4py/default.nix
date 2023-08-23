@@ -6,7 +6,7 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-F4WPLrxiMiDQEg0fqNQo0DPd50nEvDWzPYGmatf5NIA=";
+    hash = "sha256-F4WPLrxiMiDQEg0fqNQo0DPd50nEvDWzPYGmatf5NIA=";
   };
 
   passthru = {
@@ -43,7 +43,9 @@ buildPythonPackage rec {
 
   nativeBuildInputs = [ mpi ];
 
-  checkInputs = [ openssh ];
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [ openssh ];
 
   meta = with lib; {
     description = "Python bindings for the Message Passing Interface standard";

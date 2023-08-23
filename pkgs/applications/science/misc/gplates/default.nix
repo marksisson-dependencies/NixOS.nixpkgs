@@ -14,15 +14,13 @@
 , libGLU
 , mpfr
 , proj
-# build with Python 3.10 fails, because boost <= 1.78 can't find
-# pythons with double digits in minor versions, like X.YZ
-, python39
+, python3
 , qtxmlpatterns
 , qwt
 }:
 
 let
-  python = python39.withPackages (ps: with ps; [
+  python = python3.withPackages (ps: with ps; [
     numpy
   ]);
   boost' = boost.override {
@@ -41,6 +39,10 @@ in mkDerivation rec {
     url = "https://www.earthbyte.org/download/8421/?uid=b89bb31428";
     sha256 = "0lrcmcxc924ixddii8cyglqlwwxvk7f00g4yzbss5i3fgcbh8n96";
   };
+
+  patches = [
+    ./boost-placeholders.patch
+  ];
 
   nativeBuildInputs = [
     cmake

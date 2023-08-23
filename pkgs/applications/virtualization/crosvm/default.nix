@@ -1,59 +1,47 @@
-{ stdenv, lib, rustPlatform, fetchgit
-, minijail-tools, pkg-config, protobuf, wayland-scanner
+{ lib, rustPlatform, fetchgit, fetchpatch
+, pkg-config, protobuf, python3, wayland-scanner
 , libcap, libdrm, libepoxy, minijail, virglrenderer, wayland, wayland-protocols
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "crosvm";
-  version = "104.0";
+  version = "115.2";
 
   src = fetchgit {
-    url = "https://chromium.googlesource.com/crosvm/crosvm";
-    rev = "265aab613b1eb31598ea0826f04810d9f010a2c6";
-    sha256 = "OzbtPHs6BWK83RZ/6eCQHA61X6SY8FoBkaN70a37pvc=";
+    url = "https://chromium.googlesource.com/chromiumos/platform/crosvm";
+    rev = "d14053a211eb6753c53ced71fad2d3b402b997e6";
+    sha256 = "8p6M9Q9E07zqtHYdIIi6io9LLatd+9fH4Inod2Xjy5M=";
     fetchSubmodules = true;
   };
 
-  separateDebugInfo = true;
-
   patches = [
-    ./default-seccomp-policy-dir.diff
+    # Backport option to not vendor virglrenderer.
+    (fetchpatch {
+      url = "https://chromium.googlesource.com/crosvm/crosvm/+/dde9aa0e6d89a090f5d5f000822f7911eba98445%5E%21/?format=TEXT";
+      decode = "base64 -d";
+      hash = "sha256-W/s1i2reBXsbr0AOEtL9go3TNNYMwDVEu6pz3Q9wBSU=";
+    })
   ];
 
-  cargoLock.lockFile = ./Cargo.lock;
+  separateDebugInfo = true;
 
-  nativeBuildInputs = [ minijail-tools pkg-config protobuf wayland-scanner ];
+  cargoSha256 = "ZXyMeu2forItGcsGrNBWhV1V9HzVQK6LM4TxBrxAZnU=";
+
+  nativeBuildInputs = [
+    pkg-config protobuf python3 rustPlatform.bindgenHook wayland-scanner
+  ];
 
   buildInputs = [
     libcap libdrm libepoxy minijail virglrenderer wayland wayland-protocols
   ];
 
-  arch = stdenv.hostPlatform.parsed.cpu.name;
-
-  postPatch = ''
-    cp ${cargoLock.lockFile} Cargo.lock
-    sed -i "s|/usr/share/policy/crosvm/|$PWD/seccomp/$arch/|g" \
-        seccomp/$arch/*.policy
+  preConfigure = ''
+    patchShebangs third_party/minijail/tools/*.py
   '';
 
-  preBuild = ''
-    export DEFAULT_SECCOMP_POLICY_DIR=$out/share/policy
-
-    for policy in seccomp/$arch/*.policy; do
-        compile_seccomp_policy \
-            --default-action trap $policy ''${policy%.policy}.bpf
-    done
-
-    substituteInPlace seccomp/$arch/*.policy \
-      --replace "@include $(pwd)/seccomp/$arch/" "@include $out/share/policy/"
-  '';
+  CROSVM_USE_SYSTEM_VIRGLRENDERER = true;
 
   buildFeatures = [ "default" "virgl_renderer" "virgl_renderer_next" ];
-
-  postInstall = ''
-    mkdir -p $out/share/policy/
-    cp -v seccomp/$arch/*.{policy,bpf} $out/share/policy/
-  '';
 
   passthru.updateScript = ./update.py;
 
