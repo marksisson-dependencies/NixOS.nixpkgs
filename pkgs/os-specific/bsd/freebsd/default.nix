@@ -1,5 +1,5 @@
 { stdenv, lib, stdenvNoCC
-, makeScopeWithSplicing, generateSplicesForMkScope
+, makeScopeWithSplicing', generateSplicesForMkScope
 , buildPackages
 , bsdSetupHook, makeSetupHook
 , fetchgit, fetchzip, coreutils, groff, mandoc, byacc, flex, which, m4, gawk, substituteAll, runtimeShell
@@ -66,11 +66,9 @@ let
     done
   '';
 
-in makeScopeWithSplicing
-  (generateSplicesForMkScope "freebsd")
-  (_: {})
-  (_: {})
-  (self: let
+in makeScopeWithSplicing' {
+  otherSplices = generateSplicesForMkScope "freebsd";
+  f = (self: let
     inherit (self) mkDerivation;
   in {
   inherit freebsdSrc;
@@ -717,7 +715,7 @@ in makeScopeWithSplicing
       flex byacc gencat rpcgen
     ];
     buildInputs = with self; [ include csu ];
-    NIX_CFLAGS_COMPILE = "-B${self.csu}/lib";
+    env.NIX_CFLAGS_COMPILE = "-B${self.csu}/lib";
 
     makeFlags = [
       "STRIP=-s" # flag to install, not command
@@ -898,4 +896,5 @@ in makeScopeWithSplicing
     '';
   });
 
-})
+});
+}

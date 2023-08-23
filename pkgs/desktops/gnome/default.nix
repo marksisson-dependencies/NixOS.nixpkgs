@@ -75,8 +75,8 @@ lib.makeScope pkgs.newScope (self: with self; {
 
   gnome-settings-daemon = callPackage ./core/gnome-settings-daemon { };
 
-  # Using 3.38 to match Mutter used in Pantheon
-  gnome-settings-daemon338 = callPackage ./core/gnome-settings-daemon/3.38 { };
+  # Using 43 to match Mutter used in Pantheon
+  gnome-settings-daemon43 = callPackage ./core/gnome-settings-daemon/43 { };
 
   gnome-software = callPackage ./core/gnome-software { };
 
@@ -96,8 +96,8 @@ lib.makeScope pkgs.newScope (self: with self; {
 
   mutter = callPackage ./core/mutter { };
 
-  # Needed for elementary's gala and greeter until support for higher versions is provided
-  mutter338 = callPackage ./core/mutter/3.38 { };
+  # Needed for elementary's gala, wingpanel and greeter until support for higher versions is provided
+  mutter43 = callPackage ./core/mutter/43 { };
 
   nautilus = callPackage ./core/nautilus { };
 
@@ -149,8 +149,6 @@ lib.makeScope pkgs.newScope (self: with self; {
   cheese = callPackage ./apps/cheese { };
 
   file-roller = callPackage ./apps/file-roller { };
-
-  gedit = callPackage ./apps/gedit { };
 
   ghex = callPackage ./apps/ghex { };
 
@@ -263,6 +261,7 @@ lib.makeScope pkgs.newScope (self: with self; {
 #### Legacy aliases. They need to be outside the scope or they will shadow the attributes from parent scope.
 
   empathy = throw "The ‘gnome.empathy’ package was removed as it is unmaintained and no longer launches due to libsoup3 migration."; # added 2023-01-20
+  gedit = pkgs.gedit; # added 2023-07-05
   gnome-desktop = throw "The ‘gnome.gnome-desktop’ alias was removed. Please use ‘pkgs.gnome-desktop’ directly."; # converted to throw on 2022-10-26
   gnome-todo = pkgs.endeavour; # added 2022-07-30
   libgnome-games-support = throw "The ‘gnome.libgnome-games-support’ alias was removed. Please use ‘pkgs.libgnome-games-support’ directly."; # converted to throw on 2022-10-26
@@ -271,4 +270,8 @@ lib.makeScope pkgs.newScope (self: with self; {
   gnome-documents = throw "The ‘gnome.gnome-documents’ package was removed as it is broken and abandoned."; # added 2022-10-26
   gnome-devel-docs = throw "The ‘gnome.gnome-devel-docs’ package was removed as it is outdated and no longer relevant."; # added 2022-10-26
 
+  mutter338 = throw "The ‘gnome.mutter338’ package was removed as it is no longer needed by Pantheon."; # added 2023-02-22
+  mutter42 = throw "The ‘gnome.mutter42’ package was removed as it is no longer needed by Pantheon."; # added 2023-03-23
+  gnome-settings-daemon338 = throw "The ‘gnome.gnome-settings-daemon338’ package was removed as it is no longer needed by Pantheon."; # added 2023-02-22
+  gnome-settings-daemon42 = throw "The ‘gnome.gnome-settings-daemon42’ package was removed as it is no longer needed by Pantheon."; # added 2023-03-23
 }

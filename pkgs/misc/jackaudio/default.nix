@@ -1,5 +1,5 @@
 { lib, stdenv, fetchFromGitHub, pkg-config, python3Packages, makeWrapper
-, bash, libsamplerate, libsndfile, readline, eigen, celt
+, libsamplerate, libsndfile, readline, eigen, celt
 , wafHook
 # Darwin Dependencies
 , aften, AudioUnit, CoreAudio, libobjc, Accelerate
@@ -14,7 +14,6 @@
 , testers
 }:
 
-with lib;
 let
   inherit (python3Packages) python dbus-python;
   shouldUsePkg = pkg: if pkg != null && lib.meta.availableOn stdenv.hostPlatform pkg then pkg else null;
@@ -34,29 +33,30 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "jackaudio";
     repo = "jack2";
-    rev = "v${version}";
+    rev = "v${finalAttrs.version}";
     sha256 = "01s8i64qczxqawgrzrw19asaqmcspf5l2h3203xzg56wnnhhzcw7";
   };
+
+  outputs = [ "out" "dev" ];
 
   nativeBuildInputs = [ pkg-config python makeWrapper wafHook ];
   buildInputs = [ libsamplerate libsndfile readline eigen celt
     optDbus optPythonDBus optLibffado optAlsaLib optLibopus
-  ] ++ optionals stdenv.isDarwin [
+  ] ++ lib.optionals stdenv.isDarwin [
     aften AudioUnit CoreAudio Accelerate libobjc
   ];
 
-  prePatch = ''
-    substituteInPlace svnversion_regenerate.sh \
-        --replace /bin/bash ${bash}/bin/bash
+  postPatch = ''
+    patchShebangs --build svnversion_regenerate.sh
   '';
 
   dontAddWafCrossFlags = true;
   wafConfigureFlags = [
     "--classic"
     "--autostart=${if (optDbus != null) then "dbus" else "classic"}"
-  ] ++ optional (optDbus != null) "--dbus"
-    ++ optional (optLibffado != null) "--firewire"
-    ++ optional (optAlsaLib != null) "--alsa";
+  ] ++ lib.optional (optDbus != null) "--dbus"
+    ++ lib.optional (optLibffado != null) "--firewire"
+    ++ lib.optional (optAlsaLib != null) "--alsa";
 
   postInstall = (if libOnly then ''
     rm -rf $out/{bin,share}
@@ -65,9 +65,14 @@ stdenv.mkDerivation (finalAttrs: {
     wrapProgram $out/bin/jack_control --set PYTHONPATH $PYTHONPATH
   '');
 
+  postFixup = ''
+    substituteInPlace "$dev/lib/pkgconfig/jack.pc" \
+      --replace "$out/include" "$dev/include"
+  '';
+
   passthru.tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
 
-  meta = {
+  meta = with lib; {
     description = "JACK audio connection kit, version 2 with jackdbus";
     homepage = "https://jackaudio.org";
     license = licenses.gpl2Plus;

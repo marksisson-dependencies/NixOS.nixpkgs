@@ -1,5 +1,4 @@
-{ stdenv
-, targetPackages
+{ targetPackages
 , lib
 , makeSetupHook
 , dieHook
@@ -11,10 +10,7 @@
 
 makeSetupHook {
   name = "make-binary-wrapper-hook";
-
-  deps = [ dieHook ]
-    # https://github.com/NixOS/nixpkgs/issues/148189
-    ++ lib.optional (stdenv.isDarwin && stdenv.isAarch64) cc;
+  propagatedBuildInputs = [ dieHook ];
 
   substitutions = {
     cc = "${cc}/bin/${cc.targetPrefix}cc ${lib.escapeShellArgs (map (s: "-fsanitize=${s}") sanitizers)}";

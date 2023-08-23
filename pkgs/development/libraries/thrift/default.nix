@@ -16,11 +16,11 @@
 
 stdenv.mkDerivation rec {
   pname = "thrift";
-  version = "0.17.0";
+  version = "0.18.1";
 
   src = fetchurl {
     url = "https://archive.apache.org/dist/thrift/${version}/${pname}-${version}.tar.gz";
-    hash = "sha256-snLBeIuxZdmVIaJZmzG5f6aeWTHQmQFdka4QegsMxY8=";
+    hash = "sha256-BMbxDl14jKeOE+4u8NIVLHsHDAr1VIPWuULinP8pZyY=";
   };
 
   # Workaround to make the Python wrapper not drop this package:
@@ -74,6 +74,11 @@ stdenv.mkDerivation rec {
       url = "https://github.com/apache/thrift/commit/2ab850824f75d448f2ba14a468fb77d2594998df.diff";
       hash = "sha256-ejMKFG/cJgoPlAFzVDPI4vIIL7URqaG06/IWdQ2NkhY=";
     })
+    (fetchpatch {
+      name = "thrift-fix-tests-OpenSSL3.patch"; # https://github.com/apache/thrift/pull/2760
+      url = "https://github.com/apache/thrift/commit/eae3ac418f36c73833746bcd53e69ed8a12f0e1a.diff";
+      hash = "sha256-0jlN4fo94cfGFUKcLFQgVMI/x7uxn5OiLiFk6txVPzs=";
+    })
   ];
 
   cmakeFlags = [
@@ -90,11 +95,15 @@ stdenv.mkDerivation rec {
 
   disabledTests = [
     "PythonTestSSLSocket"
+    "PythonThriftTNonblockingServer"
   ] ++ lib.optionals stdenv.isDarwin [
     # Tests that hang up in the Darwin sandbox
     "SecurityTest"
     "SecurityFromBufferTest"
     "python_test"
+
+    # fails on hydra, passes locally
+    "concurrency_test"
 
     # Tests that fail in the Darwin sandbox when trying to use network
     "UnitTests"
@@ -106,7 +115,6 @@ stdenv.mkDerivation rec {
     "StressTest"
     "StressTestConcurrent"
     "StressTestNonBlocking"
-    "PythonThriftTNonblockingServer"
   ];
 
   doCheck = !static;

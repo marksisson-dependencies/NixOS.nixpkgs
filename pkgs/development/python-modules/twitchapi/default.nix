@@ -9,7 +9,7 @@
 
 buildPythonPackage rec {
   pname = "twitchapi";
-  version = "3.8.0";
+  version = "3.11.0";
 
   disabled = pythonOlder "3.7";
 
@@ -18,7 +18,7 @@ buildPythonPackage rec {
   src = fetchPypi {
     pname = "twitchAPI";
     inherit version;
-    hash = "sha256-gGLSR6XESaUUt31njQJtPeTOKSgVJHlS+UdYhPKvQJQ=";
+    hash = "sha256-TkQzF32nt89uBvC6aj/b5f2DQkOVDz7UyeUXRyVYumM=";
   };
 
   propagatedBuildInputs = [

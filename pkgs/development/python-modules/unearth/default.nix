@@ -15,14 +15,14 @@
 
 buildPythonPackage rec {
   pname = "unearth";
-  version = "0.7.0";
+  version = "0.9.2";
   format = "pyproject";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-z1RBGze3qUHzzf3ymu7ivxgWSor8o1xGe5f+q2JuZx4=";
+    hash = "sha256-hF9LVzOHTOO0JyEm3kluq+AKSa1nj90E1ILR533u1CU=";
   };
 
   nativeBuildInputs = [
@@ -35,6 +35,8 @@ buildPythonPackage rec {
   ] ++ lib.optionals (pythonOlder "3.8") [
     cached-property
   ];
+
+  __darwinAllowLocalNetworking = true;
 
   nativeCheckInputs = [
     flask

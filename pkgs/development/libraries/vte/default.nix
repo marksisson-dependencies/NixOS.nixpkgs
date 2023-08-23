@@ -30,13 +30,13 @@
 
 stdenv.mkDerivation rec {
   pname = "vte";
-  version = "0.70.3";
+  version = "0.72.2";
 
   outputs = [ "out" "dev" "devdoc" ];
 
   src = fetchurl {
     url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "sha256-lFcTSgLzFX/KBPfg05vbDzCZvgo86CtxOdDJioB0jyM=";
+    sha256 = "sha256-95Zv0YWmmB9TlkFitxz+9+YGSVFV1vWCe3KqDdZ0HJ4=";
   };
 
   patches = [
@@ -93,7 +93,7 @@ stdenv.mkDerivation rec {
   ];
 
   # error: argument unused during compilation: '-pie' [-Werror,-Wunused-command-line-argument]
-  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.hostPlatform.isMusl "-Wno-unused-command-line-argument";
+  env.NIX_CFLAGS_COMPILE = lib.optionalString stdenv.hostPlatform.isMusl "-Wno-unused-command-line-argument";
 
   postPatch = ''
     patchShebangs perf/*

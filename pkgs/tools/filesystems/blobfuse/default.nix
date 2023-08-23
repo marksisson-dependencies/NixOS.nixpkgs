@@ -12,7 +12,7 @@ let
     pname = "cpplite";
     inherit version src;
 
-    sourceRoot = "source/cpplite";
+    sourceRoot = "${src.name}/cpplite";
     patches = [ ./install-adls.patch ];
 
     cmakeFlags = [ "-DBUILD_ADLS=ON" "-DUSE_OPENSSL=OFF" ];
@@ -24,7 +24,7 @@ in stdenv.mkDerivation rec {
   pname = "blobfuse";
   inherit version src;
 
-  NIX_CFLAGS_COMPILE = [
+  env.NIX_CFLAGS_COMPILE = toString [
     # Needed with GCC 12
     "-Wno-error=deprecated-declarations"
     "-Wno-error=catch-value"
