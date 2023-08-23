@@ -1,21 +1,34 @@
-{ buildPythonPackage, fetchPypi, lib, pytestCheckHook }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, pytestCheckHook
+, pythonOlder
+}:
 
 buildPythonPackage rec {
   pname = "packageurl-python";
-  version = "0.9.6";
+  version = "0.11.2";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "c01fbaf62ad2eb791e97158d1f30349e830bee2dd3e9503a87f6c3ffae8d1cf0";
+    hash = "sha256-Afv3SkHvhc9BPx7eUpoUEfZYvaZu0i1F0nKArZzrpHE=";
   };
 
-  checkInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
 
-  pythonImportsCheck = [ "packageurl" ];
+  pythonImportsCheck = [
+    "packageurl"
+  ];
 
   meta = with lib; {
     description = "Python parser and builder for package URLs";
     homepage = "https://github.com/package-url/packageurl-python";
+    changelog = "https://github.com/package-url/packageurl-python/blob/v${version}/CHANGELOG.rst";
     license = licenses.mit;
     maintainers = with maintainers; [ armijnhemel ];
   };

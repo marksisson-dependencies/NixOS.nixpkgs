@@ -1,37 +1,68 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, runCommand
+}:
 
-buildGoModule rec {
+let
   pname = "elvish";
-  version = "0.16.3";
-
-  excludedPackages = [ "website" ];
-
-  ldflags = [ "-s" "-w" "-X github.com/elves/elvish/pkg/buildinfo.Version==${version}" "-X github.com/elves/elvish/pkg/buildinfo.Reproducible=true" ];
+  version = "0.19.2";
+  shellPath = "/bin/elvish";
+in
+buildGoModule {
+  inherit pname version;
 
   src = fetchFromGitHub {
     owner = "elves";
-    repo = pname;
+    repo = "elvish";
     rev = "v${version}";
-    sha256 = "1na2fswqp4rbgvlagz9nj3cmlxavlhi2gj6k6jpjq05mcbkxr3bd";
+    hash = "sha256-eCPJXCgmMvrJ2yVqYgXHXJWb6Ec0sutc91LNs4yRBYk=";
   };
 
-  vendorSha256 = "06rx09vs08d9arim53al73z22hb40xj2101kbvafz6wbyp6pqws1";
+  vendorHash = "sha256-VMI20IP1jVkUK3rJm35szaFDfZGEEingUEL/xfVJ1cc=";
+
+  subPackages = [ "cmd/elvish" ];
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X src.elv.sh/pkg/buildinfo.Version==${version}"
+  ];
+
+  strictDeps = true;
 
   doCheck = false;
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
 
-  meta = with lib; {
+    $out${shellPath} -c "
+      fn expect {|key expected|
+        var actual = \$buildinfo[\$key]
+        if (not-eq \$actual \$expected) {
+          fail '\$buildinfo['\$key']: expected '(to-string \$expected)', got '(to-string \$actual)
+        }
+      }
+
+      expect version ${version}
+    "
+
+    runHook postInstallCheck
+  '';
+
+  passthru = {
+    inherit shellPath;
+  };
+
+  meta = {
+    homepage = "https://elv.sh/";
     description = "A friendly and expressive command shell";
     longDescription = ''
       Elvish is a friendly interactive shell and an expressive programming
       language. It runs on Linux, BSDs, macOS and Windows. Despite its pre-1.0
       status, it is already suitable for most daily interactive use.
     '';
-    homepage = "https://elv.sh/";
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ vrthra AndersonTorres ];
-  };
-
-  passthru = {
-    shellPath = "/bin/elvish";
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ vrthra AndersonTorres ];
   };
 }

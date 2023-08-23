@@ -1,32 +1,65 @@
 { lib
+, stdenv
+, ansible-core
 , buildPythonPackage
 , fetchPypi
-, psutil
-, pexpect
-, python-daemon
-, pyyaml
-, six
-, stdenv
-, ansible
+, fetchpatch
+, glibcLocales
+, importlib-metadata
 , mock
 , openssh
+, pbr
+, pexpect
+, psutil
 , pytest-mock
 , pytest-timeout
 , pytest-xdist
 , pytestCheckHook
+, pythonOlder
+, python-daemon
+, pyyaml
+, six
 }:
 
 buildPythonPackage rec {
   pname = "ansible-runner";
-  version = "2.0.3";
+  version = "2.3.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "15j0ljgw1rjxq4xiywxxxnxj4r6vwk8dwljkdsjmq3qmwgifcswg";
+    hash = "sha256-OP9jXkuUeR3ilWyB4mWDbsSWWzDp7jXXL88ycdxGuYs=";
   };
 
-  checkInputs = [
-    ansible # required to place ansible CLI onto the PATH in tests
+  patches = [
+    (fetchpatch {
+      name = "fix-tests.patch";
+      url = "https://github.com/ansible/ansible-runner/commit/0d522c90cfc1f305e118705a1b3335ccb9c1633d.patch";
+      hash = "sha256-eTnQkftvjK0YHU+ovotRVSuVlvaVeXp5SvYk1DPCg88=";
+      excludes = [ ".github/workflows/ci.yml" "tox.ini" ];
+    })
+  ];
+
+  nativeBuildInputs = [
+    pbr
+  ];
+
+  propagatedBuildInputs = [
+    ansible-core
+    psutil
+    pexpect
+    python-daemon
+    pyyaml
+    six
+  ] ++ lib.optionals (pythonOlder "3.10") [
+    importlib-metadata
+  ];
+
+  nativeCheckInputs = [
+    ansible-core # required to place ansible CLI onto the PATH in tests
+    glibcLocales
     pytestCheckHook
     pytest-mock
     pytest-timeout
@@ -35,44 +68,43 @@ buildPythonPackage rec {
     openssh
   ];
 
-  propagatedBuildInputs = [
-    ansible
-    psutil
-    pexpect
-    python-daemon
-    pyyaml
-    six
-  ];
-
   preCheck = ''
     export HOME=$(mktemp -d)
+    export PATH="$PATH:$out/bin";
+    # avoid coverage flags
+    rm pytest.ini
   '';
 
   disabledTests = [
-    "test_callback_plugin_task_args_leak" # requires internet
+    # Requires network access
+    "test_callback_plugin_task_args_leak"
     "test_env_accuracy"
-    "test_large_stdout_blob" # times out on slower hardware
-  ]
-    # test_process_isolation_settings is currently broken on Darwin Catalina
-    # https://github.com/ansible/ansible-runner/issues/413
-  ++ lib.optional stdenv.isDarwin "process_isolation_settings";
+    # Times out on slower hardware
+    "test_large_stdout_blob"
+    # Failed: DID NOT RAISE <class 'RuntimeError'>
+    "test_validate_pattern"
+  ];
 
   disabledTestPaths = [
-    # these tests unset PATH and then run executables like `bash` (see https://github.com/ansible/ansible-runner/pull/918)
+    # These tests unset PATH and then run executables like `bash` (see https://github.com/ansible/ansible-runner/pull/918)
     "test/integration/test_runner.py"
     "test/unit/test_runner.py"
   ]
   ++ lib.optionals stdenv.isDarwin [
-    # integration tests on Darwin are not regularly passing in ansible-runner's own CI
+    # Integration tests on Darwin are not regularly passing in ansible-runner's own CI
     "test/integration"
-    # these tests write to `/tmp` which is not writable on Darwin
+    # These tests write to `/tmp` which is not writable on Darwin
     "test/unit/config/test__base.py"
+  ];
+
+  pythonImportsCheck = [
+    "ansible_runner"
   ];
 
   meta = with lib; {
     description = "Helps when interfacing with Ansible";
     homepage = "https://github.com/ansible/ansible-runner";
     license = licenses.asl20;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = with maintainers; [ ];
   };
 }

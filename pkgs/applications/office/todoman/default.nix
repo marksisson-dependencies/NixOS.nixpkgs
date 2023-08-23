@@ -1,27 +1,31 @@
 { lib
-, python3
+, stdenv
+, fetchFromGitHub
 , glibcLocales
 , installShellFiles
 , jq
+, python3
 }:
-let
-  inherit (python3.pkgs) buildPythonApplication fetchPypi setuptools-scm;
-in
-buildPythonApplication rec {
-  pname = "todoman";
-  version = "4.0.1";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "ec88f8009321e77deb0ae682f7d036c139edf4175f8413011b532905c6e7d2b1";
+python3.pkgs.buildPythonApplication rec {
+  pname = "todoman";
+  version = "4.3.1";
+  format = "pyproject";
+
+  src = fetchFromGitHub {
+    owner = "pimutils";
+    repo = pname;
+    rev = "refs/tags/v${version}";
+    hash = "sha256-pa1zzu0ITJObzhSmohjgiGTCoautXrY+SQQ3hxEtQcE=";
   };
 
   SETUPTOOLS_SCM_PRETEND_VERSION = version;
 
   nativeBuildInputs = [
     installShellFiles
+  ] ++ (with python3.pkgs; [
     setuptools-scm
-  ];
+  ]);
 
   propagatedBuildInputs = with python3.pkgs; [
     atomicwrites
@@ -37,21 +41,17 @@ buildPythonApplication rec {
     urwid
   ];
 
-  checkInputs = with python3.pkgs; [
+  nativeCheckInputs = with python3.pkgs; [
     flake8
     flake8-import-order
     freezegun
     hypothesis
     pytestCheckHook
     glibcLocales
+    pytest-cov
   ];
 
   LC_ALL = "en_US.UTF-8";
-
-  postPatch = ''
-    substituteInPlace setup.cfg \
-      --replace " --cov=todoman --cov-report=term-missing" ""
-  '';
 
   postInstall = ''
     installShellCompletion --bash contrib/completion/bash/_todo
@@ -68,6 +68,8 @@ buildPythonApplication rec {
     "test_missing_cache_dir"
     "test_sorting_null_values"
     "test_xdg_existant"
+    # Tests are sensitive to performance
+    "test_sorting_fields"
   ];
 
   pythonImportsCheck = [
@@ -78,20 +80,19 @@ buildPythonApplication rec {
     homepage = "https://github.com/pimutils/todoman";
     description = "Standards-based task manager based on iCalendar";
     longDescription = ''
-      Todoman is a simple, standards-based, cli todo (aka: task) manager. Todos
-      are stored into icalendar files, which means you can sync them via CalDAV
+      Todoman is a simple, standards-based, cli todo (aka task) manager. Todos
+      are stored into iCalendar files, which means you can sync them via CalDAV
       using, for example, vdirsyncer.
 
       Todos are read from individual ics files from the configured directory.
-      This matches the vdir specification.  There’s support for the most common TODO
+      This matches the vdir specification. There is support for the most common TODO
       features for now (summary, description, location, due date and priority) for
-      now.  Runs on any Unix-like OS. It’s been tested on GNU/Linux, BSD and macOS.
+      now.
       Unsupported fields may not be shown but are never deleted or altered.
-
-      Todoman is part of the pimutils project
     '';
     changelog = "https://github.com/pimutils/todoman/raw/v${version}/CHANGELOG.rst";
     license = licenses.isc;
     maintainers = with maintainers; [ leenaars ];
+    mainProgram = "todo";
   };
 }

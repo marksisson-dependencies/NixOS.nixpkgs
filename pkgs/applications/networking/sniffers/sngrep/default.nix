@@ -12,22 +12,20 @@
 
 stdenv.mkDerivation rec {
   pname = "sngrep";
-  version = "1.4.9";
+  version = "1.7.0";
 
   src = fetchFromGitHub {
     owner = "irontec";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-92wPRDFSoIOYFv3XKdsuYH8j3D8kXyg++q6VpIIMGDg=";
+    sha256 = "sha256-gFba2wOU4GwpOZTo5A2QpBgnC6OgDJEeyaPGHbA+7tA=";
   };
 
   patches = [
-    # Pull fix pending upstream inclusion for ncurses-6.3 support:
-    #  https://github.com/irontec/sngrep/pull/382
     (fetchpatch {
-      name = "ncurses-6.3.patch";
-      url = "https://github.com/irontec/sngrep/commit/d09e1c323dbd7fc899e8985899baec568f045601.patch";
-      sha256 = "sha256-nY5i3WQh/oKboEAh4wvxF5Imf2BHYEKdFj+WF1M3SSA=";
+      name = "CVE-2023-36192.patch";
+      url = "https://github.com/irontec/sngrep/commit/ad1daf15c8387bfbb48097c25197bf330d2d98fc.patch";
+      hash = "sha256-g8fxvxi3d7jmZEKTbxqw29hJbm/ShsKKxstsOUGxTug=";
     })
   ];
 
@@ -54,6 +52,8 @@ stdenv.mkDerivation rec {
   preConfigure = ''
     ./bootstrap.sh
   '';
+
+  doCheck = true;
 
   meta = with lib; {
     description = "A tool for displaying SIP calls message flows from terminal";

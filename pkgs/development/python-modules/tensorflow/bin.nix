@@ -9,20 +9,20 @@
 , numpy
 , six
 , termcolor
+, packaging
 , protobuf
 , absl-py
 , grpcio
 , mock
 , scipy
 , wheel
+, jax
 , opt-einsum
-, backports_weakref
-, tensorflow-estimator
-, tensorflow-tensorboard
-, cudaSupport ? false
-, cudatoolkit
-, cudnn
-, patchelfUnstable
+, tensorflow-estimator-bin
+, tensorboard
+, config
+, cudaSupport ? config.cudaSupport
+, cudaPackages ? {}
 , zlib
 , python
 , keras-applications
@@ -43,25 +43,31 @@ assert ! (stdenv.isDarwin && cudaSupport);
 
 let
   packages = import ./binary-hashes.nix;
+  inherit (cudaPackages) cudatoolkit cudnn;
 in buildPythonPackage {
   pname = "tensorflow" + lib.optionalString cudaSupport "-gpu";
   inherit (packages) version;
   format = "wheel";
 
+  # Python 3.11 still unsupported
+  disabled = pythonAtLeast "3.11";
+
   src = let
-    pyVerNoDot = lib.strings.stringAsChars (x: if x == "." then "" else x) python.pythonVersion;
+    pyVerNoDot = lib.strings.stringAsChars (x: lib.optionalString (x != ".") x) python.pythonVersion;
     platform = if stdenv.isDarwin then "mac" else "linux";
     unit = if cudaSupport then "gpu" else "cpu";
     key = "${platform}_py_${pyVerNoDot}_${unit}";
-  in fetchurl packages.${key};
+  in fetchurl (packages.${key} or {});
 
   propagatedBuildInputs = [
     astunparse
     flatbuffers
     typing-extensions
+    packaging
     protobuf
     numpy
     scipy
+    jax
     termcolor
     grpcio
     six
@@ -71,16 +77,14 @@ in buildPythonPackage {
     opt-einsum
     google-pasta
     wrapt
-    tensorflow-estimator
-    tensorflow-tensorboard
+    tensorflow-estimator-bin
+    tensorboard
     keras-applications
     keras-preprocessing
     h5py
-  ] ++ lib.optional (!isPy3k) mock
-    ++ lib.optionals (pythonOlder "3.4") [ backports_weakref ];
+  ] ++ lib.optional (!isPy3k) mock;
 
-  # remove patchelfUnstable once patchelf 0.14 with https://github.com/NixOS/patchelf/pull/256 becomes the default
-  nativeBuildInputs = [ wheel ] ++ lib.optional cudaSupport [ addOpenGLRunpath patchelfUnstable ];
+  nativeBuildInputs = [ wheel ] ++ lib.optionals cudaSupport [ addOpenGLRunpath ];
 
   preConfigure = ''
     unset SOURCE_DATE_EPOCH
@@ -90,21 +94,29 @@ in buildPythonPackage {
 
     pushd dist
 
+    orig_name="$(echo ./*.whl)"
     wheel unpack --dest unpacked ./*.whl
     rm ./*.whl
     (
       cd unpacked/tensorflow*
       # Adjust dependency requirements:
-      # - Relax gast version requirement that doesn't match what we have packaged
+      # - Relax flatbuffers, gast, protobuf, tensorboard, and tensorflow-estimator version requirements that don't match what we have packaged
       # - The purpose of python3Packages.libclang is not clear at the moment and we don't have it packaged yet
       # - keras and tensorlow-io-gcs-filesystem will be considered as optional for now.
+      # - numpy was pinned to fix some internal tests: https://github.com/tensorflow/tensorflow/issues/60216
       sed -i *.dist-info/METADATA \
-        -e "s/Requires-Dist: gast.*/Requires-Dist: gast/" \
-        -e "/Requires-Dist: libclang/d" \
+        -e "/Requires-Dist: flatbuffers/d" \
+        -e "/Requires-Dist: gast/d" \
         -e "/Requires-Dist: keras/d" \
-        -e "/Requires-Dist: tensorflow-io-gcs-filesystem/d"
+        -e "/Requires-Dist: libclang/d" \
+        -e "/Requires-Dist: protobuf/d" \
+        -e "/Requires-Dist: tensorboard/d" \
+        -e "/Requires-Dist: tensorflow-estimator/d" \
+        -e "/Requires-Dist: tensorflow-io-gcs-filesystem/d" \
+        -e "s/Requires-Dist: numpy (.*)/Requires-Dist: numpy/"
     )
     wheel pack ./unpacked/tensorflow*
+    mv *.whl $orig_name # avoid changes to the _os_arch.whl suffix
 
     popd
   '';
@@ -166,7 +178,7 @@ in buildPythonPackage {
     '';
 
   # Upstream has a pip hack that results in bin/tensorboard being in both tensorflow
-  # and the propagated input tensorflow-tensorboard, which causes environment collisions.
+  # and the propagated input tensorboard, which causes environment collisions.
   # Another possibility would be to have tensorboard only in the buildInputs
   # See https://github.com/NixOS/nixpkgs/pull/44381 for more information.
   postInstall = ''
@@ -175,16 +187,20 @@ in buildPythonPackage {
 
   pythonImportsCheck = [
     "tensorflow"
-    "tensorflow.keras"
     "tensorflow.python"
     "tensorflow.python.framework"
   ];
 
+  passthru = {
+    inherit cudaPackages;
+  };
+
   meta = with lib; {
     description = "Computation using data flow graphs for scalable machine learning";
     homepage = "http://tensorflow.org";
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     license = licenses.asl20;
-    maintainers = with maintainers; [ jyp abbradar cdepillabout ];
+    maintainers = with maintainers; [ jyp abbradar ];
     platforms = [ "x86_64-linux" "x86_64-darwin" ];
   };
 }

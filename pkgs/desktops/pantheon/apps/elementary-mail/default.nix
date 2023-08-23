@@ -7,36 +7,33 @@
 , ninja
 , python3
 , vala
-, desktop-file-utils
 , gtk3
 , libxml2
 , libhandy
-, webkitgtk
-, folks
-, libgdata
-, sqlite
-, granite
+, libportal-gtk3
+, webkitgtk_4_1
+, elementary-gtk-theme
 , elementary-icon-theme
+, folks
+, glib-networking
+, granite
 , evolution-data-server
-, appstream
 , wrapGAppsHook
 , libgee
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-mail";
-  version = "6.3.1";
+  version = "7.2.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "mail";
     rev = version;
-    sha256 = "sha256-wOu9jvvwG53vzcNa38nk4eREZWW7Cin8el4qApQ8gI8=";
+    sha256 = "sha256-hBOogZ9ZNS9KnuNn+jNhTtlupBxZL2DG/CiuBR1kFu0=";
   };
 
   nativeBuildInputs = [
-    appstream
-    desktop-file-utils
     libxml2
     meson
     ninja
@@ -50,13 +47,13 @@ stdenv.mkDerivation rec {
     elementary-icon-theme
     evolution-data-server
     folks
+    glib-networking
     granite
     gtk3
-    libgdata
     libgee
     libhandy
-    sqlite
-    webkitgtk
+    libportal-gtk3
+    webkitgtk_4_1
   ];
 
   postPatch = ''
@@ -64,10 +61,17 @@ stdenv.mkDerivation rec {
     patchShebangs meson/post_install.py
   '';
 
+  preFixup = ''
+    gappsWrapperArgs+=(
+      # The GTK theme is hardcoded.
+      --prefix XDG_DATA_DIRS : "${elementary-gtk-theme}/share"
+      # The icon theme is hardcoded.
+      --prefix XDG_DATA_DIRS : "$XDG_ICON_DIRS"
+    )
+  '';
+
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

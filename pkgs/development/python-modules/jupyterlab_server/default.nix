@@ -1,65 +1,91 @@
 { lib
 , buildPythonPackage
 , fetchPypi
+, hatchling
 , jsonschema
 , pythonOlder
 , requests
 , pytestCheckHook
-, pyjson5
-, Babel
-, jupyter_server
+, json5
+, babel
+, jupyter-server
+, tomli
 , openapi-core
-, pytest-tornasync
+, pytest-jupyter
+, requests-mock
 , ruamel-yaml
 , strict-rfc3339
+, importlib-metadata
 }:
 
 buildPythonPackage rec {
   pname = "jupyterlab_server";
-  version = "2.8.2";
-  disabled = pythonOlder "3.6";
+  version = "2.24.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "26d813c8162c83d466df7d155865987dabe70aa452f9187dfb79fd88afc8fa0b";
+    hash = "sha256-Tm+Z4KVXm7vDLkScTbsDlWHU8aeCfVczJz7VZzjyHwc=";
   };
 
-  postPatch = ''
-    sed -i "/^addopts/d" pyproject.toml
-  '';
+  nativeBuildInputs = [
+    hatchling
+  ];
 
-  propagatedBuildInputs = [ requests jsonschema pyjson5 Babel jupyter_server ];
+  propagatedBuildInputs = [
+    requests
+    jsonschema
+    json5
+    babel
+    jupyter-server
+    tomli
+  ] ++ lib.optionals (pythonOlder "3.10") [
+    importlib-metadata
+  ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     openapi-core
     pytestCheckHook
-    pytest-tornasync
+    pytest-jupyter
+    requests-mock
     ruamel-yaml
     strict-rfc3339
   ];
 
-  pytestFlagsArray = [ "--pyargs" "jupyterlab_server" ];
+  postPatch = ''
+    sed -i "/timeout/d" pyproject.toml
+  '';
+
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
+
+  pytestFlagsArray = [
+    # DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12.
+    # Use setuptools or check PEP 632 for potential alternatives.
+    "-W ignore::DeprecationWarning"
+  ];
+
+  disabledTestPaths = [
+    "tests/test_settings_api.py"
+    "tests/test_themes_api.py"
+    "tests/test_translation_api.py"
+    "tests/test_workspaces_api.py"
+  ];
 
   disabledTests = [
-    # AttributeError: 'SpecPath' object has no attribute 'paths'
     "test_get_listing"
-    "test_get_settings"
-    "test_get_federated"
-    "test_listing"
-    "test_patch"
-    "test_patch_unicode"
-    "test_get_theme"
-    "test_delete"
-    "test_get_non_existant"
-    "test_get"
   ];
 
   __darwinAllowLocalNetworking = true;
 
   meta = with lib; {
-    description = "JupyterLab Server";
-    homepage = "https://jupyter.org";
+    description = "A set of server components for JupyterLab and JupyterLab like applications";
+    homepage = "https://jupyterlab-server.readthedocs.io/";
+    changelog = "https://github.com/jupyterlab/jupyterlab_server/blob/v${version}/CHANGELOG.md";
     license = licenses.bsdOriginal;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = lib.teams.jupyter.members;
   };
 }

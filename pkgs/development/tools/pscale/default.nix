@@ -1,22 +1,48 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{ buildGoModule
+, fetchFromGitHub
+, installShellFiles
+, lib
+, pscale
+, testers
+}:
 
 buildGoModule rec {
   pname = "pscale";
-  version = "0.85.0";
+  version = "0.153.0";
 
   src = fetchFromGitHub {
     owner = "planetscale";
     repo = "cli";
     rev = "v${version}";
-    sha256 = "sha256-I2t5tuBlO2RpY8+zWSTIDOziriqE6PGKVIwPdmvXuKo=";
+    sha256 = "sha256-iEn3iF13WSaNTF3+IHB1DlKNDPC1ObLQ2oAzPP8ffRM=";
   };
 
-  vendorSha256 = "sha256-V7iXPM2WTR5zls/EFxpoLKrconP88om6y2CFNiuS6g4=";
+  vendorHash = "sha256-hj+uzb1mpFrbbZXozCP9166i0C5pwIKhEtJOxovBCZE=";
+
+  ldflags = [
+    "-s" "-w"
+    "-X main.version=v${version}"
+    "-X main.commit=v${version}"
+    "-X main.date=unknown"
+  ];
+
+  nativeBuildInputs = [ installShellFiles ];
+
+  postInstall = ''
+    installShellCompletion --cmd pscale \
+      --bash <($out/bin/pscale completion bash) \
+      --fish <($out/bin/pscale completion fish) \
+      --zsh <($out/bin/pscale completion zsh)
+  '';
+
+  passthru.tests.version = testers.testVersion {
+    package = pscale;
+  };
 
   meta = with lib; {
-    homepage = "https://www.planetscale.com/";
-    changelog = "https://github.com/planetscale/cli/releases/tag/v${version}";
     description = "The CLI for PlanetScale Database";
+    changelog = "https://github.com/planetscale/cli/releases/tag/v${version}";
+    homepage = "https://www.planetscale.com/";
     license = licenses.asl20;
     maintainers = with maintainers; [ pimeys ];
   };

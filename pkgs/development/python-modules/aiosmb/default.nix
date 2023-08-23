@@ -1,8 +1,9 @@
 { lib
+, asyauth
 , asysocks
 , buildPythonPackage
 , colorama
-, fetchFromGitHub
+, fetchPypi
 , minikerberos
 , prompt-toolkit
 , pycryptodomex
@@ -15,17 +16,18 @@
 
 buildPythonPackage rec {
   pname = "aiosmb";
-  version = "0.2.50";
+  version = "0.4.6";
+  format = "setuptools";
+
   disabled = pythonOlder "3.7";
 
-  src = fetchFromGitHub {
-    owner = "skelsec";
-    repo = pname;
-    rev = version;
-    sha256 = "016pylxqmzm1hn1mvx6jhxvgckdqpf993sd1bki07pblmm4ikl6q";
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-Y0Z76YP1cWcfMKZOn2L6z4B+hAdibxJOYBzT3WV6FcY=";
   };
 
   propagatedBuildInputs = [
+    asyauth
     asysocks
     colorama
     minikerberos
@@ -40,11 +42,14 @@ buildPythonPackage rec {
   # Project doesn't have tests
   doCheck = false;
 
-  pythonImportsCheck = [ "aiosmb" ];
+  pythonImportsCheck = [
+    "aiosmb"
+  ];
 
   meta = with lib; {
     description = "Python SMB library";
     homepage = "https://github.com/skelsec/aiosmb";
+    changelog = "https://github.com/skelsec/aiosmb/releases/tag/${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

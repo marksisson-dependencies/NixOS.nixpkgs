@@ -1,28 +1,41 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, nose
+, setuptools
+, wheel
 , parts
 , pytestCheckHook
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "bitlist";
-  version = "0.6.2";
-  format = "setuptools";
+  version = "1.2.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "69cf632ca61b5fb5d2fd7587ddf023bcab8f327302f15070ec9079b68df9082a";
+    hash = "sha256-+/rBno+OH7yEiN4K9VC6BCEPuOv8nNp0hU+fWegjqPw=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace '--cov=bitlist --cov-report term-missing' ""
+  '';
+
+  nativeBuildInputs = [
+    setuptools
+    wheel
+  ];
 
   propagatedBuildInputs = [
     parts
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
-    nose
   ];
 
   pythonImportsCheck = [

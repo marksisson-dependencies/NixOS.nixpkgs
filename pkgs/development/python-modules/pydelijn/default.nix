@@ -9,14 +9,14 @@
 
 buildPythonPackage rec {
   pname = "pydelijn";
-  version = "0.6.1";
+  version = "1.1.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1lwd2f043hy7gf1ly9zpaq1yg947bqw2af8vhwssf48zpisfgc81";
+    sha256 = "sha256-xyBq2h3ipUarkjCXq9GIbY7bhsf9729aQwHde3o5K6g=";
   };
 
   propagatedBuildInputs = [

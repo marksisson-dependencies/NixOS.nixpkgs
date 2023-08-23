@@ -1,13 +1,15 @@
 { lib
+, async-timeout
 , buildPythonPackage
 , fetchFromGitHub
 , pythonOlder
+, pytest-asyncio
 , pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "screenlogicpy";
-  version = "0.5.3";
+  version = "0.8.2";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
@@ -15,11 +17,16 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "dieselrabbit";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "1ic19l0xr2wlnc8q6nhvv747k0f4j9k94ix14zkrwpp9nl09sm8j";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-7w2cg+LfL3w2Xxf8s7lFxE/HkqZ6RBYp8LkZTOwgK+I=";
   };
 
-  checkInputs = [
+  propagatedBuildInputs = [
+    async-timeout
+  ];
+
+  nativeCheckInputs = [
+    pytest-asyncio
     pytestCheckHook
   ];
 
@@ -39,6 +46,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python interface for Pentair Screenlogic devices";
     homepage = "https://github.com/dieselrabbit/screenlogicpy";
+    changelog = "https://github.com/dieselrabbit/screenlogicpy/releases/tag/v${version}";
     license = with licenses; [ gpl3Only ];
     maintainers = with maintainers; [ fab ];
   };

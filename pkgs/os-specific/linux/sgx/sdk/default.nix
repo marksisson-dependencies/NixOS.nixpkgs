@@ -1,69 +1,61 @@
 { lib
 , stdenv
-, fetchzip
 , fetchFromGitHub
-, callPackage
+, fetchpatch
+, fetchzip
 , autoconf
 , automake
 , binutils
+, callPackage
 , cmake
 , file
 , gdb
 , git
 , libtool
+, linkFarmFromDrvs
 , nasm
 , ocaml
 , ocamlPackages
-, openssl
+, openssl_1_1
 , perl
 , python3
 , texinfo
 , validatePkgConfig
+, writeShellApplication
 , writeShellScript
 , writeText
 , debug ? false
 }:
 stdenv.mkDerivation rec {
   pname = "sgx-sdk";
-  version = "2.14.100.2";
-
-  versionTag = lib.concatStringsSep "." (lib.take 2 (lib.splitVersion version));
+  # Version as given in se_version.h
+  version = "2.16.100.4";
+  # Version as used in the Git tag
+  versionTag = "2.16";
 
   src = fetchFromGitHub {
     owner = "intel";
     repo = "linux-sgx";
     rev = "sgx_${versionTag}";
-    hash = "sha256-D/QZWBUe1gRbbjWnV10b7IPoM3utefAsOEKnQuasIrM=";
+    hash = "sha256-qgXuJJWiqmcU11umCsE3DnlK4VryuTDAsNf53YPw6UY=";
     fetchSubmodules = true;
   };
 
-  postUnpack =
-    let
-      optlibName = "optimized_libs_${versionTag}.tar.gz";
-      optimizedLibs = fetchzip {
-        url = "https://download.01.org/intel-sgx/sgx-linux/${versionTag}/${optlibName}";
-        hash = "sha256-FjNhNV9+KDMvBYdWXZbua6qYOc3Z1/jtcF4j52TSxQY=";
-        stripRoot = false;
-      };
-      sgxIPPCryptoHeader = "${optimizedLibs}/external/ippcp_internal/inc/sgx_ippcp.h";
-    in
-    ''
-      # Make sure this is the right version of linux-sgx
-      grep -q '"${version}"' "$src/common/inc/internal/se_version.h" \
-        || (echo "Could not find expected version ${version} in linux-sgx source" >&2 && exit 1)
+  postUnpack = ''
+    # Make sure this is the right version of linux-sgx
+    grep -q '"${version}"' "$src/common/inc/internal/se_version.h" \
+      || (echo "Could not find expected version ${version} in linux-sgx source" >&2 && exit 1)
+  '';
 
-      # Make sure we use the correct version to build IPP Crypto
-      grep -q 'optlib_name=${optlibName}' "$src/download_prebuilt.sh" \
-        || (echo "Could not find expected optimized libs ${optlibName} in linux-sgx source" >&2 && exit 1)
-
-      # Add missing sgx_ippcp.h: https://github.com/intel/linux-sgx/pull/752
-      ln -s ${sgxIPPCryptoHeader} "$sourceRoot/external/ippcp_internal/inc/sgx_ippcp.h"
-    '';
+  patches = [
+    # Fix missing pthread_compat.h, see https://github.com/intel/linux-sgx/pull/784
+    (fetchpatch {
+      url = "https://github.com/intel/linux-sgx/commit/254b58f922a6bd49c308a4f47f05f525305bd760.patch";
+      sha256 = "sha256-sHU++K7NJ+PdITx3y0PwstA9MVh10rj2vrLn01N9F4w=";
+    })
+  ];
 
   postPatch = ''
-    # https://github.com/intel/linux-sgx/pull/730
-    substituteInPlace buildenv.mk --replace '/bin/cp' 'cp'
-
     patchShebangs linux/installer/bin/build-installpkg.sh \
       linux/installer/common/sdk/createTarball.sh \
       linux/installer/common/sdk/install.sh
@@ -92,7 +84,7 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     libtool
-    openssl
+    openssl_1_1
   ];
 
   BINUTILS_DIR = "${binutils}/bin";
@@ -117,11 +109,11 @@ stdenv.mkDerivation rec {
       };
     in
     ''
-      header "Setting up IPP crypto build artifacts"
+      echo "Setting up IPP crypto build artifacts"
 
       pushd 'external/ippcp_internal'
 
-      install ${ipp-crypto-no_mitigation}/include/* inc/
+      cp -r ${ipp-crypto-no_mitigation}/include/. inc/
 
       install -D -m a+rw ${ipp-crypto-no_mitigation}/lib/intel64/libippcp.a \
         lib/linux/intel64/no_mitigation/libippcp.a
@@ -131,7 +123,7 @@ stdenv.mkDerivation rec {
         lib/linux/intel64/cve_2020_0551_cf/libippcp.a
 
       rm inc/ippcp.h
-      patch ${ipp-crypto-no_mitigation}/include/ippcp.h -i inc/ippcp20u3.patch -o inc/ippcp.h
+      patch ${ipp-crypto-no_mitigation}/include/ippcp.h -i inc/ippcp21u3.patch -o inc/ippcp.h
 
       install -D ${ipp-crypto-no_mitigation.src}/LICENSE license/LICENSE
 
@@ -157,7 +149,7 @@ stdenv.mkDerivation rec {
     ./linux/installer/bin/sgx_linux_x64_sdk_${version}.bin -prefix $installDir
     installDir=$installDir/sgxsdk
 
-    header "Move files created by installer"
+    echo "Move files created by installer"
 
     mkdir -p $out/bin
     pushd $out
@@ -214,29 +206,28 @@ stdenv.mkDerivation rec {
 
 
   preFixup = ''
-    header "Strip sgxsdk prefix"
+    echo "Strip sgxsdk prefix"
     for path in "$out/share/bin/environment" "$out/bin/sgx-gdb"; do
       substituteInPlace $path --replace "$TMPDIR/sgxsdk" "$out"
     done
 
-    header "Fixing pkg-config files"
+    echo "Fixing pkg-config files"
     sed -i "s|prefix=.*|prefix=$out|g" $out/lib/pkgconfig/*.pc
 
-    header "Fixing SGX_SDK default in samples"
+    echo "Fixing SGX_SDK default in samples"
     substituteInPlace $out/share/SampleCode/LocalAttestation/buildenv.mk \
       --replace '/opt/intel/sgxsdk' "$out"
     for file in $out/share/SampleCode/*/Makefile; do
       substituteInPlace $file \
-        --replace '/opt/intel/sgxsdk' "$out" \
-        --replace '$(SGX_SDK)/buildenv.mk' "$out/share/bin/buildenv.mk"
+        --replace '/opt/intel/sgxsdk' "$out"
     done
 
-    header "Fixing BINUTILS_DIR in buildenv.mk"
+    echo "Fixing BINUTILS_DIR in buildenv.mk"
     substituteInPlace $out/share/bin/buildenv.mk \
       --replace 'BINUTILS_DIR ?= /usr/local/bin' \
                 'BINUTILS_DIR ?= ${BINUTILS_DIR}'
 
-    header "Fixing GDB path in bin/sgx-gdb"
+    echo "Fixing GDB path in bin/sgx-gdb"
     substituteInPlace $out/bin/sgx-gdb --replace '/usr/local/bin/gdb' '${gdb}/bin/gdb'
   '';
 
@@ -264,7 +255,25 @@ stdenv.mkDerivation rec {
     postHooks+=(sgxsdk)
   '';
 
-  passthru.tests = callPackage ./samples.nix { };
+  passthru.tests = callPackage ../samples { sgxMode = "SIM"; };
+
+  # Run tests in SGX hardware mode on an SGX-enabled machine
+  # $(nix-build -A sgx-sdk.runTestsHW)/bin/run-tests-hw
+  passthru.runTestsHW =
+    let
+      testsHW = lib.filterAttrs (_: v: v ? "name") (callPackage ../samples { sgxMode = "HW"; });
+      testsHWLinked = linkFarmFromDrvs "sgx-samples-hw-bundle" (lib.attrValues testsHW);
+    in
+    writeShellApplication {
+      name = "run-tests-hw";
+      text = ''
+        for test in ${testsHWLinked}/*; do
+          printf '*** Running test %s ***\n\n' "$(basename "$test")"
+          printf 'a\n' | "$test/bin/app"
+          printf '\n'
+        done
+      '';
+    };
 
   meta = with lib; {
     description = "Intel SGX SDK for Linux built with IPP Crypto Library";

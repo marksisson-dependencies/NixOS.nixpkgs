@@ -7,25 +7,39 @@
 
 buildPythonPackage rec {
   pname = "dacite";
-  version = "1.6.0";
+  version = "1.8.1";
+  format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "konradhalas";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "0nv2bnj3bq2v08ac4p583cnpjq2d6bv5isycgji5i5wg1y082a3d";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-lvObQ+jyBH2s4GOwyDXEAYmG7ZGQN9WDqL8ftNItPCQ=";
   };
 
-  checkInputs = [
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace "--benchmark-autosave --benchmark-json=benchmark.json" ""
+  '';
+
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "dacite" ];
+  pythonImportsCheck = [
+    "dacite"
+  ];
+
+  disabledTestPaths = [
+    "tests/performance"
+  ];
 
   meta = with lib; {
     description = "Python helper to create data classes from dictionaries";
     homepage = "https://github.com/konradhalas/dacite";
+    changelog = "https://github.com/konradhalas/dacite/blob/v${version}/CHANGELOG.md";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

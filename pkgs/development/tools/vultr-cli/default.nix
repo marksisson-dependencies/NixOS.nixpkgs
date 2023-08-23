@@ -2,18 +2,16 @@
 
 buildGoModule rec {
   pname = "vultr-cli";
-  version = "2.11.2";
+  version = "2.17.0";
 
   src = fetchFromGitHub {
     owner = "vultr";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-v5RbStmQX7D+i+oyekilLPsl6lta5rkJV4Uf0mjIF8Y=";
+    hash = "sha256-z5G7oXthz1oP9h6IwKZrkG0waBurBpbOALGdcAuThnc=";
   };
 
-  vendorSha256 = null;
-
-  doCheck = false;
+  vendorHash = "sha256-c5FzeqC+uEnVT3TxXHzI4FFIdJvKQ2tgGQAwd1DE5eM=";
 
   meta = with lib; {
     description = "Official command line tool for Vultr services";

@@ -1,41 +1,50 @@
 { lib
 , buildPythonPackage
+, pythonAtLeast
 , pythonOlder
+, fetchpatch
 , fetchPypi
+, setuptools
 , setuptools-scm
-, toml
 , importlib-metadata
 , cssselect
+, jaraco-test
 , lxml
 , mock
 , pytestCheckHook
+, importlib-resources
 }:
 
 buildPythonPackage rec {
   pname = "cssutils";
-  version = "2.3.0";
+  version = "2.7.1";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
+
+  format = "pyproject";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-stOxYEfKroLlxZADaTW6+htiHPRcLziIWvS+SDjw/QA=";
+    hash = "sha256-NA7P2YNdId+PmFAPDfzqCu5By04Z7Lws+U8KbTbXy2w=";
   };
 
   nativeBuildInputs = [
+    setuptools
     setuptools-scm
-    toml
   ];
 
   propagatedBuildInputs = lib.optionals (pythonOlder "3.8") [
     importlib-metadata
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     cssselect
+    jaraco-test
     lxml
     mock
     pytestCheckHook
+  ] ++ lib.optionals (pythonOlder "3.9") [
+    importlib-resources
   ];
 
   disabledTests = [
@@ -43,11 +52,6 @@ buildPythonPackage rec {
     "test_parseUrl"
     "encutils"
     "website.logging"
-  ] ++ lib.optionals (pythonOlder "3.9") [
-    # AttributeError: module 'importlib.resources' has no attribute 'files'
-    "test_parseFile"
-    "test_parseString"
-    "test_combine"
   ];
 
   pythonImportsCheck = [ "cssutils" ];

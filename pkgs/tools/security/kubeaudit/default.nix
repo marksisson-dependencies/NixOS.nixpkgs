@@ -5,16 +5,16 @@
 
 buildGoModule rec {
   pname = "kubeaudit";
-  version = "0.16.0";
+  version = "0.22.0";
 
   src = fetchFromGitHub {
     owner = "Shopify";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-AIvH9HF0Ha1b+NZiJmiT6beYuKnCqJMXKzDFUzV9J4c=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-e6No8Md/KZUFNtPJOrSdv1GlGmxX7+tmWNjQGFdtJpc=";
   };
 
-  vendorSha256 = "sha256-XrEzkhQU/KPElQNgCX6yWDMQXZSd3lRXmUDJpsj5ACY=";
+  vendorSha256 = "sha256-IxrAJaltg7vo3SQRC7OokSD5SM8xiX7iG8ZxKYEe9/E=";
 
   postInstall = ''
     mv $out/bin/cmd $out/bin/$pname
@@ -26,6 +26,7 @@ buildGoModule rec {
   meta = with lib; {
     description = "Audit tool for Kubernetes";
     homepage = "https://github.com/Shopify/kubeaudit";
+    changelog = "https://github.com/Shopify/kubeaudit/releases/tag/v${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

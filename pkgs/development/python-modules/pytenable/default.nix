@@ -1,5 +1,4 @@
 { lib
-, appdirs
 , buildPythonPackage
 , defusedxml
 , fetchFromGitHub
@@ -9,6 +8,7 @@
 , pytestCheckHook
 , python-box
 , python-dateutil
+, pythonOlder
 , requests
 , requests-pkcs12
 , responses
@@ -19,36 +19,35 @@
 
 buildPythonPackage rec {
   pname = "pytenable";
-  version = "1.4.2";
+  version = "1.4.13";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "tenable";
     repo = "pyTenable";
-    rev = version;
-    sha256 = "sha256-qljoJ+nYFVS5VHr/M4mITtO9Czuyb4HLzVjhprhyJIs=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-UY3AFnPplmU0jrV4LIKH4+2tcJEFkKMqO2GWVkgaHYE=";
   };
 
   propagatedBuildInputs = [
-    semver
-  ];
-
-  buildInputs = [
-    appdirs
     defusedxml
     marshmallow
     python-box
     python-dateutil
     requests
-    requests-pkcs12
     restfly
+    semver
     typing-extensions
   ];
 
-  checkInputs = [
-    responses
+  nativeCheckInputs = [
     pytest-datafiles
     pytest-vcr
     pytestCheckHook
+    requests-pkcs12
+    responses
   ];
 
   disabledTests = [
@@ -59,11 +58,14 @@ buildPythonPackage rec {
     "test_uploads_docker_push_cs_tag_typeerror"
   ];
 
-  pythonImportsCheck = [ "tenable" ];
+  pythonImportsCheck = [
+    "tenable"
+  ];
 
   meta = with lib; {
     description = "Python library for the Tenable.io and TenableSC API";
     homepage = "https://github.com/tenable/pyTenable";
+    changelog = "https://github.com/tenable/pyTenable/releases/tag/${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

@@ -9,22 +9,28 @@
 , pytestCheckHook
 , pythonOlder
 , setuptools-scm
+, syrupy
 , zeroconf
 }:
 
 buildPythonPackage rec {
   pname = "devolo-plc-api";
-  version = "0.7.0";
-  format = "setuptools";
+  version = "1.3.2";
+  format = "pyproject";
 
   disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "2Fake";
     repo = "devolo_plc_api";
-    rev = "v${version}";
-    sha256 = "sha256-qzjH52bKQ/oSFd580V92uE2/Z2g+2nLh/JXOXYqVfSY=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-viOyxgFydPrTPFz6JsjJT6IiUIeoIwd+bcrAJfomDI8=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace "protobuf>=4.22.0" "protobuf"
+  '';
 
   SETUPTOOLS_SCM_PRETEND_VERSION = version;
 
@@ -38,12 +44,14 @@ buildPythonPackage rec {
     zeroconf
   ];
 
+  __darwinAllowLocalNetworking = true;
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytest-httpx
     pytest-mock
     pytestCheckHook
+    syrupy
   ];
 
   pythonImportsCheck = [
@@ -51,8 +59,9 @@ buildPythonPackage rec {
   ];
 
   meta = with lib; {
-    description = "Python module to interact with Devolo PLC devices";
+    description = "Module to interact with Devolo PLC devices";
     homepage = "https://github.com/2Fake/devolo_plc_api";
+    changelog = "https://github.com/2Fake/devolo_plc_api/releases/tag/v${version}";
     license = licenses.gpl3Only;
     maintainers = with maintainers; [ fab ];
   };

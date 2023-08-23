@@ -13,7 +13,7 @@
 
 buildPythonPackage rec {
   pname = "tailscale";
-  version = "0.1.5";
+  version = "0.3.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.8";
@@ -21,9 +21,16 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "frenck";
     repo = "python-tailscale";
-    rev = "v${version}";
-    sha256 = "1a33xibkbavl442sc7phvj6d6w17x91zh64f59w0xrsccabn25b1";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-gGDsVGsCBZi/pxD0cyH3+xrvHVBC+wJCcl/NGqsTqiE=";
   };
+
+  postPatch = ''
+    # Upstream doesn't set a version for the pyproject.toml
+    substituteInPlace pyproject.toml \
+      --replace "0.0.0" "${version}" \
+      --replace "--cov" ""
+  '';
 
   nativeBuildInputs = [
     poetry-core
@@ -35,18 +42,11 @@ buildPythonPackage rec {
     yarl
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aresponses
     pytest-asyncio
     pytestCheckHook
   ];
-
-  postPatch = ''
-    # Upstream doesn't set a version for the pyproject.toml
-    substituteInPlace pyproject.toml \
-      --replace "0.0.0" "${version}" \
-      --replace "--cov" ""
-  '';
 
   pythonImportsCheck = [
     "tailscale"
@@ -55,6 +55,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python client for the Tailscale API";
     homepage = "https://github.com/frenck/python-tailscale";
+    changelog = "https://github.com/frenck/python-tailscale/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

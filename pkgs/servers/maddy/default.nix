@@ -1,21 +1,25 @@
-{ lib, buildGoModule, fetchFromGitHub, coreutils, installShellFiles, scdoc, nixosTests }:
+{ lib, buildGoModule, fetchFromGitHub, pam, coreutils, installShellFiles, scdoc, nixosTests }:
 
 buildGoModule rec {
   pname = "maddy";
-  version = "0.5.2";
+  version = "0.7.0";
 
   src = fetchFromGitHub {
     owner = "foxcpp";
     repo = "maddy";
     rev = "v${version}";
-    sha256 = "sha256-b85g8Eu7qWTI+ggMr7JL/2BAVbkXocpsR89P6s6TfMg=";
+    sha256 = "sha256-EMw07yTFP0aBSuGDWivB8amuxWLFHhYV6J9faTEW5z4=";
   };
 
-  vendorSha256 = "sha256-kzSwqT3r6uGxq1GNzCWCn8VoCxmVtiUb23XLCpsPv/c=";
+  vendorSha256 = "sha256-LyfkETZPkhJKN8CEivNp7Se4IBpzyAtmCM1xil4n2po=";
+
+  tags = [ "libpam" ];
 
   ldflags = [ "-s" "-w" "-X github.com/foxcpp/maddy.Version=${version}" ];
 
-  subPackages = [ "cmd/maddy" "cmd/maddyctl" ];
+  subPackages = [ "cmd/maddy" ];
+
+  buildInputs = [ pam ];
 
   nativeBuildInputs = [ installShellFiles scdoc ];
 
@@ -25,6 +29,8 @@ buildGoModule rec {
       scdoc < "$f" > "$page"
       installManPage "$page"
     done
+
+    ln -s "$out/bin/maddy" "$out/bin/maddyctl"
 
     mkdir -p $out/lib/systemd/system
 

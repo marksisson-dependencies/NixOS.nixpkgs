@@ -5,16 +5,16 @@
 
 buildGoModule rec {
   pname = "bazel-remote";
-  version = "2.3.0";
+  version = "2.4.1";
 
   src = fetchFromGitHub {
     owner = "buchgr";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-ILD7uGVzRgFugHYkhvxy0rbWarXgGZXi/SLRSQb8nl4=";
+    sha256 = "sha256-7zAeGJyMfMdrVDCuTWU3zikXjM/ydjnGj6Ctjckd32c=";
   };
 
-  vendorSha256 = "sha256-XBsYSA0i0q/mp8sQh9h//pjs+TbEDc7UIdNU24/Qemo=";
+  vendorHash = "sha256-SxGBfWcV10L6xC5XPIfv/HJWQy5g3AoV8z4/ae23DEc=";
 
   doCheck = false;
 
@@ -22,7 +22,7 @@ buildGoModule rec {
     homepage = "https://github.com/buchgr/bazel-remote";
     description = "A remote HTTP/1.1 cache for Bazel";
     license = licenses.asl20;
-    maintainers = [ maintainers.uri-canva ];
+    maintainers = lib.teams.bazel.members;
     platforms = platforms.darwin ++ platforms.linux;
   };
 }

@@ -15,6 +15,8 @@
 , javaSupport ? false
 , jdk
 , usev110Api ? false
+, threadsafe ? false
+, python3
 }:
 
 # cpp and mpi options are mutually exclusive
@@ -24,11 +26,19 @@ assert !cppSupport || !mpiSupport;
 let inherit (lib) optional optionals; in
 
 stdenv.mkDerivation rec {
-  version = "1.12.1";
-  pname = "hdf5";
+  version = "1.14.1-2";
+  pname = "hdf5"
+    + lib.optionalString cppSupport "-cpp"
+    + lib.optionalString fortranSupport "-fortran"
+    + lib.optionalString mpiSupport "-mpi"
+    + lib.optionalString threadsafe "-threadsafe";
+
   src = fetchurl {
-    url = "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${lib.versions.majorMinor version}/${pname}-${version}/src/${pname}-${version}.tar.bz2";
-    sha256 = "sha256-qvn1MrPtqD09Otyfi0Cpt2MVIhj6RTScO8d1Asofjxw=";
+    url = let
+        majorMinor = lib.versions.majorMinor version;
+        majorMinorPatch = with lib.versions; "${major version}.${minor version}.${patch version}";
+      in "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${majorMinor}/hdf5-${majorMinorPatch}/src/hdf5-${version}.tar.bz2";
+    sha256 = "sha256-BsoUHRo8MStdfMSCahJzcpOuExAxdIhhaJ9qLsghnb0=";
   };
 
   passthru = {
@@ -63,11 +73,11 @@ stdenv.mkDerivation rec {
     ++ optionals mpiSupport [ "--enable-parallel" "CC=${mpi}/bin/mpicc" ]
     ++ optional enableShared "--enable-shared"
     ++ optional javaSupport "--enable-java"
-    ++ optional usev110Api "--with-default-api-version=v110";
+    ++ optional usev110Api "--with-default-api-version=v110"
+    # hdf5 hl (High Level) library is not considered stable with thread safety and should be disabled.
+    ++ optionals threadsafe [ "--enable-threadsafe" "--disable-hl" ];
 
   patches = [
-    ./bin-mv.patch
-
     # Avoid non-determinism in autoconf build system:
     # - build time
     # - build user
@@ -84,7 +94,25 @@ stdenv.mkDerivation rec {
     moveToOutput 'bin/h5pcc' "''${!outputDev}"
   '';
 
-  meta = {
+  # Remove reference to /build, which get introduced
+  # into AM_CPPFLAGS since hdf5-1.14.0. Cmake of various
+  # packages using HDF5 gets confused trying access the non-existent path.
+  postFixup = ''
+    for i in h5cc h5pcc h5c++; do
+      if [ -f $dev/bin/$i ]; then
+        substituteInPlace $dev/bin/$i --replace \
+          '-I/build/hdf5-${version}/src/H5FDsubfiling' ""
+      fi
+    done
+  '';
+
+  enableParallelBuilding = true;
+
+  passthru.tests = {
+    inherit (python3.pkgs) h5py;
+  };
+
+  meta = with lib; {
     description = "Data model, library, and file format for storing and managing data";
     longDescription = ''
       HDF5 supports an unlimited variety of datatypes, and is designed for flexible and efficient
@@ -92,8 +120,9 @@ stdenv.mkDerivation rec {
       applications to evolve in their use of HDF5. The HDF5 Technology suite includes tools and
       applications for managing, manipulating, viewing, and analyzing data in the HDF5 format.
     '';
-    license = lib.licenses.bsd3; # Lawrence Berkeley National Labs BSD 3-Clause variant
+    license = licenses.bsd3; # Lawrence Berkeley National Labs BSD 3-Clause variant
+    maintainers = [ maintainers.markuskowa ];
     homepage = "https://www.hdfgroup.org/HDF5/";
-    platforms = lib.platforms.unix;
+    platforms = platforms.unix;
   };
 }

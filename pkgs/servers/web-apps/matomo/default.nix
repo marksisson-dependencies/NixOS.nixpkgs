@@ -3,19 +3,18 @@
 let
   versions = {
     matomo = {
-      version = "4.5.0";
-      sha256 = "sha256-OyjdzY+ENYxOTVjDLjj2unJbpaGODIH2I5Acmt45HDA=";
+      version = "4.14.2";
+      hash = "sha256-jPs/4bgt7VqeSoeLnwHr+FI426hAhwiP8RciQDNwCpo=";
     };
-
     matomo-beta = {
-      version = "4.6.0";
+      version = "4.14.3";
       # `beta` examples: "b1", "rc1", null
       # when updating: use null if stable version is >= latest beta or release candidate
-      beta = "b2";
-      sha256 = "sha256-7p/ZPtr5a/tBjrM27ILF3rNfxDIWuzWKCXNom3HlyL8=";
+      beta = "b6";
+      hash = "sha256-WGyGoTugxHgB2by1F57PQhyqQRjoKBCvwFBZvpsHwZg=";
     };
   };
-  common = pname: { version, sha256, beta ? null }:
+  common = pname: { version, hash, beta ? null }:
     let
       fullVersion = version + lib.optionalString (beta != null) "-${toString beta}";
       name = "${pname}-${fullVersion}";
@@ -27,19 +26,24 @@ let
 
         src = fetchurl {
           url = "https://builds.matomo.org/matomo-${version}.tar.gz";
-          inherit sha256;
+          inherit hash;
         };
 
         nativeBuildInputs = [ makeWrapper ];
 
-        # make-localhost-default-database-server.patch:
-        #   This changes the default value of the database server field
-        #   from 127.0.0.1 to localhost.
-        #   unix socket authentication only works with localhost,
-        #   but password-based SQL authentication works with both.
-        # TODO: is upstream interested in this?
-        # -> discussion at https://github.com/matomo-org/matomo/issues/12646
-        patches = [ ./make-localhost-default-database-host.patch ];
+        patches = [
+          # This changes the default value of the database server field
+          # from 127.0.0.1 to localhost.
+          # unix socket authentication only works with localhost,
+          # but password-based SQL authentication works with both.
+          # TODO: is upstream interested in this?
+          # -> discussion at https://github.com/matomo-org/matomo/issues/12646
+          ./make-localhost-default-database-host.patch
+
+          # This changes the default config for path.geoip2 so that it doesn't point
+          # to the nix store.
+          ./change-path-geoip2.patch
+        ];
 
         # this bootstrap.php adds support for getting PIWIK_USER_PATH
         # from an environment variable. Point it to a mutable location
@@ -73,6 +77,7 @@ let
           "misc/composer/build-xhprof.sh"
           "misc/composer/clean-xhprof.sh"
           "misc/cron/archive.sh"
+          "plugins/GeoIp2/config/config.php"
           "plugins/Installation/FormDatabaseSetup.php"
           "vendor/pear/archive_tar/sync-php4"
           "vendor/szymach/c-pchart/coverage.sh"
@@ -103,7 +108,7 @@ let
           license = licenses.gpl3Plus;
           homepage = "https://matomo.org/";
           platforms = platforms.all;
-          maintainers = with maintainers; [ florianjacob kiwi sebbel ];
+          maintainers = with maintainers; [ florianjacob kiwi sebbel twey boozedog ];
         };
       };
 in

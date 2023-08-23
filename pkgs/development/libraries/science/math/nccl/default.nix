@@ -1,40 +1,67 @@
-{ lib, stdenv, fetchFromGitHub, which, cudatoolkit, addOpenGLRunpath }:
-
-stdenv.mkDerivation rec {
-  name = "nccl-${version}-cuda-${cudatoolkit.majorVersion}";
-  version = "2.7.8-1";
+{ lib
+, backendStdenv
+, fetchFromGitHub
+, which
+, autoAddOpenGLRunpathHook
+, cuda_cccl
+, cuda_cudart
+, cuda_nvcc
+, cudaFlags
+, cudaVersion
+}:
+let
+  # Output looks like "-gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_86,code=compute_86"
+  gencode = lib.concatStringsSep " " cudaFlags.gencode;
+in
+backendStdenv.mkDerivation (finalAttrs: {
+  name = "nccl-${finalAttrs.version}-cuda-${cudaVersion}";
+  version = "2.16.5-1";
 
   src = fetchFromGitHub {
     owner = "NVIDIA";
     repo = "nccl";
-    rev = "v${version}";
-    sha256 = "0xxiwaw239dc9g015fka3k1nvm5zyl00dzgxnwzkang61dys9wln";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-JyhhYKSVIqUKIbC1rCJozPT1IrIyRLGrTjdPjJqsYaU=";
   };
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ which addOpenGLRunpath ];
+  nativeBuildInputs = [
+    which
+    autoAddOpenGLRunpathHook
+    cuda_nvcc
+  ];
 
-  buildInputs = [ cudatoolkit ];
+  buildInputs = [
+    cuda_cudart
+  ]
+  # NOTE: CUDA versions in Nixpkgs only use a major and minor version. When we do comparisons
+  # against other version, like below, it's important that we use the same format. Otherwise,
+  # we'll get incorrect results.
+  # For example, lib.versionAtLeast "12.0" "12.0.0" == false.
+  ++ lib.optionals (lib.versionAtLeast cudaVersion "12.0") [
+    cuda_cccl
+  ];
 
   preConfigure = ''
     patchShebangs src/collectives/device/gen_rules.sh
+    makeFlagsArray+=(
+      "NVCC_GENCODE=${gencode}"
+    )
   '';
 
   makeFlags = [
-    "CUDA_HOME=${cudatoolkit}"
+    "CUDA_HOME=${cuda_nvcc}"
+    "CUDA_LIB=${lib.getLib cuda_cudart}/lib"
+    "CUDA_INC=${lib.getDev cuda_cudart}/include"
     "PREFIX=$(out)"
   ];
 
   postFixup = ''
     moveToOutput lib/libnccl_static.a $dev
-
-    # Set RUNPATH so that libnvidia-ml in /run/opengl-driver(-32)/lib can be found.
-    # See the explanation in addOpenGLRunpath.
-    addOpenGLRunpath $out/lib/lib*.so
   '';
 
-  NIX_CFLAGS_COMPILE = [ "-Wno-unused-function" ];
+  env.NIX_CFLAGS_COMPILE = toString [ "-Wno-unused-function" ];
 
   enableParallelBuilding = true;
 
@@ -45,4 +72,4 @@ stdenv.mkDerivation rec {
     platforms = [ "x86_64-linux" ];
     maintainers = with maintainers; [ mdaiter orivej ];
   };
-}
+})

@@ -2,22 +2,30 @@
 , buildPythonPackage
 , pythonOlder
 , fetchPypi
+, importlib-resources
 , pydsdl
 , pyyaml
 }:
 
  buildPythonPackage rec {
   pname = "nunavut";
-  version = "1.5.2";
+  version = "2.1.1";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.5";
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "12703306872404be556648ab2282dc1566f4e77bfb9f14747fb13294c9235081";
+    hash = "sha256-ENP1uhzQwFEk990b1RX2wNVpInaSSH80KNihX6XpQtU=";
   };
 
+  postPatch = ''
+    substituteInPlace setup.cfg \
+      --replace "pydsdl ~= 1.16" "pydsdl"
+  '';
+
   propagatedBuildInputs = [
+    importlib-resources
     pydsdl
     pyyaml
   ];
@@ -42,6 +50,7 @@
       authors to generate code, schemas, metadata, documentation, etc.
     '';
     homepage = "https://nunavut.readthedocs.io/";
+    changelog = "https://github.com/OpenCyphal/nunavut/releases/tag/${version}";
     maintainers = with maintainers; [ wucke13 ];
     license = with licenses; [ bsd3 mit ];
   };

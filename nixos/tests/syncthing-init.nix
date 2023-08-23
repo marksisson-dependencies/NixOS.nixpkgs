@@ -1,22 +1,23 @@
 import ./make-test-python.nix ({ lib, pkgs, ... }: let
 
   testId = "7CFNTQM-IMTJBHJ-3UWRDIU-ZGQJFR6-VCXZ3NB-XUH3KZO-N52ITXR-LAIYUAU";
+  testName = "testDevice foo'bar";
 
 in {
   name = "syncthing-init";
   meta.maintainers = with pkgs.lib.maintainers; [ lassulus ];
 
-  machine = {
+  nodes.machine = {
     services.syncthing = {
       enable = true;
-      devices.testDevice = {
+      settings.devices.testDevice = {
         id = testId;
       };
-      folders.testFolder = {
+      settings.folders.testFolder = {
         path = "/tmp/test";
         devices = [ "testDevice" ];
       };
-      extraOptions.gui.user = "guiUser";
+      settings.gui.user = "guiUser";
     };
   };
 

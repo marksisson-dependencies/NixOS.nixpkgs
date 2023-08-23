@@ -27,14 +27,14 @@ The modules are typically installed to `lib/gio/modules/` directory of a package
 
 In particular, we recommend:
 
-* adding `dconf.lib` for any software on Linux that reads [GSettings](#ssec-gnome-settings) (even transitivily through e.g. GTK’s file manager)
+* adding `dconf.lib` for any software on Linux that reads [GSettings](#ssec-gnome-settings) (even transitively through e.g. GTK’s file manager)
 * adding `glib-networking` for any software that accesses network using GIO or libsoup – glib-networking contains a module that implements TLS support and loads system-wide proxy settings
 
 To allow software to use various virtual file systems, `gvfs` package can be also added. But that is usually an optional feature so we typically use `gvfs` from the system (e.g. installed globally using NixOS module).
 
 ### GdkPixbuf loaders {#ssec-gnome-gdk-pixbuf-loaders}
 
-GTK applications typically use [GdkPixbuf](https://developer.gnome.org/gdk-pixbuf/stable/) to load images. But `gdk-pixbuf` package only supports basic bitmap formats like JPEG, PNG or TIFF, requiring to use third-party loader modules for other formats. This is especially painful since GTK itself includes SVG icons, which cannot be rendered without a loader provided by `librsvg`.
+GTK applications typically use [GdkPixbuf](https://gitlab.gnome.org/GNOME/gdk-pixbuf/) to load images. But `gdk-pixbuf` package only supports basic bitmap formats like JPEG, PNG or TIFF, requiring to use third-party loader modules for other formats. This is especially painful since GTK itself includes SVG icons, which cannot be rendered without a loader provided by `librsvg`.
 
 Unlike other libraries mentioned in this section, GdkPixbuf only supports a single value in its controlling environment variable `GDK_PIXBUF_MODULE_FILE`. It is supposed to point to a cache file containing information about the available loaders. Each loader package will contain a `lib/gdk-pixbuf-2.0/2.10.0/loaders.cache` file describing the default loaders in `gdk-pixbuf` package plus the loader contained in the package itself. If you want to use multiple third-party loaders, you will need to create your own cache file manually. Fortunately, this is pretty rare as [not many loaders exist](https://gitlab.gnome.org/federico/gdk-pixbuf-survey/blob/master/src/modules.md).
 
@@ -42,7 +42,21 @@ Unlike other libraries mentioned in this section, GdkPixbuf only supports a sing
 
 ### Icons {#ssec-gnome-icons}
 
-When an application uses icons, an icon theme should be available in `XDG_DATA_DIRS` during runtime. The package for the default, icon-less [hicolor-icon-theme](https://www.freedesktop.org/wiki/Software/icon-theme/) (should be propagated by every icon theme) contains [a setup hook](#ssec-gnome-hooks-hicolor-icon-theme) that will pick up icon themes from `buildInputs` and pass it to our wrapper. Unfortunately, relying on that would mean every user has to download the theme included in the package expression no matter their preference. For that reason, we leave the installation of icon theme on the user. If you use one of the desktop environments, you probably already have an icon theme installed.
+When an application uses icons, an icon theme should be available in `XDG_DATA_DIRS` during runtime. The package for the default, icon-less [hicolor-icon-theme](https://www.freedesktop.org/wiki/Software/icon-theme/) (should be propagated by every icon theme) contains [a setup hook](#ssec-gnome-hooks-hicolor-icon-theme) that will pick up icon themes from `buildInputs` and add their datadirs to `XDG_ICON_DIRS` environment variable (this is Nixpkgs specific, not actually a XDG standard variable). Unfortunately, relying on that would mean every user has to download the theme included in the package expression no matter their preference. For that reason, we leave the installation of icon theme on the user. If you use one of the desktop environments, you probably already have an icon theme installed.
+
+In the rare case you need to use icons from dependencies (e.g. when an app forces an icon theme), you can use the following to pick them up:
+
+```nix
+  buildInputs = [
+    pantheon.elementary-icon-theme
+  ];
+  preFixup = ''
+    gappsWrapperArgs+=(
+      # The icon theme is hardcoded.
+      --prefix XDG_DATA_DIRS : "$XDG_ICON_DIRS"
+    )
+  '';
+```
 
 To avoid costly file system access when locating icons, GTK, [as well as Qt](https://woboq.com/blog/qicon-reads-gtk-icon-cache-in-qt57.html), can rely on `icon-theme.cache` files from the themes' top-level directories. These files are generated using `gtk-update-icon-cache`, which is expected to be run whenever an icon is added or removed to an icon theme (typically an application icon into `hicolor` theme) and some programs do indeed run this after icon installation. However, since packages are installed into their own prefix by Nix, this would lead to conflicts. For that reason, `gtk3` provides a [setup hook](#ssec-gnome-hooks-gtk-drop-icon-theme-cache) that will clean the file from installation. Since most applications only ship their own icon that will be loaded on start-up, it should not affect them too much. On the other hand, icon themes are much larger and more widely used so we need to cache them. Because we recommend installing icon themes globally, we will generate the cache files from all packages in a profile using a NixOS module. You can enable the cache generation using `gtk.iconCache.enable` option if your desktop environment does not already do that.
 
@@ -56,7 +70,7 @@ Also make sure that `icon-theme.cache` is installed for each theme provided by t
 
 ### GTK Themes {#ssec-gnome-themes}
 
-Previously, a GTK theme needed to be in `XDG_DATA_DIRS`. This is no longer necessary for most programs since GTK incorporated Adwaita theme. Some programs (for example, those designed for [elementary HIG](https://elementary.io/docs/human-interface-guidelines#human-interface-guidelines)) might require a special theme like `pantheon.elementary-gtk-theme`.
+Previously, a GTK theme needed to be in `XDG_DATA_DIRS`. This is no longer necessary for most programs since GTK incorporated Adwaita theme. Some programs (for example, those designed for [elementary HIG](https://docs.elementary.io/hig)) might require a special theme like `pantheon.elementary-gtk-theme`.
 
 ### GObject introspection typelibs {#ssec-gnome-typelibs}
 
@@ -98,13 +112,9 @@ For convenience, it also adds `dconf.lib` for a GIO module implementing a GSetti
 
 - []{#ssec-gnome-hooks-dconf} `dconf.lib` is a dependency of `wrapGAppsHook`, which then also adds it to the `GIO_EXTRA_MODULES` variable.
 
-- []{#ssec-gnome-hooks-hicolor-icon-theme} `hicolor-icon-theme`’s setup hook will add icon themes to `XDG_ICON_DIRS` which is prepended to `XDG_DATA_DIRS` by `wrapGAppsHook`.
+- []{#ssec-gnome-hooks-hicolor-icon-theme} `hicolor-icon-theme`’s setup hook will add icon themes to `XDG_ICON_DIRS`.
 
 - []{#ssec-gnome-hooks-gobject-introspection} `gobject-introspection` setup hook populates `GI_TYPELIB_PATH` variable with `lib/girepository-1.0` directories of dependencies, which is then added to wrapper by `wrapGAppsHook`. It also adds `share` directories of dependencies to `XDG_DATA_DIRS`, which is intended to promote GIR files but it also [pollutes the closures](https://github.com/NixOS/nixpkgs/issues/32790) of packages using `wrapGAppsHook`.
-
-  ::: {.warning}
-  The setup hook [currently](https://github.com/NixOS/nixpkgs/issues/56943) does not work in expressions with `strictDeps` enabled, like Python packages. In those cases, you will need to disable it with `strictDeps = false;`.
-  :::
 
 - []{#ssec-gnome-hooks-gst-grl-plugins} Setup hooks of `gst_all_1.gstreamer` and `grilo` will populate the `GST_PLUGIN_SYSTEM_PATH_1_0` and `GRL_PLUGIN_PATH` variables, respectively, which will then be added to the wrapper by `wrapGAppsHook`.
 
@@ -127,15 +137,15 @@ Most GNOME package offer [`updateScript`](#var-passthru-updateScript), it is the
 
 ## Frequently encountered issues {#ssec-gnome-common-issues}
 
-#### `GLib-GIO-ERROR **: 06:04:50.903: No GSettings schemas are installed on the system` {#ssec-gnome-common-issues-no-schemas}
+### `GLib-GIO-ERROR **: 06:04:50.903: No GSettings schemas are installed on the system` {#ssec-gnome-common-issues-no-schemas}
 
 There are no schemas available in `XDG_DATA_DIRS`. Temporarily add a random package containing schemas like `gsettings-desktop-schemas` to `buildInputs`. [`glib`](#ssec-gnome-hooks-glib) and [`wrapGAppsHook`](#ssec-gnome-hooks-wrapgappshook) setup hooks will take care of making the schemas available to application and you will see the actual missing schemas with the [next error](#ssec-gnome-common-issues-missing-schema). Or you can try looking through the source code for the actual schemas used.
 
-#### `GLib-GIO-ERROR **: 06:04:50.903: Settings schema ‘org.gnome.foo’ is not installed` {#ssec-gnome-common-issues-missing-schema}
+### `GLib-GIO-ERROR **: 06:04:50.903: Settings schema ‘org.gnome.foo’ is not installed` {#ssec-gnome-common-issues-missing-schema}
 
 Package is missing some GSettings schemas. You can find out the package containing the schema with `nix-locate org.gnome.foo.gschema.xml` and let the hooks handle the wrapping as [above](#ssec-gnome-common-issues-no-schemas).
 
-#### When using `wrapGAppsHook` with special derivers you can end up with double wrapped binaries. {#ssec-gnome-common-issues-double-wrapped}
+### When using `wrapGAppsHook` with special derivers you can end up with double wrapped binaries. {#ssec-gnome-common-issues-double-wrapped}
 
 This is because derivers like `python.pkgs.buildPythonApplication` or `qt5.mkDerivation` have setup-hooks automatically added that produce wrappers with makeWrapper. The simplest way to workaround that is to disable the `wrapGAppsHook` automatic wrapping with `dontWrapGApps = true;` and pass the arguments it intended to pass to makeWrapper to another.
 
@@ -183,7 +193,7 @@ mkDerivation {
 }
 ```
 
-#### I am packaging a project that cannot be wrapped, like a library or GNOME Shell extension. {#ssec-gnome-common-issues-unwrappable-package}
+### I am packaging a project that cannot be wrapped, like a library or GNOME Shell extension. {#ssec-gnome-common-issues-unwrappable-package}
 
 You can rely on applications depending on the library setting the necessary environment variables but that is often easy to miss. Instead we recommend to patch the paths in the source code whenever possible. Here are some examples:
 
@@ -199,6 +209,6 @@ You can rely on applications depending on the library setting the necessary envi
 
   []{#ssec-gnome-common-issues-unwrappable-package-gsettings-c} [Hard-coding GSettings schema path in C library](https://github.com/NixOS/nixpkgs/blob/29c120c065d03b000224872251bed93932d42412/pkgs/development/libraries/glib-networking/default.nix#L31-L34) – nothing special other than using [Coccinelle patch](https://github.com/NixOS/nixpkgs/pull/67957#issuecomment-527717467) to generate the patch itself.
 
-#### I need to wrap a binary outside `bin` and `libexec` directories. {#ssec-gnome-common-issues-weird-location}
+### I need to wrap a binary outside `bin` and `libexec` directories. {#ssec-gnome-common-issues-weird-location}
 
 You can manually trigger the wrapping with `wrapGApp` in `preFixup` phase. It takes a path to a program as a first argument; the remaining arguments are passed directly to [`wrapProgram`](#fun-wrapProgram) function.

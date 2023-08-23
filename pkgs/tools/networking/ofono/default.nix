@@ -12,14 +12,14 @@
 
 stdenv.mkDerivation rec {
   pname = "ofono";
-  version = "1.33";
+  version = "2.1";
 
   outputs = [ "out" "dev" ];
 
   src = fetchgit {
-    url = "git://git.kernel.org/pub/scm/network/ofono/ofono.git";
+    url = "https://git.kernel.org/pub/scm/network/ofono/ofono.git";
     rev = version;
-    sha256 = "sha256-UTFP69yv1epVrqBoRKCRcR2WiKBG01sLTzrsh/Nude4=";
+    sha256 = "sha256-GxQfh/ps5oM9G6B1EVgnjo8LqHD1hMqdnju1PCQq3kA=";
   };
 
   patches = [
@@ -58,9 +58,10 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Infrastructure for building mobile telephony (GSM/UMTS) applications";
-    homepage = "https://01.org/ofono";
-    license = licenses.gpl2;
-    maintainers = with maintainers; [ jtojnar ];
+    homepage = "https://git.kernel.org/pub/scm/network/ofono/ofono.git";
+    changelog = "https://git.kernel.org/pub/scm/network/ofono/ofono.git/plain/ChangeLog?h=${version}";
+    license = licenses.gpl2Only;
+    maintainers = with maintainers; [ ];
     platforms = platforms.linux;
   };
 }

@@ -8,12 +8,13 @@
 , flask
 , flask-httpauth
 , flask-socketio
-, stem
+, cepa
 , psutil
 , pyqt5
 , pycrypto
 , pynacl
 , pyside2
+, pysocks
 , pytestCheckHook
 , qrcode
 , qt5
@@ -21,15 +22,16 @@
 , unidecode
 , tor
 , obfs4
+, snowflake
 }:
 
 let
-  version = "2.4";
+  version = "2.6";
   src = fetchFromGitHub {
     owner = "onionshare";
     repo = "onionshare";
     rev = "v${version}";
-    sha256 = "sha256-Lclm7mIkaAkQpWcNILTRJtLA43dpiyHtWAeHS2r3+ZQ=";
+    sha256 = "sha256-LA7XlzoCXUiG/9subTddAd22336wO9sOHCIBlQK4Ga4=";
   };
   meta = with lib; {
     description = "Securely and anonymously send and receive files";
@@ -55,16 +57,9 @@ let
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ lourkeur ];
   };
-  stem' = stem.overridePythonAttrs (_: rec {
-    version = "1.8.1";
 
-    src = fetchFromGitHub {
-      owner = "onionshare";
-      repo = "stem";
-      rev = version;
-      sha256 = "Dzpvx7CgAr5OtGmfubWAYDLqq5LkGqcwjr3bxpfL/3A=";
-    };
-  });
+  # TODO: package meek https://support.torproject.org/glossary/meek/
+  meek = "/meek-not-available";
 
 in
 rec {
@@ -76,7 +71,7 @@ rec {
       # hardcode store paths of dependencies
       (substituteAll {
         src = ./fix-paths.patch;
-        inherit tor obfs4;
+        inherit tor meek obfs4 snowflake;
         inherit (tor) geoip;
       })
     ];
@@ -86,7 +81,7 @@ rec {
       flask
       flask-httpauth
       flask-socketio
-      stem'
+      cepa
       psutil
       pycrypto
       pynacl
@@ -99,7 +94,7 @@ rec {
       obfs4
     ];
 
-    checkInputs = [
+    nativeCheckInputs = [
       pytestCheckHook
     ];
 
@@ -109,8 +104,6 @@ rec {
     '';
 
     disabledTests = [
-      "test_firefox_like_behavior"
-      "test_if_unmodified_since"
       "test_get_tor_paths_linux"  # expects /usr instead of /nix/store
     ] ++ lib.optionals stdenv.isDarwin [
       # on darwin (and only on darwin) onionshare attempts to discover
@@ -123,14 +116,15 @@ rec {
   onionshare-gui = buildPythonApplication {
     pname = "onionshare";
     inherit version meta;
-    src = "${src}/desktop/src";
+    src = "${src}/desktop";
     patches = [
       # hardcode store paths of dependencies
       (substituteAll {
         src = ./fix-paths-gui.patch;
-        inherit tor obfs4;
+        inherit tor meek obfs4 snowflake;
         inherit (tor) geoip;
       })
+      ./fix-qrcode-gui.patch
     ];
 
     disable = !isPy3k;
@@ -140,9 +134,17 @@ rec {
       pyside2
       psutil
       qrcode
+      pysocks
     ];
 
     nativeBuildInputs = [ qt5.wrapQtAppsHook ];
+
+    postInstall = ''
+      mkdir -p $out/share/{appdata,applications,icons}
+      cp $src/org.onionshare.OnionShare.desktop $out/share/applications
+      cp $src/org.onionshare.OnionShare.svg $out/share/icons
+      cp $src/org.onionshare.OnionShare.appdata.xml $out/share/appdata
+    '';
 
     preFixup = ''
       wrapQtApp $out/bin/onionshare

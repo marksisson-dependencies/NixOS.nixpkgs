@@ -4,8 +4,8 @@ import ./make-test-python.nix ({ pkgs, lib, ...} : {
     maintainers = [ ma27 ];
   };
 
-  machine = { pkgs, ... }: {
-    virtualisation.memorySize = 2048;
+  nodes.machine = { pkgs, ... }: {
+    virtualisation.memorySize = 2047;
     services.wiki-js = {
       enable = true;
       settings.db.host = "/run/postgresql";

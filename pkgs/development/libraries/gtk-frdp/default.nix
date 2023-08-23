@@ -14,14 +14,14 @@
 
 stdenv.mkDerivation rec {
   pname = "gtk-frdp";
-  version = "unstable-2021-10-01";
+  version = "unstable-2023-04-14";
 
   src = fetchFromGitLab {
     domain = "gitlab.gnome.org";
     owner = "GNOME";
     repo = pname;
-    rev = "9c15c1202ed66fe20334e33d798cc5ebd39917f0";
-    sha256 = "2YOLpyd26qWQKvneH4ww2DS8h/ZNYDmfbYIjQDvDMko=";
+    rev = "9af99d95ed532128c1856e7a1bfd0b59dd61a35f";
+    sha256 = "cz4JJ/NKBYBv5bw18BBfwtWtxPWGBmrwSHgTZ1hS3Qk=";
   };
 
   nativeBuildInputs = [
@@ -39,12 +39,13 @@ stdenv.mkDerivation rec {
   ];
 
   passthru = {
-    updateScript = unstableGitUpdater {
-      # The updater tries src.url by default, which does not exist for fetchFromGitHub (fetchurl).
-      url = "${meta.homepage}.git";
-      branch = "gtk-frdp-0-1";
-    };
+    updateScript = unstableGitUpdater { };
   };
+
+  env.NIX_CFLAGS_COMPILE = toString (lib.optionals stdenv.isDarwin [
+    "-DTARGET_OS_IPHONE=0"
+    "-DTARGET_OS_WATCH=0"
+  ]);
 
   meta = with lib; {
     homepage = "https://gitlab.gnome.org/GNOME/gtk-frdp";

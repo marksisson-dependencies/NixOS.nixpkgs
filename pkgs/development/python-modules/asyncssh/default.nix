@@ -1,50 +1,70 @@
 { lib
-, buildPythonPackage
-, fetchPypi
-, pythonOlder
-, cryptography
+, stdenv
 , bcrypt
-, gssapi
+, buildPythonPackage
+, cryptography
+, fetchPypi
 , fido2
+, gssapi
 , libnacl
 , libsodium
 , nettle
-, python-pkcs11
-, pyopenssl
-, openssl
 , openssh
+, openssl
+, pyopenssl
 , pytestCheckHook
+, python-pkcs11
+, pythonOlder
+, typing-extensions
 }:
 
 buildPythonPackage rec {
   pname = "asyncssh";
-  version = "2.8.1";
+  version = "2.13.2";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0648eba58d72653755f28e26c9bd83147d9652c1f2f5e87fbf5a87d7f8fbf83a";
+    hash = "sha256-mR5THEu32+xit1SHjZajJGM4qsEaKM48PpkBj7L1gow=";
   };
 
   propagatedBuildInputs = [
-    bcrypt
     cryptography
-    fido2
-    gssapi
-    libnacl
     libsodium
     nettle
-    python-pkcs11
-    pyopenssl
+    typing-extensions
   ];
 
-  checkInputs = [
+  passthru.optional-dependencies = {
+    bcrypt = [
+      bcrypt
+    ];
+    fido2 = [
+      fido2
+    ];
+    gssapi = [
+      gssapi
+    ];
+    libnacl = [
+      libnacl
+    ];
+    pkcs11 = [
+      python-pkcs11
+    ];
+    pyOpenSSL = [
+      pyopenssl
+    ];
+  };
+
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
     openssh
     openssl
     pytestCheckHook
-  ];
+  ] ++ lib.flatten (builtins.attrValues passthru.optional-dependencies);
 
   patches = [
     # Reverts https://github.com/ronf/asyncssh/commit/4b3dec994b3aa821dba4db507030b569c3a32730
@@ -66,6 +86,8 @@ buildPythonPackage rec {
     "TestSKAuthCTAP2"
     # Requires network access
     "test_connect_timeout_exceeded"
+    # Fails in the sandbox
+    "test_forward_remote"
   ];
 
   pythonImportsCheck = [
@@ -75,6 +97,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Asynchronous SSHv2 Python client and server library";
     homepage = "https://asyncssh.readthedocs.io/";
+    changelog = "https://github.com/ronf/asyncssh/blob/v${version}/docs/changes.rst";
     license = licenses.epl20;
     maintainers = with maintainers; [ ];
   };

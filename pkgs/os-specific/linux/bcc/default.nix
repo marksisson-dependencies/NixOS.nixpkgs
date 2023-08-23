@@ -1,12 +1,26 @@
-{ lib, stdenv, fetchFromGitHub
-, makeWrapper, cmake, llvmPackages
-, flex, bison, elfutils, python, luajit, netperf, iperf, libelf
-, bash, libbpf, nixosTests
+{ audit
+, bash
+, bison
+, cmake
+, elfutils
+, fetchFromGitHub
+, flex
+, iperf
+, lib
+, libbpf
+, llvmPackages
+, luajit
+, makeWrapper
+, netperf
+, nixosTests
+, python3
+, stdenv
+, zip
 }:
 
-python.pkgs.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication rec {
   pname = "bcc";
-  version = "0.23.0";
+  version = "0.28.0";
 
   disabled = !stdenv.isLinux;
 
@@ -14,7 +28,7 @@ python.pkgs.buildPythonApplication rec {
     owner = "iovisor";
     repo = "bcc";
     rev = "v${version}";
-    sha256 = "sha256-iLVUwJTDQ8Bn38sgHOcIR8TYxIB+gIlfTgr9+gPU0gE=";
+    sha256 = "sha256-+ecSaVroDC2bWbio4JsuwEvHQdCMpxLt7hIkeREMJs8=";
   };
   format = "other";
 
@@ -30,8 +44,16 @@ python.pkgs.buildPythonApplication rec {
     ./fix-deadlock-detector-import.patch
   ];
 
-  propagatedBuildInputs = [ python.pkgs.netaddr ];
-  nativeBuildInputs = [ makeWrapper cmake flex bison llvmPackages.llvm.dev ];
+  propagatedBuildInputs = [ python3.pkgs.netaddr ];
+  nativeBuildInputs = [
+    bison
+    cmake
+    flex
+    llvmPackages.llvm.dev
+    makeWrapper
+    python3.pkgs.setuptools
+    zip
+  ];
 
   cmakeFlags = [
     "-DBCC_KERNEL_MODULES_DIR=/run/booted-system/kernel-modules/lib/modules"
@@ -39,13 +61,29 @@ python.pkgs.buildPythonApplication rec {
     "-DENABLE_USDT=ON"
     "-DENABLE_CPP_API=ON"
     "-DCMAKE_USE_LIBBPF_PACKAGE=ON"
+    "-DENABLE_LIBDEBUGINFOD=OFF"
   ];
+
+  # to replace this executable path:
+  # https://github.com/iovisor/bcc/blob/master/src/python/bcc/syscall.py#L384
+  ausyscall = "${audit}/bin/ausyscall";
 
   postPatch = ''
     substituteAll ${./libbcc-path.patch} ./libbcc-path.patch
     patch -p1 < libbcc-path.patch
+
+    substituteAll ${./absolute-ausyscall.patch} ./absolute-ausyscall.patch
+    patch -p1 < absolute-ausyscall.patch
+
+    # https://github.com/iovisor/bcc/issues/3996
+    substituteInPlace src/cc/libbcc.pc.in \
+      --replace '$'{exec_prefix}/@CMAKE_INSTALL_LIBDIR@ @CMAKE_INSTALL_FULL_LIBDIR@
   '';
 
+  preInstall = ''
+    # required for setuptool during install
+    export PYTHONPATH=$out/${python3.sitePackages}:$PYTHONPATH
+  '';
   postInstall = ''
     mkdir -p $out/bin $out/share
     rm -r $out/share/bcc/tools/old
@@ -68,6 +106,8 @@ python.pkgs.buildPythonApplication rec {
   postFixup = ''
     wrapPythonProgramsIn "$out/share/bcc/tools" "$out $pythonPath"
   '';
+
+  outputs = [ "out" "man" ];
 
   passthru.tests = {
     bpf = nixosTests.bpf;

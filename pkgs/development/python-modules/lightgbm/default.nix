@@ -1,4 +1,5 @@
-{ lib, stdenv
+{ lib
+, stdenv
 , buildPythonPackage
 , fetchPypi
 , cmake
@@ -6,15 +7,24 @@
 , scipy
 , scikit-learn
 , llvmPackages ? null
+, pythonOlder
+, python
+, ocl-icd
+, opencl-headers
+, boost
+, gpuSupport ? stdenv.isLinux
 }:
 
 buildPythonPackage rec {
   pname = "lightgbm";
-  version = "3.3.1";
+  version = "3.3.5";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "5b9f31759ab4e94d9409deb03104c55b0a40058a6ccea804022046d926bc4904";
+    hash = "sha256-ELj73PhR5PaKHwLzjZm9xEx8f7mxpi3PkkoNKf9zOVw=";
   };
 
   nativeBuildInputs = [
@@ -23,12 +33,27 @@ buildPythonPackage rec {
 
   dontUseCmakeConfigure = true;
 
-  buildInputs = lib.optional stdenv.cc.isClang [ llvmPackages.openmp ];
+  buildInputs = (lib.optionals stdenv.cc.isClang [
+    llvmPackages.openmp
+  ]) ++ (lib.optionals gpuSupport [
+    boost
+    ocl-icd
+    opencl-headers
+  ]);
+
   propagatedBuildInputs = [
     numpy
     scipy
     scikit-learn
   ];
+
+  buildPhase = ''
+    runHook preBuild
+
+    ${python.pythonForBuild.interpreter} setup.py bdist_wheel ${lib.optionalString gpuSupport "--gpu"}
+
+    runHook postBuild
+  '';
 
   postConfigure = ''
     export HOME=$(mktemp -d)
@@ -38,12 +63,16 @@ buildPythonPackage rec {
   # repository. It contains c++ tests which don't seem to wired up to
   # `make check`.
   doCheck = false;
-  pythonImportsCheck = [ "lightgbm" ];
 
-  meta = with lib; {
+  pythonImportsCheck = [
+    "lightgbm"
+  ];
+
+  meta = {
     description = "A fast, distributed, high performance gradient boosting (GBDT, GBRT, GBM or MART) framework";
     homepage = "https://github.com/Microsoft/LightGBM";
-    license = licenses.mit;
-    maintainers = with maintainers; [ teh costrouc ];
+    changelog = "https://github.com/microsoft/LightGBM/releases/tag/v${version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ teh ];
   };
 }

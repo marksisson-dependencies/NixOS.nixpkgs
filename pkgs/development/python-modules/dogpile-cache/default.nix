@@ -4,20 +4,20 @@
 , pythonOlder
 , pytestCheckHook
 , mock
-, Mako
+, mako
 , decorator
 , stevedore
 }:
 
 buildPythonPackage rec {
   pname = "dogpile-cache";
-  version = "1.1.4";
+  version = "1.2.0";
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     pname = "dogpile.cache";
     inherit version;
-    sha256 = "ea09bebf24bb7c028caf98963785fe9ad0bd397305849a3303bc5380d468d813";
+    hash = "sha256-R1VMhgzrSE3Vrvn/H4j+yz1K72u5IRlFD1vLqgJrv7E=";
   };
 
   preCheck = ''
@@ -30,7 +30,7 @@ buildPythonPackage rec {
 
   dontUseSetuptoolsCheck = true;
 
-  checkInputs = [ pytestCheckHook mock Mako ];
+  nativeCheckInputs = [ pytestCheckHook mock mako ];
 
   propagatedBuildInputs = [ decorator stevedore ];
 

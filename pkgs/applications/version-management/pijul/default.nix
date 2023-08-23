@@ -5,7 +5,6 @@
 , libsodium
 , openssl
 , xxHash
-, zstd
 , darwin
 , gitImportSupport ? true
 , libgit2 ? null
@@ -13,18 +12,18 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "pijul";
-  version = "1.0.0-alpha.56";
+  version = "1.0.0-beta.6";
 
   src = fetchCrate {
     inherit version pname;
-    sha256 = "zV4F4dbjJ58yGiupUwj5Z0HrKR78Mzch8Zs98YfxSTQ=";
+    hash = "sha256-1cIb4QsDYlOCGrQrLgEwIjjHZ3WwD2o0o0bF+OOqEtI=";
   };
 
-  cargoSha256 = "JQGBTCNu9U2Kq6tc7VT07LEbzLW+jdVWrK5e2qjzGRA=";
+  cargoHash = "sha256-mRi0NUETTdYE/oM+Jo7gW/zNby8dPAKl6XhzP0Qzsf0=";
 
   doCheck = false;
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ openssl libsodium xxHash zstd ]
+  buildInputs = [ openssl libsodium xxHash ]
     ++ (lib.optionals gitImportSupport [ libgit2 ])
     ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
       CoreServices Security SystemConfiguration

@@ -1,18 +1,39 @@
-{ lib, buildPythonPackage, fetchPypi, django, python }:
+{ lib
+, buildPythonPackage
+, django
+, fetchPypi
+, python
+, pythonOlder
+, setuptools-scm
+}:
 
 buildPythonPackage rec {
   pname = "django-formtools";
-  version = "2.2";
+  version = "2.4.1";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1chkbl188yj6hvhh1wgjpfgql553k6hrfwxzb8vv4lfdq41jq9y5";
+    hash = "sha256-IfjV2sc38eY2+ooKEJacHDL1JabfonwpWSgnunDZZDo=";
   };
 
-  propagatedBuildInputs = [ django ];
+  nativeBuildInputs = [
+    setuptools-scm
+  ];
+
+  propagatedBuildInputs = [
+    django
+  ];
+
   checkPhase = ''
     ${python.interpreter} -m django test --settings=tests.settings
   '';
+
+  pythonImportsCheck = [
+    "formtools"
+  ];
 
   meta = with lib; {
     description = "A set of high-level abstractions for Django forms";

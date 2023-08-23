@@ -5,13 +5,13 @@
 
 buildGoModule rec {
   pname = "unifiedpush-common-proxies";
-  version = "1.1.0";
+  version = "1.5.0";
 
   src = fetchFromGitHub {
     owner = "unifiedpush";
     repo = "common-proxies";
     rev = "v${version}";
-    sha256 = "sha256-V6LTEwdnVkxc2wm8anlYeYJpk/mMQEsKrq69H8okHBg=";
+    sha256 = "sha256-eonKHhaH7mAdW7ouprQivMxKPGFv0s1m/S8jGwid8kM=";
   };
 
   vendorSha256 = "sha256-s0uN6PzIaAHLvRb9T07Xvb6mMAuvKHQ4oFJtl5hsvY4=";
@@ -21,5 +21,6 @@ buildGoModule rec {
     homepage = "https://github.com/UnifiedPush/common-proxies";
     license = licenses.mit;
     maintainers = with maintainers; [ yuka ];
+    mainProgram = "up_rewrite";
   };
 }

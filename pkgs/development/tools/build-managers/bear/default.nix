@@ -1,5 +1,6 @@
 { lib, stdenv
 , fetchFromGitHub
+, fetchpatch
 , cmake
 , pkg-config
 , grpc
@@ -9,7 +10,6 @@
 , gtest
 , spdlog
 , c-ares
-, abseil-cpp
 , zlib
 , sqlite
 , re2
@@ -17,13 +17,13 @@
 
 stdenv.mkDerivation rec {
   pname = "bear";
-  version = "3.0.14";
+  version = "3.1.2";
 
   src = fetchFromGitHub {
     owner = "rizsotto";
     repo = pname;
     rev = version;
-    sha256 = "0qy96dyd29bjvfhi46y30hli5cvshw8am0spvcv9v43660wbczd7";
+    sha256 = "sha256-x46BS+By5Zj5xeYRD45eXRDCAOqwpkkivVyJPnhkAMc=";
   };
 
   nativeBuildInputs = [ cmake pkg-config ];
@@ -36,7 +36,6 @@ stdenv.mkDerivation rec {
     gtest
     spdlog
     c-ares
-    abseil-cpp
     zlib
     sqlite
     re2
@@ -45,10 +44,13 @@ stdenv.mkDerivation rec {
   patches = [
     # Default libexec would be set to /nix/store/*-bear//nix/store/*-bear/libexec/...
     ./no-double-relative.patch
-  ];
 
-  # 'path' is unavailable: introduced in macOS 10.15
-  CXXFLAGS = lib.optional (stdenv.hostPlatform.system == "x86_64-darwin") "-D_LIBCPP_DISABLE_AVAILABILITY";
+    # Fix compatiblity with fmt 10.0. Remove with the next release
+    (fetchpatch {
+      url = "https://github.com/rizsotto/Bear/commit/46a032fa0fc8131779ece13f26735ec84be891e8.patch";
+      hash = "sha256-zYKwQ5PLSTJ1hROGnTfP8xPoM0cBw6abAZLx6GxmdfI=";
+    })
+  ];
 
   meta = with lib; {
     description = "Tool that generates a compilation database for clang tooling";

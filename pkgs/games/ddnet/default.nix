@@ -1,9 +1,12 @@
 { lib
 , stdenv
 , fetchFromGitHub
+, cargo
 , cmake
 , ninja
 , pkg-config
+, rustPlatform
+, rustc
 , curl
 , freetype
 , libGLU
@@ -16,20 +19,48 @@
 , SDL2
 , sqlite
 , wavpack
+, ffmpeg
+, x264
+, vulkan-headers
+, vulkan-loader
+, glslang
+, spirv-tools
+, gtest
+, Carbon
+, Cocoa
+, OpenGL
+, Security
 }:
 
 stdenv.mkDerivation rec {
   pname = "ddnet";
-  version = "15.7";
+  version = "17.2.1";
 
   src = fetchFromGitHub {
     owner = "ddnet";
     repo = pname;
     rev = version;
-    sha256 = "sha256-SrD2rwV/8RnE5HvYSN51fsjZ3lAJwmDiyr/ywDK1TT4=";
+    hash = "sha256-FJnwabNEEGZDM9wNWMGclFv2IMlXg4Ob3PEbGiGQKKc=";
   };
 
-  nativeBuildInputs = [ cmake ninja pkg-config ];
+  cargoDeps = rustPlatform.fetchCargoTarball {
+    name = "${pname}-${version}";
+    inherit src;
+    hash = "sha256-hUrsumBiKovSD7xT1PgH2Q+7HYgyxnFnz33YJPdd5+c=";
+  };
+
+  nativeBuildInputs = [
+    cmake
+    ninja
+    pkg-config
+    rustc
+    cargo
+    rustPlatform.cargoSetupHook
+  ];
+
+  nativeCheckInputs = [
+    gtest
+  ];
 
   buildInputs = [
     curl
@@ -44,18 +75,25 @@ stdenv.mkDerivation rec {
     SDL2
     sqlite
     wavpack
-  ];
-
-  cmakeFlags = [
-    "-DCMAKE_BUILD_TYPE=Release"
-    "-DAUTOUPDATE=OFF"
-    "-GNinja"
-  ];
+    ffmpeg
+    x264
+    vulkan-loader
+    vulkan-headers
+    glslang
+    spirv-tools
+  ] ++ lib.optionals stdenv.isDarwin [ Carbon Cocoa OpenGL Security ];
 
   postPatch = ''
     substituteInPlace src/engine/shared/storage.cpp \
       --replace /usr/ $out/
   '';
+
+  cmakeFlags = [
+    "-DAUTOUPDATE=OFF"
+  ];
+
+  doCheck = true;
+  checkTarget = "run_tests";
 
   meta = with lib; {
     description = "A Teeworlds modification with a unique cooperative gameplay.";
@@ -66,9 +104,9 @@ stdenv.mkDerivation rec {
       compete against the best in international tournaments,
       design your own maps, or run your own server.
     '';
-    homepage = "https://ddnet.tw";
+    homepage = "https://ddnet.org";
     license = licenses.asl20;
-    maintainers = with maintainers; [ sirseruju lom ];
+    maintainers = with maintainers; [ sirseruju lom ncfavier ];
     mainProgram = "DDNet";
   };
 }

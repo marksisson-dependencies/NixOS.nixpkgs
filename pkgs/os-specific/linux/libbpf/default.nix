@@ -1,31 +1,36 @@
-{ lib, stdenv, fetchFromGitHub, pkg-config
-, libelf, zlib
-, fetchpatch
+{ fetchFromGitHub
+, elfutils
+, pkg-config
+, stdenv
+, zlib
+, lib
+, nixosTests
 }:
-
-with builtins;
 
 stdenv.mkDerivation rec {
   pname = "libbpf";
-  version = "0.6.0";
+  version = "1.2.2";
 
   src = fetchFromGitHub {
-    owner  = "libbpf";
-    repo   = "libbpf";
-    rev    = "v${version}";
-    sha256 = "sha256-p9wUDC7r6+ElbheNkTkZW4eMNAvPbvpUyQjTjCE34ck=";
+    owner = "libbpf";
+    repo = "libbpf";
+    rev = "v${version}";
+    sha256 = "sha256-SDDdz2HKEfzHloLkb0sv5ldTo+1yJDVc9O7nj4Cjznk=";
   };
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ libelf zlib ];
+  buildInputs = [ elfutils zlib ];
 
-  sourceRoot = "source/src";
   enableParallelBuilding = true;
-  makeFlags = [ "PREFIX=$(out)" ];
+  makeFlags = [ "PREFIX=$(out)" "-C src" ];
+
+  passthru.tests = {
+    bpf = nixosTests.bpf;
+  };
 
   postInstall = ''
     # install linux's libbpf-compatible linux/btf.h
-    install -Dm444 ../include/uapi/linux/btf.h -t $out/include/linux
+    install -Dm444 include/uapi/linux/*.h -t $out/include/linux
   '';
 
   # FIXME: Multi-output requires some fixes to the way the pkg-config file is
@@ -36,9 +41,9 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Upstream mirror of libbpf";
-    homepage    = "https://github.com/libbpf/libbpf";
-    license     = with licenses; [ lgpl21 /* or */ bsd2 ];
+    homepage = "https://github.com/libbpf/libbpf";
+    license = with licenses; [ lgpl21 /* or */ bsd2 ];
     maintainers = with maintainers; [ thoughtpolice vcunat saschagrunert martinetd ];
-    platforms   = platforms.linux;
+    platforms = platforms.linux;
   };
 }

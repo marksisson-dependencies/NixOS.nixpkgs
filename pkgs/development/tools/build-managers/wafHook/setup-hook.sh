@@ -10,6 +10,10 @@ wafConfigurePhase() {
         wafConfigureFlags="${prefixKey:---prefix=}$prefix $wafConfigureFlags"
     fi
 
+    if [ -n "${PKG_CONFIG}" ]; then
+      export PKGCONFIG="${PKG_CONFIG}"
+    fi
+
     local flagsArray=(
         "${flagsArray[@]}"
         $wafConfigureFlags "${wafConfigureFlagsArray[@]}"
@@ -24,6 +28,11 @@ wafConfigurePhase() {
     if ! [[ -v enableParallelBuilding ]]; then
         enableParallelBuilding=1
         echo "waf: enabled parallel building"
+    fi
+
+    if ! [[ -v enableParallelInstalling ]]; then
+        enableParallelInstalling=1
+        echo "waf: enabled parallel installing"
     fi
 
     runHook postConfigure
@@ -64,6 +73,7 @@ wafInstallPhase() {
     fi
 
     local flagsArray=(
+        ${enableParallelInstalling:+-j ${NIX_BUILD_CORES}}
         $wafFlags ${wafFlagsArray[@]}
         $installFlags ${installFlagsArray[@]}
         ${installTargets:-install}

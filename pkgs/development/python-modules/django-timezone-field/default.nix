@@ -13,15 +13,15 @@
 
 buildPythonPackage rec {
   pname = "django-timezone-field";
-  version = "4.2.1";
-  format = "setuptools";
+  version = "5.1";
   disabled = pythonOlder "3.5";
+  format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "mfogel";
     repo = pname;
     rev = version;
-    sha256 = "0swld4168pfhppr9q3i9r062l832cmmx792kkvlcvxfbdhk6qz9h";
+    hash = "sha256-FAYO8OEE/h4rsbC4Oc57ylWV7TqQ6DOd6/2M+mb/AsM=";
   };
 
   nativeBuildInputs = [
@@ -44,7 +44,7 @@ buildPythonPackage rec {
 
   DJANGO_SETTINGS_MODULE = "tests.settings";
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest
     pytest-lazy-fixture
   ];

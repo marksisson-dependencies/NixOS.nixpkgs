@@ -1,50 +1,37 @@
-{ stdenvNoCC, fetchurl, lib }:
+{ buildGoModule, fetchFromGitHub, lib }:
 
-let
-  version = "4.26.9";
-
-  srcs = {
-    x86_64-linux = fetchurl {
-      url = "https://github.com/symfony/cli/releases/download/v${version}/symfony_linux_amd64.gz";
-      sha256 = "0ivqqrpzbpyzp60bv25scarmvisj401rp7h2s3cxa7d17prja91v";
-    };
-
-    i686-linux = fetchurl {
-      url = "https://github.com/symfony/cli/releases/download/v${version}/symfony_linux_386.gz";
-      sha256 = "0ag5w70bkvj9wgp4yzzy824shj907sa5l20sqcgivi3r5gy0p277";
-    };
-
-    aarch64-linux = fetchurl {
-      url = "https://github.com/symfony/cli/releases/download/v${version}/symfony_linux_arm64.gz";
-      sha256 = "00325xz7xl3bprj5zbg5yhn36jf4n37zlyag10m8zcmq8asa6k51";
-    };
-
-    x86_64-darwin = fetchurl {
-        url = "https://github.com/symfony/cli/releases/download/v${version}/symfony_darwin_amd64.gz";
-        sha256 = "00325xz7xl3bprj5zbg5yhn36jf4n37zlyag10m8zcmq8asa6k51";
-      };
-  };
-in stdenvNoCC.mkDerivation rec {
-  inherit version;
+buildGoModule rec {
   pname = "symfony-cli";
+  version = "5.5.7";
+  vendorHash = "sha256-OXV/hTSHJvYfe2SiFamkedC01J/DOgd8I60yIpQToos=";
 
-  src = srcs.${stdenvNoCC.hostPlatform.system} or (throw "Unsupported system: ${stdenvNoCC.hostPlatform.system}");
+  src = fetchFromGitHub {
+    owner = "symfony-cli";
+    repo = "symfony-cli";
+    rev = "v${version}";
+    hash = "sha256-LC6QQIVHllBRu8B6XfV8SuTB3O+FmqYr+LQnVmLj2nU=";
+  };
 
-  dontBuild = true;
+  ldflags = [
+    "-s"
+    "-w"
+    "-X main.version=${version}"
+  ];
 
-  unpackPhase = ''
-    gunzip <$src >symfony
+  postInstall = ''
+    mv $out/bin/symfony-cli $out/bin/symfony
   '';
 
-  installPhase = ''
-    install -D -t $out/bin symfony
+  # Tests requires network access
+  checkPhase = ''
+    $GOPATH/bin/symfony-cli
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Symfony CLI";
-    homepage = "https://symfony.com/download";
-    license = licenses.unfree;
-    maintainers = with maintainers; [ drupol ];
-    platforms = [ "x86_64-linux" "aarch64-linux" "i686-linux" "x86_64-darwin" ];
+    homepage = "https://github.com/symfony-cli/symfony-cli";
+    license = lib.licenses.agpl3Plus;
+    mainProgram = "symfony";
+    maintainers = with lib.maintainers; [ drupol ];
   };
 }

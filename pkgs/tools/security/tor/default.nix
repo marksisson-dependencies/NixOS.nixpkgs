@@ -30,11 +30,11 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "tor";
-  version = "0.4.6.8";
+  version = "0.4.7.14";
 
   src = fetchurl {
     url = "https://dist.torproject.org/${pname}-${version}.tar.gz";
-    sha256 = "0sj7qn6d6js6gk4vjfkc7p9g021czbfaq00yfq3mn5ycnhvimkhm";
+    sha256 = "sha256-paxn9kZjgPwF6AQ9AcWB5Oiisi/glDABNHPnEGXmXfg=";
   };
 
   outputs = [ "out" "geoip" ];
@@ -45,9 +45,13 @@ stdenv.mkDerivation rec {
 
   patches = [ ./disable-monotonic-timer-tests.patch ];
 
-  # cross compiles correctly but needs the following
-  configureFlags = lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
-    "--disable-tool-name-check";
+  configureFlags =
+    # cross compiles correctly but needs the following
+    lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [ "--disable-tool-name-check" ]
+    ++
+    # sandbox is broken on aarch64-linux https://gitlab.torproject.org/tpo/core/tor/-/issues/40599
+    lib.optionals (stdenv.isLinux && stdenv.isAarch64) [ "--disable-seccomp" ]
+  ;
 
   NIX_CFLAGS_LINK = lib.optionalString stdenv.cc.isGNU "-lgcc_s";
 
@@ -97,7 +101,6 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     homepage = "https://www.torproject.org/";
-    repositories.git = "https://git.torproject.org/git/tor";
     description = "Anonymizing overlay network";
 
     longDescription = ''
@@ -113,7 +116,7 @@ stdenv.mkDerivation rec {
     license = licenses.bsd3;
 
     maintainers = with maintainers;
-      [ phreedom thoughtpolice joachifm prusnak ];
+      [ thoughtpolice joachifm prusnak ];
     platforms = platforms.unix;
   };
 }

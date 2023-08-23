@@ -1,10 +1,13 @@
 { lib
+, anyio
+, async-timeout
 , asyncclick
 , buildPythonPackage
 , fetchFromGitHub
-, fetchpatch
-, importlib-metadata
+, kasa-crypt
+, orjson
 , poetry-core
+, pydantic
 , pytest-asyncio
 , pytest-mock
 , pytestCheckHook
@@ -14,16 +17,16 @@
 
 buildPythonPackage rec {
   pname = "python-kasa";
-  version = "0.4.0";
+  version = "0.5.3";
   format = "pyproject";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
-    rev = version;
-    sha256 = "08blmz5kg826l08pf6yrvl8gc8iz3hfb6wsfqih606dal08kdhdi";
+    rev = "refs/tags/${version}";
+    hash = "sha256-7GJnkT7FOYzytQyOCP8zU5hUk4SbeC7gc1qkhl5eXGo=";
   };
 
   nativeBuildInputs = [
@@ -31,41 +34,43 @@ buildPythonPackage rec {
   ];
 
   propagatedBuildInputs = [
+    anyio
+    async-timeout
     asyncclick
-    importlib-metadata
+    pydantic
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytest-mock
     pytestCheckHook
     voluptuous
   ];
 
-  patches = [
-    # Switch to poetry-core, https://github.com/python-kasa/python-kasa/pull/226
-    (fetchpatch {
-      name = "switch-to-poetry-core.patch";
-      url = "https://github.com/python-kasa/python-kasa/commit/05c2a4a7dedbd60038e177b4d3f5ac5798544d11.patch";
-      sha256 = "0cla11yqx88wj2s50s3xxxhv4nz4h3wd9pi12v79778hzdlg58rr";
-    })
-  ];
+  passthru.optional-dependencies = {
+    speedup = [
+      kasa-crypt
+      orjson
+    ];
+  };
 
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'asyncclick = "^7"' 'asyncclick = "*"'
-  '';
+  pytestFlagsArray = [
+    "--asyncio-mode=auto"
+  ];
 
   disabledTestPaths = [
     # Skip the examples tests
     "kasa/tests/test_readme_examples.py"
   ];
 
-  pythonImportsCheck = [ "kasa" ];
+  pythonImportsCheck = [
+    "kasa"
+  ];
 
   meta = with lib; {
     description = "Python API for TP-Link Kasa Smarthome products";
     homepage = "https://python-kasa.readthedocs.io/";
+    changelog = "https://github.com/python-kasa/python-kasa/blob/${version}/CHANGELOG.md";
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ fab ];
   };

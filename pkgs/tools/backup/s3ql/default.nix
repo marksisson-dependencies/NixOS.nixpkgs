@@ -2,23 +2,23 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "s3ql";
-  version = "3.8.0";
+  version = "4.0.0";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
-    rev = "release-${version}";
-    sha256 = "0a6ll5vs7faj1klfz3j674399qfbhy3blp3c5wwsqvcdkpcjcx11";
+    rev = "refs/tags/release-${version}";
+    sha256 = "sha256-7N09b7JwMPliuyv2fEy1gQYaFCMSSvajOBPhNL3DQsg=";
   };
 
-  checkInputs = [ which ] ++ (with python3Packages; [ cython pytest pytest-trio ]);
+  nativeCheckInputs = [ which ] ++ (with python3Packages; [ cython pytest pytest-trio ]);
   propagatedBuildInputs = with python3Packages; [
     sqlite apsw pycrypto requests defusedxml dugong
     google-auth google-auth-oauthlib trio pyfuse3
   ];
 
   preBuild = ''
-    ${python3Packages.python.interpreter} ./setup.py build_cython build_ext --inplace
+    ${python3Packages.python.pythonForBuild.interpreter} ./setup.py build_cython build_ext --inplace
   '';
 
   checkPhase = ''

@@ -1,5 +1,6 @@
 { lib
 , fetchFromGitHub
+, pythonAtLeast
 , pythonOlder
 , buildPythonPackage
 
@@ -19,7 +20,7 @@
 
 let
   pname = "django-redis";
-  version = "5.1.0";
+  version = "5.2.0";
 in
 buildPythonPackage {
   inherit pname version;
@@ -30,7 +31,7 @@ buildPythonPackage {
     owner = "jazzband";
     repo = "django-redis";
     rev = version;
-    sha256 = "sha256-S94qH2W5e65yzGfPxpwBUKhvvVS0Uc/zSyo66bnvzf4=";
+    hash = "sha256-e8wCgfxBT+WKFY4H83CTMirTpQym3QAoeWnXbRCDO90=";
   };
 
   postPatch = ''
@@ -53,12 +54,22 @@ buildPythonPackage {
 
   preCheck = ''
     ${pkgs.redis}/bin/redis-server &
+    REDIS_PID=$!
   '';
 
-  checkInputs = [
+  postCheck = ''
+    kill $REDIS_PID
+  '';
+
+  nativeCheckInputs = [
     pytest-django
     pytest-mock
     pytestCheckHook
+  ];
+
+  pytestFlagsArray = lib.optionals (pythonAtLeast "3.11") [
+    # DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13
+    "-W" "ignore::DeprecationWarning"
   ];
 
   disabledTests = [

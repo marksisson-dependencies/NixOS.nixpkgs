@@ -1,15 +1,16 @@
 { stdenv
 , lib
-, fetchurl
+, fetchFromGitLab
 , meson
 , ninja
 , pkg-config
 , python3
 , libxml2
 , gnome
-, dconf
+, gitUpdater
 , nautilus
 , glib
+, gtk4
 , gtk3
 , gsettings-desktop-schemas
 , vte
@@ -23,15 +24,19 @@
 , pcre2
 , libxslt
 , docbook-xsl-nons
+, nixosTests
 }:
 
 stdenv.mkDerivation rec {
   pname = "gnome-terminal";
-  version = "3.42.2";
+  version = "3.48.2";
 
-  src = fetchurl {
-    url = "mirror://gnome/sources/gnome-terminal/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "ipyOXvejpzskapR+EZC7COyYk1r4YM8LOqL79GBoF6A=";
+  src = fetchFromGitLab {
+    domain = "gitlab.gnome.org";
+    owner = "GNOME";
+    repo = "gnome-terminal";
+    rev = version;
+    sha256 = "sha256-WvFKFh5BK6AS+Lqyh27xIfH1rxs1+YTkywX4w9UashQ=";
   };
 
   nativeBuildInputs = [
@@ -54,11 +59,11 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     glib
+    gtk4
     gtk3
     gsettings-desktop-schemas
     vte
     libuuid
-    dconf
     nautilus # For extension
   ];
 
@@ -72,13 +77,17 @@ stdenv.mkDerivation rec {
     patchShebangs \
       data/icons/meson_updateiconcache.py \
       data/meson_desktopfile.py \
+      data/meson_metainfofile.py \
       src/meson_compileschemas.py
   '';
 
   passthru = {
-    updateScript = gnome.updateScript {
-      packageName = "gnome-terminal";
-      attrPath = "gnome.gnome-terminal";
+    updateScript = gitUpdater {
+      odd-unstable = true;
+    };
+
+    tests = {
+      test = nixosTests.terminal-emulators.gnome-terminal;
     };
   };
 

@@ -1,35 +1,42 @@
 { lib
 , buildPythonPackage
+, ddt
 , fetchFromGitHub
 , importlib-metadata
+, jsonschema
+, lxml
 , packageurl-python
+, py-serializable
+, pythonRelaxDepsHook
 , poetry-core
 , pytestCheckHook
 , pythonOlder
 , requirements-parser
+, sortedcontainers
 , setuptools
 , toml
 , types-setuptools
 , types-toml
-, tox
+, xmldiff
 }:
 
 buildPythonPackage rec {
   pname = "cyclonedx-python-lib";
-  version = "0.12.2";
+  version = "4.0.1";
   format = "pyproject";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "CycloneDX";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-+NIC+dxajG5wffIFUC5MqRAiodh8ynO1fp1XTOxaR1g=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-GCY7M0XnVsGyuADSq/EzOy9fged5frj+hRDLhs2Uq8I=";
   };
 
   nativeBuildInputs = [
     poetry-core
+    pythonRelaxDepsHook
   ];
 
   propagatedBuildInputs = [
@@ -37,29 +44,47 @@ buildPythonPackage rec {
     packageurl-python
     requirements-parser
     setuptools
+    sortedcontainers
     toml
+    py-serializable
     types-setuptools
     types-toml
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    ddt
+    jsonschema
+    lxml
     pytestCheckHook
-    tox
+    xmldiff
   ];
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'setuptools = "^50.3.2"' 'setuptools = "*"' \
-      --replace 'importlib-metadata = "^4.8.1"' 'importlib-metadata = "*"'
-  '';
 
   pythonImportsCheck = [
     "cyclonedx"
   ];
 
+  pythonRelaxDeps = [
+    "py-serializable"
+  ];
+
+  preCheck = ''
+    export PYTHONPATH=tests''${PYTHONPATH+:$PYTHONPATH}
+  '';
+
+  pytestFlagsArray = [
+    "tests/"
+  ];
+
+  disabledTests = [
+    # These tests require network access.
+    "test_bom_v1_3_with_metadata_component"
+    "test_bom_v1_4_with_metadata_component"
+  ];
+
   meta = with lib; {
     description = "Python library for generating CycloneDX SBOMs";
     homepage = "https://github.com/CycloneDX/cyclonedx-python-lib";
+    changelog = "https://github.com/CycloneDX/cyclonedx-python-lib/releases/tag/v${version}";
     license = with licenses; [ asl20 ];
     maintainers = with maintainers; [ fab ];
   };

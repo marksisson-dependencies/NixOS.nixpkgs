@@ -2,25 +2,25 @@
 
 buildGoModule rec {
   pname = "skate";
-  version = "0.1.0";
+  version = "0.2.2";
 
   src = fetchFromGitHub {
     owner = "charmbracelet";
     repo = "skate";
     rev = "v${version}";
-    sha256 = "01brxckjz8vlgaq9917l45xf48078d4465qn9l0lyll6hic6p06c";
+    hash = "sha256-Kum8IdgvRC75RLafCac0fkNn/VKvWFW48IK5tqLH/ME=";
   };
 
-  vendorSha256 = "0mvx4rzs0mvb1dyxj105mh2awfy0bmp716x7hpfdwhwz3p11fc7k";
-
-  doCheck = false;
+  proxyVendor = true;
+  vendorHash = "sha256-xNM4qmpv+wcoiGrQ585N3VoKW6tio0cdHmUHRl2Pvio=";
 
   ldflags = [ "-s" "-w" "-X=main.Version=${version}" ];
 
   meta = with lib; {
     description = "A personal multi-machine syncable key value store";
     homepage = "https://github.com/charmbracelet/skate";
+    changelog = "https://github.com/charmbracelet/skate/releases/tag/${src.rev}";
     license = licenses.mit;
-    maintainers = with maintainers; [ penguwin ];
+    maintainers = with maintainers; [ figsoda penguwin ];
   };
 }

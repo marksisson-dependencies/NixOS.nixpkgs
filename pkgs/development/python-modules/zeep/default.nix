@@ -3,7 +3,6 @@
 , aioresponses
 , attrs
 , buildPythonPackage
-, cached-property
 , defusedxml
 , fetchFromGitHub
 , freezegun
@@ -27,21 +26,21 @@
 
 buildPythonPackage rec {
   pname = "zeep";
-  version = "4.1.0";
+  version = "4.2.1";
+  format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "mvantellingen";
     repo = "python-zeep";
-    rev = version;
-    sha256 = "sha256-fJLr2LJpbNQTl183R56G7sJILfm04R39qpJxLogQLoo=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-8f6kS231gbaZ8qyE8BKMcbnZsm8o2+iBoTlQrs5X+jY=";
   };
 
   propagatedBuildInputs = [
     attrs
-    cached-property
     defusedxml
-    httpx
     isodate
     lxml
     platformdirs
@@ -49,10 +48,22 @@ buildPythonPackage rec {
     requests
     requests-file
     requests-toolbelt
-    xmlsec
   ];
 
-  checkInputs = [
+  passthru.optional-dependencies = {
+    async_require = [
+      httpx
+    ];
+    xmlsec_require = [
+      xmlsec
+    ];
+  };
+
+  pythonImportsCheck = [
+    "zeep"
+  ];
+
+  nativeCheckInputs = [
     aiohttp
     aioresponses
     freezegun
@@ -62,20 +73,15 @@ buildPythonPackage rec {
     pytest-httpx
     pytestCheckHook
     requests-mock
-  ];
+  ]
+  ++ lib.flatten (builtins.attrValues passthru.optional-dependencies);
 
   preCheck = ''
-    export HOME=$(mktemp -d);
+    export HOME=$TMPDIR
   '';
 
-  disabledTests = [
-    # lxml.etree.XMLSyntaxError: Extra content at the end of the document, line 2, column 64
-    "test_mime_content_serialize_text_xml"
-  ];
-
-  pythonImportsCheck = [ "zeep" ];
-
   meta = with lib; {
+    changelog = "https://github.com/mvantellingen/python-zeep/releases/tag/${version}";
     description = "Python SOAP client";
     homepage = "http://docs.python-zeep.org";
     license = licenses.mit;

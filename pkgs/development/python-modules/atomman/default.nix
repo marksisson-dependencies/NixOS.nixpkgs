@@ -1,4 +1,5 @@
 { lib
+, ase
 , buildPythonPackage
 , cython
 , datamodeldict
@@ -7,28 +8,39 @@
 , numericalunits
 , numpy
 , pandas
+, phonopy
 , potentials
-, pytest
+, pymatgen
+, pytestCheckHook
 , pythonOlder
+, requests
 , scipy
+, setuptools
 , toolz
+, wheel
 , xmltodict
-, python
+, pythonRelaxDepsHook
 }:
 
 buildPythonPackage rec {
-  version = "1.4.3";
+  version = "unstable-2023-07-28";
   pname = "atomman";
-  format = "setuptools";
+  format = "pyproject";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "usnistgov";
     repo = "atomman";
-    rev = "v${version}";
-    sha256 = "sha256-is47O59Pjrh9tPC1Y2+DVVcHbxmcjUOFOVGnNHuURoM=";
+    rev = "b8af21a9285959d38ee26173081db1b4488401bc";
+    hash = "sha256-WfB+OY61IPprT6OCVHl8VA60p7lLVkRGuyYX+nm7bbA=";
   };
+
+  nativeBuildInputs = [
+    setuptools
+    wheel
+    pythonRelaxDepsHook
+  ];
 
   propagatedBuildInputs = [
     cython
@@ -38,20 +50,32 @@ buildPythonPackage rec {
     numpy
     pandas
     potentials
+    requests
     scipy
     toolz
     xmltodict
   ];
 
-  checkInputs = [
-    pytest
+  pythonRelaxDeps = [ "potentials" ];
+
+  preCheck = ''
+    # By default, pytestCheckHook imports atomman from the current directory
+    # instead of from where `pip` installs it and fails due to missing Cython
+    # modules. Fix this by removing atomman from the current directory.
+    #
+    rm -r atomman
+  '';
+
+  nativeCheckInputs = [
+    ase
+    phonopy
+    pymatgen
+    pytestCheckHook
   ];
 
-  checkPhase = ''
-    # pytestCheckHook doesn't work
-    py.test tests -k "not test_rootdir and not test_version \
-      and not test_atomic_mass and not imageflags"
-  '';
+  disabledTests = [
+    "test_unique_shifts_prototype" # needs network access to download database files
+  ];
 
   pythonImportsCheck = [
     "atomman"
@@ -61,6 +85,6 @@ buildPythonPackage rec {
     description = "Atomistic Manipulation Toolkit";
     homepage = "https://github.com/usnistgov/atomman/";
     license = licenses.mit;
-    maintainers = with maintainers; [ costrouc ];
+    maintainers = with maintainers; [ ];
   };
 }

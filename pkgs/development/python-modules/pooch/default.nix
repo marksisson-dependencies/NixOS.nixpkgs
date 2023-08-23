@@ -7,16 +7,20 @@
 , packaging
 , appdirs
 , requests
+, tqdm
+, paramiko
+, xxhash
 }:
 
 buildPythonPackage rec {
   pname = "pooch";
-  version = "1.5.2";
+  version = "1.6.0";
+  format = "pyproject";
   disabled = isPy27;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "5969b2f1defbdc405df932767e05e0b536e2771c27f1f95d7f260bc99bf13581";
+    hash = "sha256-V9IOxLEN1pTSsFu2S8axCcboWmwUBXlM6H7Ys0GrP0Q=";
   };
 
   nativeBuildInputs = [ setuptools-scm ];
@@ -24,7 +28,7 @@ buildPythonPackage rec {
   propagatedBuildInputs = [ packaging appdirs requests ];
 
   preCheck = "HOME=$TMPDIR";
-  checkInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [ pytestCheckHook ];
   # tries to touch network
   disabledTests = [
     "pooch_custom_url"
@@ -42,6 +46,14 @@ buildPythonPackage rec {
     "processor"
     "integration"
   ];
+
+  passthru = {
+    optional-dependencies = {
+      progress = [ tqdm ];
+      sftp = [ paramiko ];
+      xxhash = [ xxhash ];
+    };
+  };
 
   meta = with lib; {
     description = "A friend to fetch your data files.";

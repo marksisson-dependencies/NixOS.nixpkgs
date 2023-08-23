@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem, pkgs ? import <nixpkgs> { inherit system; } }:
+{ system ? builtins.currentSystem, pkgs ? import ../../.. { inherit system; } }:
 with import ./base.nix { inherit system; };
 let
 
@@ -76,7 +76,7 @@ let
     }];
   });
 
-  kubectl = pkgs.runCommand "copy-kubectl" { buildInputs = [ pkgs.kubernetes ]; } ''
+  copyKubectl = pkgs.runCommand "copy-kubectl" { } ''
     mkdir -p $out/bin
     cp ${pkgs.kubernetes}/bin/kubectl $out/bin/kubectl
   '';
@@ -84,7 +84,11 @@ let
   kubectlImage = pkgs.dockerTools.buildImage {
     name = "kubectl";
     tag = "latest";
-    contents = [ kubectl pkgs.busybox kubectlPod2 ];
+    copyToRoot = pkgs.buildEnv {
+      name = "image-root";
+      pathsToLink = [ "/bin" ];
+      paths = [ copyKubectl pkgs.busybox kubectlPod2 ];
+    };
     config.Entrypoint = ["/bin/sh"];
   };
 

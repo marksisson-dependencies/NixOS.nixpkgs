@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "kn";
-  version = "0.27.0";
+  version = "1.10.0";
 
   src = fetchFromGitHub {
     owner = "knative";
     repo = "client";
-    rev = "v${version}";
-    sha256 = "sha256-nuSx+JKXBgkVwuy6RMZc8pxDv5WjXN3+5pIudazTttc=";
+    rev = "knative-v${version}";
+    sha256 = "sha256-LkjE3GMHoD+PmB4J09xf71nBrY1KPvh13l2O3QN9EH0=";
   };
 
-  vendorSha256 = null;
+  vendorHash = null;
 
   subPackages = [ "cmd/kn" ];
 

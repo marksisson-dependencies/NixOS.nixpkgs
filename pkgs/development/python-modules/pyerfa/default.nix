@@ -1,7 +1,10 @@
 { lib
 , buildPythonPackage
 , fetchPypi
+, jinja2
+, oldest-supported-numpy
 , setuptools-scm
+, wheel
 , liberfa
 , packaging
 , numpy
@@ -10,18 +13,21 @@
 buildPythonPackage rec {
   pname = "pyerfa";
   format = "pyproject";
-  version = "2.0.0";
+  version = "2.0.0.1";
 
   doCheck = false;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-+QQjHhpXD5REDgYUB5lZCJUQf5QoR7UqdTzoHJYJFi0=";
+    hash = "sha256-L9Rjf/4sHm7edILBP1g7p8cxGdeL75AXVEjOUGoO3jA=";
   };
 
   nativeBuildInputs = [
+    jinja2
+    oldest-supported-numpy
     packaging
     setuptools-scm
+    wheel
   ];
 
   propagatedBuildInputs = [

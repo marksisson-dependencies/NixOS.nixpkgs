@@ -8,7 +8,7 @@
 
 buildPythonPackage rec {
   pname = "linkify-it-py";
-  version = "1.0.2";
+  version = "2.0.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
@@ -16,13 +16,13 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "tsutsu3";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-i48B5qNufuhGp9a/46rWRgPawYkMA0ryRSyR+JhUmmw=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-3bgkhIC6tHl5zieiyllvqFCKwLms55m8MGt1xGhQ4Dk=";
   };
 
   propagatedBuildInputs = [ uc-micro-py ];
 
-  checkInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [ pytestCheckHook ];
   pythonImportsCheck = [ "linkify_it" ];
 
   meta = with lib; {

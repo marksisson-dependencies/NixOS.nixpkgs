@@ -10,21 +10,21 @@
 
 buildPythonPackage rec {
   pname = "pywayland";
-  version = "0.4.7";
+  version = "0.4.16";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0IMNOPTmY22JCHccIVuZxDhVr41cDcKNkx8bp+5h2CU=";
+    hash = "sha256-qqcMhwsKs2UhX45xUF9zaDxO0VsfNjhDOx3HNE/ltd0=";
   };
 
   nativeBuildInputs = [ pkg-config ];
   propagatedNativeBuildInputs = [ cffi ];
   buildInputs = [ wayland ];
   propagatedBuildInputs = [ cffi ];
-  checkInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
   postBuild = ''
-    ${python.interpreter} pywayland/ffi_build.py
+    ${python.pythonForBuild.interpreter} pywayland/ffi_build.py
   '';
 
   # Tests need this to create sockets

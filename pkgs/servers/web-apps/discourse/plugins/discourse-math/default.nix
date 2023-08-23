@@ -5,8 +5,8 @@ mkDiscoursePlugin {
   src = fetchFromGitHub {
     owner = "discourse";
     repo = "discourse-math";
-    rev = "cacbd04bb239db3c772ff5a37c19fe39d127ff3d";
-    sha256 = "1bhs7wslb4rdf2b6h6klw1mpjf9pjpfpf2zg2mj8vg0acyaqvv9d";
+    rev = "69494ca5a4d708e16e35f1daebeaa53e3edbca2c";
+    sha256 = "sha256-C0iVUwj+Lbe6TGfkbu6WxdCeMWVjBaejUh6fXVTqq08=";
   };
   meta = with lib; {
     homepage = "https://github.com/discourse/discourse-math";

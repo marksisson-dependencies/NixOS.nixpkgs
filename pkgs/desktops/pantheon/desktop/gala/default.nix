@@ -1,7 +1,6 @@
 { lib
 , stdenv
 , fetchFromGitHub
-, fetchpatch
 , nix-update-script
 , pkg-config
 , meson
@@ -17,39 +16,29 @@
 , bamf
 , libcanberra-gtk3
 , gnome-desktop
+, mesa
 , mutter
-, clutter
-, elementary-icon-theme
 , gnome-settings-daemon
 , wrapGAppsHook
 , gexiv2
+, systemd
 }:
 
 stdenv.mkDerivation rec {
   pname = "gala";
-  version = "6.3.0";
+  version = "7.1.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "sha256-f/WDm9/+lXgplg9tGpct4f+1cOhKgdypwiDRBhewRGw=";
+    sha256 = "sha256-g+Zcdl6SJ4uO6I1x3Ru6efZkf+O3UaW790n/zxmGkHU=";
   };
 
   patches = [
+    # We look for plugins in `/run/current-system/sw/lib/` because
+    # there are multiple plugin providers (e.g. gala and wingpanel).
     ./plugins-dir.patch
-    # Session crashes when switching windows with Alt+Tab
-    # https://github.com/elementary/gala/issues/1312
-    (fetchpatch {
-      url = "https://github.com/elementary/gala/commit/cc83db8fe398feae9f3e4caa8352b65f0c8c96d4.patch";
-      sha256 = "sha256-CPO3EHIzqHAV6ZLHngivCdsD8je8CK/NHznfxSEkhzc=";
-    })
-    # WindowSwitcher: Clear indicator background
-    # https://github.com/elementary/gala/pull/1318
-    (fetchpatch {
-      url = "https://github.com/elementary/gala/commit/cce53acffecba795b6cc48916d4621a47996d2c9.patch";
-      sha256 = "sha256-5aTZE6poo4sQMTLfk9Nhw4G4BW8i9dvpWktizRIS58Q=";
-    })
   ];
 
   nativeBuildInputs = [
@@ -66,8 +55,6 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     bamf
-    clutter
-    elementary-icon-theme
     gnome-settings-daemon
     gexiv2
     gnome-desktop
@@ -75,13 +62,9 @@ stdenv.mkDerivation rec {
     gtk3
     libcanberra-gtk3
     libgee
+    mesa # for libEGL
     mutter
-  ];
-
-  mesonFlags = [
-    # TODO: enable this and remove --builtin flag from session-settings
-    # https://github.com/NixOS/nixpkgs/pull/140429
-    "-Dsystemd=false"
+    systemd
   ];
 
   postPatch = ''
@@ -90,9 +73,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

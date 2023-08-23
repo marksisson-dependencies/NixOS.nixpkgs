@@ -1,33 +1,21 @@
 { lib
-, fetchFromGitLab
-, fetchpatch
+, fetchurl
 , meson
 , ninja
 , python3
+, gnome
 }:
 
 python3.pkgs.buildPythonApplication rec {
   pname = "gi-docgen";
-  version = "2021.8";
+  version = "2023.1";
 
   format = "other";
 
-  src = fetchFromGitLab {
-    domain = "gitlab.gnome.org";
-    owner = "GNOME";
-    repo = pname;
-    rev = version;
-    sha256 = "Y1IdCH6bytxbKIj48IAw/3XUQhoqwPshvdj/d1hRS3o=";
+  src = fetchurl {
+    url = "mirror://gnome/sources/gi-docgen/${lib.versions.major version}/gi-docgen-${version}.tar.xz";
+    sha256 = "qaaHwbfEpBOaIUvUUeAcqGExoxYfaKo+BzJbBgArv7Y=";
   };
-
-  patches = [
-    # Fix building docs of some packages (e.g. gnome-builder)
-    # https://gitlab.gnome.org/GNOME/gi-docgen/-/issues/111
-    (fetchpatch {
-      url = "https://gitlab.gnome.org/GNOME/gi-docgen/-/commit/72f3c5dbe27aabb5f7a376afda23f3dfc3c2e212.patch";
-      sha256 = "iVXc3idmcjmFVZQdE2QX2V53YZ79lqxZid9nWdxAZ/Q=";
-    })
-  ];
 
   depsBuildBuild = [
     python3
@@ -43,7 +31,7 @@ python3.pkgs.buildPythonApplication rec {
     markdown
     markupsafe
     pygments
-    toml
+    toml # remove once python311 is the default
     typogrify
   ];
 
@@ -54,6 +42,12 @@ python3.pkgs.buildPythonApplication rec {
     substituteInPlace $out/nix-support/propagated-build-inputs \
       --replace "${python3}" ""
   '';
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = "gi-docgen";
+    };
+  };
 
   meta = with lib; {
     description = "Documentation generator for GObject-based libraries";

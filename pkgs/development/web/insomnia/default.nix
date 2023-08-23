@@ -1,8 +1,8 @@
 { lib, stdenv, makeWrapper, fetchurl, dpkg, alsa-lib, atk, cairo, cups, dbus, expat
-, fontconfig, freetype, gdk-pixbuf, glib, gnome2, pango, mesa, nspr, nss, gtk3, gtk2
+, fontconfig, freetype, gdk-pixbuf, glib, pango, mesa, nspr, nss, gtk3
 , at-spi2-atk, gsettings-desktop-schemas, gobject-introspection, wrapGAppsHook
 , libX11, libXScrnSaver, libXcomposite, libXcursor, libXdamage, libXext
-, libXfixes, libXi, libXrandr, libXrender, libXtst, libxcb, nghttp2
+, libXfixes, libXi, libXrandr, libXrender, libXtst, libxcb, libxshmfence, nghttp2
 , libudev0-shim, glibc, curl, openssl, autoPatchelfHook }:
 
 let
@@ -12,20 +12,25 @@ let
     libudev0-shim
     nghttp2
     openssl
-    stdenv.cc.cc
+    stdenv.cc.cc.lib
   ];
 in stdenv.mkDerivation rec {
   pname = "insomnia";
-  version = "2021.6.0";
+  version = "2023.4.0";
 
   src = fetchurl {
     url =
       "https://github.com/Kong/insomnia/releases/download/core%40${version}/Insomnia.Core-${version}.deb";
-    sha256 = "sha256-YvAzO5oxeq7bnYHzKTXqRVjfJXnwrTr0DNrdWS3yrX4=";
+    sha256 = "sha256-7tkd0HaJeDdCvX1t1XCHrrQ23xFrcMsy1nhJJEp6klk=";
   };
 
-  nativeBuildInputs =
-    [ autoPatchelfHook dpkg makeWrapper gobject-introspection wrapGAppsHook ];
+  nativeBuildInputs = [
+    autoPatchelfHook
+    dpkg
+    makeWrapper
+    gobject-introspection
+    wrapGAppsHook
+  ];
 
   buildInputs = [
     alsa-lib
@@ -39,9 +44,7 @@ in stdenv.mkDerivation rec {
     freetype
     gdk-pixbuf
     glib
-    gnome2.GConf
     pango
-    gtk2
     gtk3
     gsettings-desktop-schemas
     libX11
@@ -56,14 +59,15 @@ in stdenv.mkDerivation rec {
     libXrender
     libXtst
     libxcb
+    libxshmfence
     mesa # for libgbm
     nspr
     nss
-    stdenv.cc.cc
   ];
 
   dontBuild = true;
   dontConfigure = true;
+  dontWrapGApps = true;
 
   unpackPhase = "dpkg-deb -x $src .";
 
@@ -72,19 +76,19 @@ in stdenv.mkDerivation rec {
 
     mv usr/share/* $out/share/
     mv opt/Insomnia/* $out/share/insomnia
-    mv $out/share/insomnia/*.so $out/lib/
 
     ln -s $out/share/insomnia/insomnia $out/bin/insomnia
     sed -i 's|\/opt\/Insomnia|'$out'/bin|g' $out/share/applications/insomnia.desktop
   '';
 
   preFixup = ''
-    wrapProgram "$out/bin/insomnia" --prefix LD_LIBRARY_PATH : ${runtimeLibs}
+    wrapProgram "$out/bin/insomnia" "''${gappsWrapperArgs[@]}" --prefix LD_LIBRARY_PATH : ${runtimeLibs}
   '';
 
   meta = with lib; {
     homepage = "https://insomnia.rest/";
     description = "The most intuitive cross-platform REST API Client";
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     license = licenses.mit;
     platforms = [ "x86_64-linux" ];
     maintainers = with maintainers; [ markus1189 babariviere ];

@@ -2,18 +2,23 @@
 , stdenv
 , fetchPypi
 , buildPythonPackage
-, Mako
-, pytest
-, numpy
-, cffi
-, pytools
-, decorator
 , appdirs
-, six
-, opencl-headers
-, ocl-icd
-, pybind11
+, cffi
+, decorator
+, mako
 , mesa_drivers
+, numpy
+, ocl-icd
+, oldest-supported-numpy
+, opencl-headers
+, platformdirs
+, pybind11
+, pytest
+, pytestCheckHook
+, pytools
+, setuptools
+, six
+, wheel
 }:
 
 let
@@ -21,22 +26,34 @@ let
     if stdenv.isDarwin then [ mesa_drivers.dev ] else [ ocl-icd ];
 in buildPythonPackage rec {
   pname = "pyopencl";
-  version = "2021.2.10";
-
-  checkInputs = [ pytest ];
-  buildInputs = [ opencl-headers pybind11 ] ++ os-specific-buildInputs;
-
-  propagatedBuildInputs = [ numpy cffi pytools decorator appdirs six Mako ];
+  version = "2023.1.2";
+  format = "pyproject";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "75a1f202741bace9606a8680bbbfac69bf8a73d4e7511fb1a6ce3e48185996ae";
+    hash = "sha256-6wDNV0BJ1ZK2edz4v+erSjbJSjn9Gssaa0XWwNe+mmg=";
   };
 
-  # py.test is not needed during runtime, so remove it from `install_requires`
-  postPatch = ''
-    substituteInPlace setup.py --replace "pytest>=2" ""
-  '';
+  nativeBuildInputs = [
+    oldest-supported-numpy
+    setuptools
+    wheel
+  ];
+
+  buildInputs = [ opencl-headers pybind11 ] ++ os-specific-buildInputs;
+
+  propagatedBuildInputs = [
+    appdirs
+    cffi
+    decorator
+    mako
+    numpy
+    platformdirs
+    pytools
+    six
+  ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
 
   preBuild = ''
     export HOME=$(mktemp -d)
@@ -44,6 +61,8 @@ in buildPythonPackage rec {
 
   # gcc: error: pygpu_language_opencl.cpp: No such file or directory
   doCheck = false;
+
+  pythonImportsCheck = [ "pyopencl" ];
 
   meta = with lib; {
     description = "Python wrapper for OpenCL";

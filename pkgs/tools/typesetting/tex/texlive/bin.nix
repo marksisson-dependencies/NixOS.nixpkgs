@@ -1,11 +1,12 @@
-{ lib, stdenv, fetchurl
+{ lib, stdenv, fetchurl, fetchpatch, buildPackages
 , texlive
 , zlib, libiconv, libpng, libX11
 , freetype, gd, libXaw, icu, ghostscript, libXpm, libXmu, libXext
 , perl, perlPackages, python3Packages, pkg-config
 , libpaper, graphite2, zziplib, harfbuzz, potrace, gmp, mpfr
 , brotli, cairo, pixman, xorg, clisp, biber, woff2, xxHash
-, makeWrapper, shortenPerlShebang
+, makeWrapper, shortenPerlShebang, useFixedHashes, asymptote
+, biber-ms
 }:
 
 # Useful resource covering build options:
@@ -14,26 +15,44 @@
 let
   withSystemLibs = map (libname: "--with-system-${libname}");
 
-  year = "2021";
+  year = toString ((import ./tlpdb.nix)."00texlive.config").year;
   version = year; # keep names simple for now
+
+  # detect and stop redundant rebuilds that may occur when building new fixed hashes
+  assertFixedHash = name: src:
+    if ! useFixedHashes || src ? outputHash then src else throw "The TeX Live package '${src.pname}' must have a fixed hash before building '${name}'.";
 
   common = {
     src = fetchurl {
       urls = [
-        "http://ftp.math.utah.edu/pub/tex/historic/systems/texlive/${year}/texlive-${year}0325-source.tar.xz"
-              "ftp://tug.ctan.org/pub/tex/historic/systems/texlive/${year}/texlive-${year}0325-source.tar.xz"
+        "http://ftp.math.utah.edu/pub/tex/historic/systems/texlive/${year}/texlive-${year}0321-source.tar.xz"
+              "ftp://tug.ctan.org/pub/tex/historic/systems/texlive/${year}/texlive-${year}0321-source.tar.xz"
       ];
-      sha256 = "0jsq1p66l46k2qq0gbqmx25flj2nprsz4wrd1ybn286p11kdkvvs";
+      hash = "sha256-X/o0heUessRJBJZFD8abnXvXy55TNX2S20vNT9YXm1Y=";
     };
 
     prePatch = ''
       for i in texk/kpathsea/mktex*; do
         sed -i '/^mydir=/d' "$i"
       done
-    '';
+
+      # ST_NLINK_TRICK causes kpathsea to treat folders with no real subfolders
+      # as leaves, even if they contain symlinks to other folders; must be
+      # disabled to work correctly with the nix store", see section 5.3.6
+      # “Subdirectory expansion” of the kpathsea manual
+      # http://mirrors.ctan.org/systems/doc/kpathsea/kpathsea.pdf for more
+      # details
+      sed -i '/^#define ST_NLINK_TRICK/d' texk/kpathsea/config.h
+    '' +
+    # when cross compiling, we must use himktables from PATH
+    # (i.e. from buildPackages.texlive.bin.core.dev)
+    lib.optionalString (!stdenv.buildPlatform.canExecute stdenv.hostPlatform)  ''
+      sed -i 's|\./himktables|himktables|' texk/web2c/Makefile.in
+    ''
+;
 
     configureFlags = [
-      "--with-banner-add=/NixOS.org"
+      "--with-banner-add=/nixos.org"
       "--disable-missing" "--disable-native-texlive-build"
       "--enable-shared" # "--enable-cxx-runtime-hack" # static runtime
       "--enable-tex-synctex"
@@ -53,7 +72,8 @@ let
     '';
   };
 
-  withLuaJIT = !(stdenv.hostPlatform.isPower && stdenv.hostPlatform.is64bit);
+  # RISC-V: https://github.com/LuaJIT/LuaJIT/issues/628
+  withLuaJIT = !(stdenv.hostPlatform.isPower && stdenv.hostPlatform.is64bit) && !stdenv.hostPlatform.isRiscV;
 in rec { # un-indented
 
 inherit (common) cleanBrokenLinks;
@@ -66,13 +86,27 @@ core = stdenv.mkDerivation rec {
 
   inherit (common) src prePatch;
 
-  outputs = [ "out" "doc" ];
+  outputs = [ "out" "doc" "dev" ];
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    pkg-config
+  ] ++ lib.optionals (!stdenv.buildPlatform.canExecute stdenv.hostPlatform) [
+    # configure: error: tangle was not found but is required when cross-compiling.
+    # dev (himktables) is used when building hitex to generate the additional source file hitables.c
+    texlive.bin.core
+    texlive.bin.core.dev
+  ];
+
   buildInputs = [
     /*teckit*/ zziplib mpfr gmp
     pixman gd freetype libpng libpaper zlib
     perl
+  ];
+
+  patches = [
+    # Fix implicit `int` on `main`, which results in an error when building with clang 16.
+    # This is fixed upstream and can be dropped with the 2023 release.
+    ./fix-implicit-int.patch
   ];
 
   hardeningDisable = [ "format" ];
@@ -85,7 +119,10 @@ core = stdenv.mkDerivation rec {
   '';
   configureScript = "../configure";
 
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
+
   configureFlags = common.configureFlags
+    ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [ "BUILDCC=${buildPackages.stdenv.cc.targetPrefix}cc" ]
     ++ [ "--without-x" ] # disable xdvik and xpdfopen
     ++ map (what: "--disable-${what}") [
       "chktex"
@@ -103,8 +140,11 @@ core = stdenv.mkDerivation rec {
   installTargets = [ "install" "texlinks" ];
 
   # TODO: perhaps improve texmf.cnf search locations
-  postInstall = /* links format -> engine will be regenerated in texlive.combine */ ''
-    PATH="$out/bin:$PATH" ${texlinks} --cnffile "$out/share/texmf-dist/web2c/fmtutil.cnf" --unlink "$out/bin"
+  postInstall =
+    /* links format -> engine will be regenerated in texlive.combine
+       note: for unlinking, the texlinks patch is irrelevant, so we use
+       the included texlinks.sh to avoid the dependency on bin.texlinks */ ''
+    PATH="$out/bin:$PATH" sh ../texk/texlive/linked_scripts/texlive-extra/texlinks.sh --cnffile "$out/share/texmf-dist/web2c/fmtutil.cnf" --unlink "$out/bin"
   '' + /* a few texmf-dist files are useful; take the rest from pkgs */ ''
     mv "$out/share/texmf-dist/web2c/texmf.cnf" .
     rm -r "$out/share/texmf-dist"
@@ -136,6 +176,11 @@ core = stdenv.mkDerivation rec {
   + /* doc location identical with individual TeX pkgs */ ''
     mkdir -p "$doc/doc"
     mv "$out"/share/{man,info} "$doc"/doc
+  '' + /* remove manpages for utils that live in texlive.texlive-scripts to avoid a conflict in buildEnv */ ''
+    (cd "$doc"/doc/man/man1; rm {fmtutil-sys.1,fmtutil.1,mktexfmt.1,mktexmf.1,mktexpk.1,mktextfm.1,texhash.1,updmap-sys.1,updmap.1})
+  '' + /* install himktables in separate output for use in cross compilation */ ''
+     mkdir -p $dev/bin
+     cp texk/web2c/.libs/himktables $dev/bin/himktables
   '' + cleanBrokenLinks;
 
   setupHook = ./setup-hook.sh; # TODO: maybe texmf-nix -> texmf (and all references)
@@ -158,9 +203,42 @@ core-big = stdenv.mkDerivation { #TODO: upmendex
 
   inherit (common) src prePatch;
 
+  patches = [
+    # improves reproducibility of fmt files. This patch has been proposed upstream,
+    # but they are considering some other approaches as well. This is fairly
+    # conservative so we can safely apply it until they make a decision
+    # https://mailman.ntg.nl/pipermail/dev-luatex/2022-April/006650.html
+    (fetchpatch {
+      name = "reproducible_exception_strings.patch";
+      url = "https://bugs.debian.org/cgi-bin/bugreport.cgi?att=1;bug=1009196;filename=reproducible_exception_strings.patch;msg=5";
+      sha256 = "sha256-RNZoEeTcWnrLaltcYrhNIORh42fFdwMzBfxMRWVurbk=";
+    })
+    # fixes a security-issue in luatex that allows arbitrary code execution even with shell-escape disabled, see https://tug.org/~mseven/luatex.html
+    (fetchpatch {
+      name = "CVE-2023-32700.patch";
+      url = "https://tug.org/~mseven/luatex-files/2022/patch";
+      hash = "sha256-o9ENLc1ZIIOMX6MdwpBIgrR/Jdw6tYLmAyzW8i/FUbY=";
+      excludes = [  "build.sh" ];
+      stripLen = 1;
+    })
+    # Fixes texluajitc crashes on aarch64, backport of the upstream fix
+    # https://github.com/LuaJIT/LuaJIT/commit/e9af1abec542e6f9851ff2368e7f196b6382a44c
+    # to the version vendored by texlive (2.1.0-beta3)
+    (fetchpatch {
+      name = "luajit-fix-aarch64-linux.patch";
+      url = "https://raw.githubusercontent.com/void-linux/void-packages/master/srcpkgs/LuaJIT/patches/e9af1abec542e6f9851ff2368e7f196b6382a44c.patch";
+      hash = "sha256-ysSZmfpfCFMukfHmIqwofAZux1e2kEq/37lfqp7HoWo=";
+      stripLen = 1;
+      extraPrefix = "libs/luajit/LuaJIT-src/";
+    })
+    # Fix implicit `int` on `main`, which results in an error when building with clang 16.
+    # This is fixed upstream and can be dropped with the 2023 release.
+    ./fix-implicit-int.patch
+  ];
+
   hardeningDisable = [ "format" ];
 
-  inherit (core) nativeBuildInputs;
+  inherit (core) nativeBuildInputs depsBuildBuild;
   buildInputs = core.buildInputs ++ [ core cairo harfbuzz icu graphite2 libX11 ];
 
   configureFlags = common.configureFlags
@@ -175,7 +253,15 @@ core-big = stdenv.mkDerivation { #TODO: upmendex
   # we use static libtexlua, because it's only used by a single binary
   postConfigure = let
     luajit = lib.optionalString withLuaJIT ",luajit";
-  in ''
+  in
+  lib.optionalString (stdenv.hostPlatform != stdenv.buildPlatform)
+  # without this, the native builds attempt to use the binary
+  # ${target-triple}-gcc, but we need to use the wrapper script.
+  ''
+    export BUILDCC=${buildPackages.stdenv.cc}/bin/cc
+  ''
+  +
+  ''
     mkdir ./WorkDir && cd ./WorkDir
     for path in libs/{pplib,teckit,lua53${luajit}} texk/web2c; do
       (
@@ -184,14 +270,25 @@ core-big = stdenv.mkDerivation { #TODO: upmendex
         else
           extraConfig=""
         fi
-
+  '' + lib.optionalString (!stdenv.buildPlatform.canExecute stdenv.hostPlatform)
+    # results of the tests performed by the configure scripts are
+    # toolchain-dependent, so native components and cross components cannot use
+    # the same cached test results.
+    # Disable the caching for components with native subcomponents.
+  ''
+        if [[ "$path" =~ "libs/luajit" ]] || [[ "$path" =~ "texk/web2c" ]]; then
+          extraConfig="$extraConfig --cache-file=/dev/null"
+        fi
+  ''
+  +
+  ''
         mkdir -p "$path" && cd "$path"
         "../../../$path/configure" $configureFlags $extraConfig
 
-        if [[ "$path" =~ "libs/pplib" ]]; then
-          # TODO: revert for texlive 2022
+        if [[ "$path" =~ "libs/luajit" ]] || [[ "$path" =~ "libs/pplib" ]]; then
+          # ../../../texk/web2c/mfluadir/luapeg/lpeg.h:29:10: fatal error: 'lua.h' file not found
           # ../../../texk/web2c/luatexdir/luamd5/md5lib.c:197:10: fatal error: 'utilsha.h' file not found
-          make ''${enableParallelBuilding:+-j''${NIX_BUILD_CORES} -l''${NIX_BUILD_CORES}}
+          make ''${enableParallelBuilding:+-j''${NIX_BUILD_CORES}}
         fi
       )
     done
@@ -215,7 +312,7 @@ core-big = stdenv.mkDerivation { #TODO: upmendex
     "xetex"
   ];
   postInstall = ''
-    for output in $outputs; do
+    for output in $(getAllOutputNames); do
       mkdir -p "''${!output}/bin"
     done
 
@@ -225,6 +322,7 @@ core-big = stdenv.mkDerivation { #TODO: upmendex
     mv "$out/bin"/{luatex,texlua,texluac} "$luatex/bin/"
     mv "$out/bin"/luahbtex "$luahbtex/bin/"
     mv "$out/bin"/xetex "$xetex/bin/"
+    cp ../../libs/teckit/teckit_compile "$xetex/bin/"
   '' + lib.optionalString withLuaJIT ''
     mv "$out/bin"/mfluajit{,-nowin} "$mflua/bin/"
     mv "$out/bin"/{luajittex,luajithbtex,texluajit,texluajitc} "$luajittex/bin/"
@@ -239,7 +337,8 @@ chktex = stdenv.mkDerivation {
   inherit (common) src;
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ core/*kpathsea*/ ];
+  # perl used in shebang of script bin/deweb
+  buildInputs = [ core/*kpathsea*/ perl ];
 
   preConfigure = "cd texk/chktex";
 
@@ -290,43 +389,12 @@ dvipng = stdenv.mkDerivation {
   enableParallelBuilding = true;
 };
 
-
-latexindent = perlPackages.buildPerlPackage rec {
-  pname = "latexindent";
-  inherit (src) version;
-
-  src = lib.head (builtins.filter (p: p.tlType == "run") texlive.latexindent.pkgs);
-
-  outputs = [ "out" ];
-
-  nativeBuildInputs = lib.optional stdenv.isDarwin shortenPerlShebang;
-  propagatedBuildInputs = with perlPackages; [ FileHomeDir LogDispatch LogLog4perl UnicodeLineBreak YAMLTiny ];
-
-  postPatch = ''
-    substituteInPlace scripts/latexindent/LatexIndent/GetYamlSettings.pm \
-      --replace '$FindBin::RealBin/defaultSettings.yaml' ${src}/scripts/latexindent/defaultSettings.yaml
-  '';
-
-  # Dirty hack to apply perlFlags, but do no build
-  preConfigure = ''
-    touch Makefile.PL
-  '';
-  dontBuild = true;
-  installPhase = ''
-    install -D ./scripts/latexindent/latexindent.pl "$out"/bin/latexindent
-    mkdir -p "$out"/${perl.libPrefix}
-    cp -r ./scripts/latexindent/LatexIndent "$out"/${perl.libPrefix}/
-  '' + lib.optionalString stdenv.isDarwin ''
-    shortenPerlShebang "$out"/bin/latexindent
-  '';
-};
-
-
 pygmentex = python3Packages.buildPythonApplication rec {
   pname = "pygmentex";
   inherit (src) version;
+  format = "other";
 
-  src = lib.head (builtins.filter (p: p.tlType == "run") texlive.pygmentex.pkgs);
+  src = assertFixedHash pname (lib.head (builtins.filter (p: p.tlType == "run") texlive.pygmentex.pkgs));
 
   propagatedBuildInputs = with python3Packages; [ pygments chardet ];
 
@@ -358,29 +426,10 @@ pygmentex = python3Packages.buildPythonApplication rec {
   };
 };
 
-
-texlinks = stdenv.mkDerivation rec {
-  name = "texlinks.sh";
-
-  src = lib.head (builtins.filter (p: p.tlType == "run") texlive.texlive-scripts-extra.pkgs);
-
-  dontBuild = true;
-  doCheck = false;
-
-  installPhase = ''
-    runHook preInstall
-
-    # Patch texlinks.sh back to 2015 version;
-    # otherwise some bin/ links break, e.g. xe(la)tex.
-    patch --verbose -R scripts/texlive-extra/texlinks.sh < '${./texlinks.diff}'
-    install -Dm555 scripts/texlive-extra/texlinks.sh "$out"
-
-    runHook postInstall
-  '';
-};
-
+inherit asymptote;
 
 inherit biber;
+inherit biber-ms;
 bibtexu = bibtex8;
 bibtex8 = stdenv.mkDerivation {
   pname = "texlive-bibtex-x.bin";
@@ -424,6 +473,19 @@ xdvi = stdenv.mkDerivation {
   # TODO: it's suspicious that mktexpk generates fonts into ~/.texlive2014
 };
 
+xpdfopen = stdenv.mkDerivation {
+  pname = "texlive-xpdfopen.bin";
+  inherit (lib.head texlive.xpdfopen.pkgs) version;
+
+  inherit (common) src;
+
+  buildInputs = [ libX11 ];
+
+  preConfigure = "cd utils/xpdfopen";
+
+  enableParallelBuilding = true;
+};
+
 } # un-indented
 
 // lib.optionalAttrs (!clisp.meta.broken) # broken on aarch64 and darwin (#20062)
@@ -450,7 +512,7 @@ xindy = stdenv.mkDerivation {
     pkg-config perl
     (texlive.combine { inherit (texlive) scheme-basic cyrillic ec; })
   ];
-  buildInputs = [ clisp libiconv ];
+  buildInputs = [ clisp libiconv perl ];
 
   configureFlags = [ "--with-clisp-runtime=system" "--disable-xindy-docs" ];
 

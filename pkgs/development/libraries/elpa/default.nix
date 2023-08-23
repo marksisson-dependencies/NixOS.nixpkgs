@@ -4,25 +4,28 @@
 , avxSupport ? stdenv.hostPlatform.avxSupport
 , avx2Support ? stdenv.hostPlatform.avx2Support
 , avx512Support ? stdenv.hostPlatform.avx512Support
+, config
 # Enable NIVIA GPU support
 # Note, that this needs to be built on a system with a GPU
 # present for the tests to succeed.
-, enableCuda ? false
+, enableCuda ? config.cudaSupport
 # type of GPU architecture
 , nvidiaArch ? "sm_60"
 , cudatoolkit
 } :
 
-# The standard Scalapack has no iLP64 interface
-assert (!blas.isILP64) && (!lapack.isILP64);
+assert blas.isILP64 == lapack.isILP64;
+assert blas.isILP64 == scalapack.isILP64;
 
 stdenv.mkDerivation rec {
   pname = "elpa";
-  version = "2021.05.002_bugfix";
+  version = "2023.05.001";
+
+  passthru = { inherit (blas) isILP64; };
 
   src = fetchurl {
     url = "https://elpa.mpcdf.mpg.de/software/tarball-archive/Releases/${version}/elpa-${version}.tar.gz";
-    sha256 = "0jr2j1ncslbr7fi47dj58b7afm7kr0sx6jfpfgqb5r5rwn6w9ayy";
+    sha256 = "sha256-7GS+XWUigQ1gGjuOajFyDjw+tK8zpDTYpkVw125kYrY=";
   };
 
   patches = [
@@ -46,6 +49,8 @@ stdenv.mkDerivation rec {
   preConfigure = ''
     export FC="mpifort"
     export CC="mpicc"
+    export CXX="mpicxx"
+    export CPP="cpp"
 
     # These need to be set for configure to succeed
     export FCFLAGS="${lib.optionalString stdenv.hostPlatform.isx86_64 "-msse3 "
@@ -60,10 +65,12 @@ stdenv.mkDerivation rec {
     "--with-mpi"
     "--enable-openmp"
     "--without-threading-support-check-during-build"
-  ] ++ lib.optional (!avxSupport) "--disable-avx"
+  ] ++ lib.optional blas.isILP64 "--enable-64bit-integer-math-support"
+    ++ lib.optional (!avxSupport) "--disable-avx"
     ++ lib.optional (!avx2Support) "--disable-avx2"
     ++ lib.optional (!avx512Support) "--disable-avx512"
     ++ lib.optional (!stdenv.hostPlatform.isx86_64) "--disable-sse"
+    ++ lib.optional (!stdenv.hostPlatform.isx86_64) "--disable-sse-assembly"
     ++ lib.optional stdenv.hostPlatform.isx86_64 "--enable-sse-assembly"
     ++ lib.optionals enableCuda [  "--enable-nvidia-gpu" "--with-NVIDIA-GPU-compute-capability=${nvidiaArch}" ];
 

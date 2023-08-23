@@ -5,15 +5,15 @@ let
 in
   {
     sublime4 = common {
-      buildVersion = "4121";
-      x64sha256 = "CE/PeUV8Mg1Z2h8OWMhaemOVa95B1k2wHsht8lVPxeY=";
-      aarch64sha256 = "eveEW0Aq6pim0lnQ6BfISRaBgogeofgLmOVylSVojwg=";
+      buildVersion = "4143";
+      x64sha256 = "fehiw40ZNnQUEXEQMo3e11SscJ/tVMjMXLBzfIlMBzw=";
+      aarch64sha256 = "4zpNHVEHO98vHcWTbqmwlrB4+HIwoQojeQvq7nAqSpM=";
     } {};
 
     sublime4-dev = common {
-      buildVersion = "4112";
+      buildVersion = "4150";
       dev = true;
-      x64sha256 = "1yy8wzcphsk3ji2sv2vjcw8ybn62yibzsv9snmm01gvkma16p9dl";
-      aarch64sha256 = "12bl235rxgw3q99yz9x4nfaryb32a2vzyam88by6p1s1zw2fxnp9";
+      x64sha256 = "6Kafp4MxmCn978SqjSY8qAT6Yc/7WC8U9jVkIUUmUHs=";
+      aarch64sha256 = "dPxe2RLoMJS+rVtcVZZpMPQ5gfTEnW/INcnzYYeFEIQ=";
     } {};
   }

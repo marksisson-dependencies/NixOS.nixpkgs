@@ -2,8 +2,6 @@
 , stdenv
 , fetchFromGitHub
 , nix-update-script
-, appstream
-, desktop-file-utils
 , meson
 , ninja
 , pkg-config
@@ -11,33 +9,30 @@
 , vala
 , wrapGAppsHook
 , clutter-gtk
-, elementary-icon-theme
 , evolution-data-server
 , granite
 , geoclue2
-, geocode-glib
+, geocode-glib_2
 , gtk3
-, libchamplain
-, libgdata
+, libchamplain_libsoup3
 , libgee
 , libhandy
 , libical
+, libportal-gtk3
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-tasks";
-  version = "6.1.0";
+  version = "6.3.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "tasks";
     rev = version;
-    sha256 = "sha256-Gt9Hp9m28QdAFnKIT1xcbiSM5cn6kW7wEXmi/iFfu8k=";
+    sha256 = "sha256-6Vwx+NRVGDqZzN5IVk4cQxGjSkYwrrNhUVoB8TRo28U=";
   };
 
   nativeBuildInputs = [
-    appstream
-    desktop-file-utils
     meson
     ninja
     pkg-config
@@ -48,17 +43,16 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     clutter-gtk
-    elementary-icon-theme
     evolution-data-server
     granite
     geoclue2
-    geocode-glib
+    geocode-glib_2
     gtk3
-    libchamplain
-    libgdata
+    libchamplain_libsoup3
     libgee
     libhandy
     libical
+    libportal-gtk3
   ];
 
   postPatch = ''
@@ -67,9 +61,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

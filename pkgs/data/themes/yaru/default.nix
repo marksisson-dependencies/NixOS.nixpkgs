@@ -16,21 +16,18 @@
 
 stdenv.mkDerivation rec {
   pname = "yaru";
-  version = "21.10.2";
+  version = "23.04.4";
 
   src = fetchFromGitHub {
     owner = "ubuntu";
     repo = "yaru";
     rev = version;
-    sha256 = "sha256-VN/jgKGM2Th+2nv91vEz47kmQiBx8xAiEVbtXwhZg6U=";
+    hash = "sha256-8MtRYNJJVhZzE5Ds1HSk+Ej3FUD/z2hGZAsuCeGzWb4=";
   };
 
   nativeBuildInputs = [ meson sassc pkg-config glib ninja python3 ];
-
   buildInputs = [ gtk3 gnome.gnome-themes-extra ];
-
   propagatedBuildInputs = [ humanity-icon-theme hicolor-icon-theme ];
-
   propagatedUserEnvPkgs = [ gtk-engine-murrine ];
 
   dontDropIconThemeCache = true;

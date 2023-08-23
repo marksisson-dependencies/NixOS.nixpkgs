@@ -5,14 +5,14 @@
 
 mkDerivation rec {
   pname = "qpwgraph";
-  version = "0.0.9";
+  version = "0.5.2";
 
   src = fetchFromGitLab {
     domain = "gitlab.freedesktop.org";
     owner = "rncbc";
     repo = "qpwgraph";
     rev = "v${version}";
-    sha256 = "WC2SB6gisRSZxG9WZtMVBzwkEJtPEGZRmezElLAG0ns=";
+    sha256 = "sha256-qcd19YI2RDoh+vjeelxNajWsUwVokLu0kh35a4oezKA=";
   };
 
   nativeBuildInputs = [ cmake pkg-config ];
@@ -29,6 +29,6 @@ mkDerivation rec {
     homepage = "https://gitlab.freedesktop.org/rncbc/qpwgraph";
     license = licenses.gpl2Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ kanashimia ];
+    maintainers = with maintainers; [ kanashimia exi Scrumplex ];
   };
 }

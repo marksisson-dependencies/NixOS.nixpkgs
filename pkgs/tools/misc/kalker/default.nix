@@ -1,31 +1,38 @@
 { lib
-, fetchFromGitHub
-, gcc
-, gmp, mpfr, libmpc
 , rustPlatform
+, fetchFromGitHub
+, gmp
+, mpfr
+, libmpc
 }:
+
 rustPlatform.buildRustPackage rec {
   pname = "kalker";
-  version = "1.0.1-2";
+  version = "2.0.4";
 
   src = fetchFromGitHub {
     owner = "PaddiM8";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-fXTsCHqm+wO/ygyg0y+44G9pgaaEEH9fgePCDH86/vU=";
+    hash = "sha256-8tJi4PRGhNCndiMRdZUvCSdx/+p9OhJyJ3AbD+PucSo=";
   };
 
-  cargoSha256 = "sha256-Ul21otEYCJuX5GnfV9OTpk/+3y32biASYZQpOecr8aU=";
+  cargoHash = "sha256-rGy4tkjjPiV2lpdOtfqjsXgBgi/x+45K4KeUDhyfQoA=";
 
   buildInputs = [ gmp mpfr libmpc ];
 
   outputs = [ "out" "lib" ];
 
+  # Cargo.lock is outdated
+  preConfigure = ''
+    cargo metadata --offline
+  '';
+
   postInstall = ''
     moveToOutput "lib" "$lib"
   '';
 
-  CARGO_FEATURE_USE_SYSTEM_LIBS = "1";
+  env.CARGO_FEATURE_USE_SYSTEM_LIBS = "1";
 
   meta = with lib; {
     homepage = "https://kalker.strct.net";
@@ -36,6 +43,6 @@ rustPlatform.buildRustPackage rec {
       variables, functions, derivation, integration, and complex numbers
     '';
     license = licenses.mit;
-    maintainers = with maintainers; [ lovesegfault ];
+    maintainers = with maintainers; [ figsoda lovesegfault ];
   };
 }

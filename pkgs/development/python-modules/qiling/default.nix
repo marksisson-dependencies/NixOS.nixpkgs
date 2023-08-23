@@ -8,18 +8,25 @@
 , multiprocess
 , pefile
 , pyelftools
+, pythonOlder
+, python-fx
 , python-registry
+, pyyaml
+, questionary
+, termcolor
 , unicorn
 }:
 
 buildPythonPackage rec {
   pname = "qiling";
-  version = "1.4.0";
+  version = "1.4.6";
   format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-xUoNHMyGN0G2itVcKLsk+7QKxZdguzyh6OZCqCHNB4Y=";
+    hash = "sha256-l3WQBlJic4lXCe5Z1FmoxaqOblE7uAaW2gG/nTn84Kc=";
   };
 
   propagatedBuildInputs = [
@@ -29,14 +36,13 @@ buildPythonPackage rec {
     multiprocess
     pefile
     pyelftools
+    python-fx
     python-registry
+    pyyaml
+    termcolor
+    questionary
     unicorn
   ];
-
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "pefile==2021.5.24" "pefile>=2021.5.24"
-  '';
 
   # Tests are broken (attempt to import a file that tells you not to import it,
   # amongst other things)
@@ -49,7 +55,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Qiling Advanced Binary Emulation Framework";
     homepage = "https://qiling.io/";
+    changelog = "https://github.com/qilingframework/qiling/releases/tag/${version}";
     license = licenses.gpl2Only;
-    maintainers = teams.determinatesystems.members;
+    maintainers = [ ];
   };
 }

@@ -6,14 +6,14 @@
 , pkg-config
 # See https://files.ettus.com/manual_archive/v3.15.0.0/html/page_build_guide.html for dependencies explanations
 , boost
-, enableLibuhd_C_api ? true
+, ncurses
+, enableCApi ? true
 # requires numpy
-, enableLibuhd_Python_api ? false
+, enablePythonApi ? false
 , python3
+, buildPackages
 , enableExamples ? false
 , enableUtils ? false
-, enableLiberio ? false
-, liberio
 , libusb1
 , enableDpdk ? false
 , dpdk
@@ -25,7 +25,6 @@
 , enableUsrp1 ? true
 , enableUsrp2 ? true
 , enableX300 ? true
-, enableN230 ? true
 , enableN300 ? true
 , enableN320 ? true
 , enableE300 ? true
@@ -35,24 +34,31 @@
 let
   onOffBool = b: if b then "ON" else "OFF";
   inherit (lib) optionals;
+  # Later used in pythonEnv generation. Python + mako are always required for the build itself but not necessary for runtime.
+  pythonEnvArg = (ps: with ps; [ mako ]
+    ++ optionals (enablePythonApi) [ numpy setuptools ]
+    ++ optionals (enableUtils) [ requests six ]
+  );
 in
 
 stdenv.mkDerivation rec {
   pname = "uhd";
   # UHD seems to use three different version number styles: x.y.z, xxx_yyy_zzz
   # and xxx.yyy.zzz. Hrmpf... style keeps changing
-  version = "4.0.0.0";
+  version = "4.4.0.0";
+
+  outputs = [ "out" "dev" ];
 
   src = fetchFromGitHub {
     owner = "EttusResearch";
     repo = "uhd";
     rev = "v${version}";
-    sha256 = "NCyiI4pIPw0nBRFdUGpgZ/x2mWz+Qm78ZGACUnSbGSs=";
+    sha256 = "sha256-khVOHlvacZc4EMg4m55rxEqPvLY1xURpAfOW905/3jg=";
   };
   # Firmware images are downloaded (pre-built) from the respective release on Github
   uhdImagesSrc = fetchurl {
     url = "https://github.com/EttusResearch/uhd/releases/download/v${version}/uhd-images_${version}.tar.xz";
-    sha256 = "Xfx0bsHUQ5+Dp+xk0sVWWP83oyXQcUH5AX4PNEE7fY4=";
+    sha256 = "V8ldW8bvYWbrDAvpWpHcMeLf9YvF8PIruDAyNK/bru4=";
   };
 
   cmakeFlags = [
@@ -61,9 +67,8 @@ stdenv.mkDerivation rec {
     "-DENABLE_TESTS=ON" # This installs tests as well so we delete them via postPhases
     "-DENABLE_EXAMPLES=${onOffBool enableExamples}"
     "-DENABLE_UTILS=${onOffBool enableUtils}"
-    "-DENABLE_LIBUHD_C_API=${onOffBool enableLibuhd_C_api}"
-    "-DENABLE_LIBUHD_PYTHON_API=${onOffBool enableLibuhd_Python_api}"
-    "-DENABLE_LIBERIO=${onOffBool enableLiberio}"
+    "-DENABLE_C_API=${onOffBool enableCApi}"
+    "-DENABLE_PYTHON_API=${onOffBool enablePythonApi}"
     "-DENABLE_DPDK=${onOffBool enableDpdk}"
     # Devices
     "-DENABLE_OCTOCLOCK=${onOffBool enableOctoClock}"
@@ -73,7 +78,6 @@ stdenv.mkDerivation rec {
     "-DENABLE_USRP1=${onOffBool enableUsrp1}"
     "-DENABLE_USRP2=${onOffBool enableUsrp2}"
     "-DENABLE_X300=${onOffBool enableX300}"
-    "-DENABLE_N230=${onOffBool enableN230}"
     "-DENABLE_N300=${onOffBool enableN300}"
     "-DENABLE_N320=${onOffBool enableN320}"
     "-DENABLE_E300=${onOffBool enableE300}"
@@ -85,21 +89,14 @@ stdenv.mkDerivation rec {
     ++ [ (lib.optionalString stdenv.isAarch32 "-DCMAKE_CXX_FLAGS=-Wno-psabi") ]
   ;
 
-  # Python + Mako are always required for the build itself but not necessary for runtime.
-  pythonEnv = python3.withPackages (ps: with ps; [ Mako ]
-    ++ optionals (enableLibuhd_Python_api) [ numpy setuptools ]
-    ++ optionals (enableUtils) [ requests six ]
-  );
+  pythonEnv = python3.withPackages pythonEnvArg;
 
   nativeBuildInputs = [
     cmake
     pkg-config
-  ]
-    # If both enableLibuhd_Python_api and enableUtils are off, we don't need
-    # pythonEnv in buildInputs as it's a 'build' dependency and not a runtime
-    # dependency
-    ++ optionals (!enableLibuhd_Python_api && !enableUtils) [ pythonEnv ]
-  ;
+    # Present both here and in buildInputs for cross compilation.
+    (buildPackages.python3.withPackages pythonEnvArg)
+  ];
   buildInputs = [
     boost
     libusb1
@@ -107,21 +104,25 @@ stdenv.mkDerivation rec {
     # However, if enableLibuhd_Python_api *or* enableUtils is on, we need
     # pythonEnv for runtime as well. The utilities' runtime dependencies are
     # handled at the environment
-    ++ optionals (enableLibuhd_Python_api || enableUtils) [ pythonEnv ]
-    ++ optionals (enableLiberio) [ liberio ]
+    ++ optionals (enableExamples) [ ncurses ncurses.dev ]
+    ++ optionals (enablePythonApi || enableUtils) [ pythonEnv ]
     ++ optionals (enableDpdk) [ dpdk ]
   ;
 
-  doCheck = true;
+  # many tests fails on darwin, according to ofborg
+  doCheck = !stdenv.isDarwin;
 
   # Build only the host software
   preConfigure = "cd host";
   # TODO: Check if this still needed, perhaps relevant:
   # https://files.ettus.com/manual_archive/v3.15.0.0/html/page_build_guide.html#build_instructions_unix_arm
-  patches = if stdenv.isAarch32 then ./neon.patch else null;
+  patches = [
+    # Disable tests that fail in the sandbox
+    ./no-adapter-tests.patch
+  ];
 
   postPhases = [ "installFirmware" "removeInstalledTests" ]
-    ++ optionals (enableUtils) [ "moveUdevRules" ]
+    ++ optionals (enableUtils && stdenv.targetPlatform.isLinux) [ "moveUdevRules" ]
   ;
 
   # UHD expects images in `$CMAKE_INSTALL_PREFIX/share/uhd/images`
@@ -154,6 +155,6 @@ stdenv.mkDerivation rec {
     homepage = "https://uhd.ettus.com/";
     license = licenses.gpl3Plus;
     platforms = platforms.linux ++ platforms.darwin;
-    maintainers = with maintainers; [ bjornfor fpletz tomberek ];
+    maintainers = with maintainers; [ bjornfor fpletz tomberek doronbehar ];
   };
 }

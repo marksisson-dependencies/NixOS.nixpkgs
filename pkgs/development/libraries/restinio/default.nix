@@ -1,17 +1,23 @@
-{ lib, fetchzip }:
+{ lib, stdenvNoCC, fetchurl }:
 
-let
+stdenvNoCC.mkDerivation rec {
   pname = "restinio";
-  version = "0.6.13";
-in
-fetchzip {
-  name = "${pname}-${version}";
-  url = "https://github.com/Stiffstream/restinio/releases/download/v.${version}/${pname}-${version}-full.tar.bz2";
-  sha256 = "0cwbd5ni5pm25c7njs3wllrblb2i853ibjvpbb1iicy833zais8d";
+  version = "0.6.18";
 
-  postFetch = ''
-    mkdir -p $out/include/restinio
-    tar -xjf $downloadedFile --strip-components=3 -C $out/include/restinio --wildcards "*/dev/restinio"
+  src = fetchurl {
+    url = "https://github.com/Stiffstream/restinio/releases/download/v.${version}/${pname}-${version}.tar.bz2";
+    hash = "sha256-4OksmaW6NBpZ8npqLiZGn6zmCB7KxXlU5NKfKmA7Zr8=";
+  };
+
+  sourceRoot = ".";
+
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/include
+    mv restinio-*/dev/restinio $out/include
+
+    runHook postInstall
   '';
 
   meta = with lib; {

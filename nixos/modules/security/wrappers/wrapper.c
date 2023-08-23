@@ -1,13 +1,14 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdnoreturn.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <assert.h>
 #include <errno.h>
 #include <linux/capability.h>
 #include <sys/prctl.h>
@@ -16,10 +17,10 @@
 #include <syscall.h>
 #include <byteswap.h>
 
-// Make sure assertions are not compiled out, we use them to codify
-// invariants about this program and we want it to fail fast and
-// loudly if they are violated.
-#undef NDEBUG
+// aborts when false, printing the failed expression
+#define ASSERT(expr) ((expr) ? (void) 0 : assert_failure(#expr))
+// aborts when returns non-zero, printing the failed expression and errno
+#define MUSTSUCCEED(expr) ((expr) ? print_errno_and_die(#expr) : (void) 0)
 
 extern char **environ;
 
@@ -37,6 +38,18 @@ static char *wrapper_debug = "WRAPPER_DEBUG";
 #else
 #define LE32_TO_H(x) (x)
 #endif
+
+static noreturn void assert_failure(const char *assertion) {
+    fprintf(stderr, "Assertion `%s` in NixOS's wrapper.c failed.\n", assertion);
+    fflush(stderr);
+    abort();
+}
+
+static noreturn void print_errno_and_die(const char *assertion) {
+    fprintf(stderr, "Call `%s` in NixOS's wrapper.c failed: %s\n", assertion, strerror(errno));
+    fflush(stderr);
+    abort();
+}
 
 int get_last_cap(unsigned *last_cap) {
     FILE* file = fopen("/proc/sys/kernel/cap_last_cap", "r");
@@ -167,11 +180,23 @@ int readlink_malloc(const char *p, char **ret) {
 }
 
 int main(int argc, char **argv) {
+    ASSERT(argc >= 1);
     char *self_path = NULL;
     int self_path_size = readlink_malloc("/proc/self/exe", &self_path);
     if (self_path_size < 0) {
         fprintf(stderr, "cannot readlink /proc/self/exe: %s", strerror(-self_path_size));
     }
+
+    unsigned int ruid, euid, suid, rgid, egid, sgid;
+    MUSTSUCCEED(getresuid(&ruid, &euid, &suid));
+    MUSTSUCCEED(getresgid(&rgid, &egid, &sgid));
+
+    // If true, then we did not benefit from setuid privilege escalation,
+    // where the original uid is still in ruid and different from euid == suid.
+    int didnt_suid = (ruid == euid) && (euid == suid);
+    // If true, then we did not benefit from setgid privilege escalation
+    int didnt_sgid = (rgid == egid) && (egid == sgid);
+
 
     // Make sure that we are being executed from the right location,
     // i.e., `safe_wrapper_dir'.  This is to prevent someone from creating
@@ -181,36 +206,43 @@ int main(int argc, char **argv) {
     int len = strlen(wrapper_dir);
     if (len > 0 && '/' == wrapper_dir[len - 1])
       --len;
-    assert(!strncmp(self_path, wrapper_dir, len));
-    assert('/' == wrapper_dir[0]);
-    assert('/' == self_path[len]);
+    ASSERT(!strncmp(self_path, wrapper_dir, len));
+    ASSERT('/' == wrapper_dir[0]);
+    ASSERT('/' == self_path[len]);
 
-    // Make *really* *really* sure that we were executed as
-    // `self_path', and not, say, as some other setuid program. That
-    // is, our effective uid/gid should match the uid/gid of
-    // `self_path'.
+    // If we got privileges with the fs set[ug]id bit, check that the privilege we
+    // got matches the one one we expected, ie that our effective uid/gid
+    // matches the uid/gid of `self_path`. This ensures that we were executed as
+    // `self_path', and not, say, as some other setuid program.
+    // We don't check that if we did not benefit from the set[ug]id bit, as
+    // can be the case in nosuid mounts or user namespaces.
     struct stat st;
-    assert(lstat(self_path, &st) != -1);
+    ASSERT(lstat(self_path, &st) != -1);
 
-    assert(!(st.st_mode & S_ISUID) || (st.st_uid == geteuid()));
-    assert(!(st.st_mode & S_ISGID) || (st.st_gid == getegid()));
+    // if the wrapper gained privilege with suid, check that we got the uid of the file owner
+    ASSERT(!((st.st_mode & S_ISUID) && !didnt_suid) || (st.st_uid == euid));
+    // if the wrapper gained privilege with sgid, check that we got the gid of the file group
+    ASSERT(!((st.st_mode & S_ISGID) && !didnt_sgid) || (st.st_gid == egid));
+    // same, but with suid instead of euid
+    ASSERT(!((st.st_mode & S_ISUID) && !didnt_suid) || (st.st_uid == suid));
+    ASSERT(!((st.st_mode & S_ISGID) && !didnt_sgid) || (st.st_gid == sgid));
 
     // And, of course, we shouldn't be writable.
-    assert(!(st.st_mode & (S_IWGRP | S_IWOTH)));
+    ASSERT(!(st.st_mode & (S_IWGRP | S_IWOTH)));
 
     // Read the path of the real (wrapped) program from <self>.real.
     char real_fn[PATH_MAX + 10];
     int real_fn_size = snprintf(real_fn, sizeof(real_fn), "%s.real", self_path);
-    assert(real_fn_size < sizeof(real_fn));
+    ASSERT(real_fn_size < sizeof(real_fn));
 
     int fd_self = open(real_fn, O_RDONLY);
-    assert(fd_self != -1);
+    ASSERT(fd_self != -1);
 
     char source_prog[PATH_MAX];
     len = read(fd_self, source_prog, PATH_MAX);
-    assert(len != -1);
-    assert(len < sizeof(source_prog));
-    assert(len > 0);
+    ASSERT(len != -1);
+    ASSERT(len < sizeof(source_prog));
+    ASSERT(len > 0);
     source_prog[len] = 0;
 
     close(fd_self);

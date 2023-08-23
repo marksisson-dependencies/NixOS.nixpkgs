@@ -2,31 +2,32 @@
 , buildPythonPackage
 , pythonOlder
 , fetchFromGitHub
-, poetry-core
 , aiohttp
 , yarl
 , aresponses
+, poetry-core
 , pytest-asyncio
 , pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "twentemilieu";
-  version = "0.5.0";
+  version = "1.0.0";
   format = "pyproject";
 
-  disabled = pythonOlder "3.8";
+  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "frenck";
     repo = "python-twentemilieu";
     rev = "v${version}";
-    sha256 = "sha256-7HQ0+h8oiyY+TacQdX84K0r994rH0AMZAvZz8PUvQl0=";
+    hash = "sha256-MTAVa5gP5e8TIE/i1DjfmwKm1zDVC/WEcYKxZSV/+Ug=";
   };
 
   postPatch = ''
     substituteInPlace pyproject.toml \
-      --replace "--cov" ""
+      --replace "--cov" "" \
+      --replace '"0.0.0"' '"${version}"'
   '';
 
   nativeBuildInputs = [
@@ -38,7 +39,7 @@ buildPythonPackage rec {
     yarl
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aresponses
     pytest-asyncio
     pytestCheckHook
@@ -49,6 +50,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python client for Twente Milieu";
     homepage = "https://github.com/frenck/python-twentemilieu";
+    changelog = "https://github.com/frenck/python-twentemilieu/releases/tag/v${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

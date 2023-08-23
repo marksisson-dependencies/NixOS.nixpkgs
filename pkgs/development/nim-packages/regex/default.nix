@@ -1,8 +1,20 @@
-{ fetchFromGitHub }:
+{ lib, buildNimPackage, fetchFromGitHub, unicodedb }:
 
-fetchFromGitHub {
-  owner = "nitely";
-  repo = "nim-regex";
-  rev = "2e32fdc";
-  sha256 = "1hrl40mwql7nh4wc7sdhmk8bj5728b93v5a93j49v660l0rn4qx8";
-}
+buildNimPackage (finalAttrs: {
+  pname = "regex";
+  version = "0.20.2";
+  src = fetchFromGitHub {
+    owner = "nitely";
+    repo = "nim-regex";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-VViDf0uD6bj9WOO827NRbLUt+PgBPEmz/A/DDRCrHpc=";
+  };
+  propagatedBuildInputs = [ unicodedb ];
+  doCheck = false;
+  meta = finalAttrs.src.meta // {
+    description = "Pure Nim regex engine";
+    homepage = "https://github.com/nitely/nim-regex";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ ehmry ];
+  };
+})

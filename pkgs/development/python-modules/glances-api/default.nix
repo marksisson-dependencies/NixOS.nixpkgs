@@ -11,7 +11,7 @@
 
 buildPythonPackage rec {
   pname = "glances-api";
-  version = "0.3.2";
+  version = "0.4.3";
   format = "pyproject";
 
   disabled = pythonOlder "3.8";
@@ -19,8 +19,8 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "home-assistant-ecosystem";
     repo = "python-glances-api";
-    rev = version;
-    sha256 = "sha256-zVK63SI8ZeVrY2iEEkgp8pq6RDheKeApb9/RWgZCKGI=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-VfiAJuSmzFVgDTThtsTy7/caRmJKZuD5YwHjMspeB0A=";
   };
 
   nativeBuildInputs = [
@@ -31,16 +31,11 @@ buildPythonPackage rec {
     httpx
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytest-httpx
     pytestCheckHook
   ];
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'httpx = ">=0.20,<1"' 'httpx = ">=0.19,<1"'
-  '';
 
   pythonImportsCheck = [
     "glances_api"
@@ -49,6 +44,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python API for interacting with Glances";
     homepage = "https://github.com/home-assistant-ecosystem/python-glances-api";
+    changelog = "https://github.com/home-assistant-ecosystem/python-glances-api/releases/tag/${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

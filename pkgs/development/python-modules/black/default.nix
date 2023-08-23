@@ -1,41 +1,83 @@
-{ stdenv, lib
-, buildPythonPackage, fetchPypi, pythonOlder, setuptools-scm, pytestCheckHook
+{ stdenv
+, lib
+, buildPythonPackage
+, fetchPypi
+, pythonOlder
+, pytestCheckHook
 , aiohttp
 , aiohttp-cors
-, attrs
 , click
 , colorama
-, dataclasses
+, hatch-fancy-pypi-readme
+, hatch-vcs
+, hatchling
+, ipython
 , mypy-extensions
+, packaging
 , pathspec
 , parameterized
 , platformdirs
-, regex
+, tokenize-rt
 , tomli
 , typed-ast
 , typing-extensions
 , uvloop
 }:
 
-
 buildPythonPackage rec {
   pname = "black";
-  version = "21.10b0";
+  version = "23.3.0";
+  format = "pyproject";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-qZUiKQkuMl/l89rlbYH2ObI/cTHrhAeBlH5LKIYDDzM=";
+    hash = "sha256-HHuNYG5yikHqHMvXJkZ35JTofPYw45kmLO2S1KjayUA=";
   };
 
-  nativeBuildInputs = [ setuptools-scm ];
+  nativeBuildInputs = [
+    hatch-fancy-pypi-readme
+    hatch-vcs
+    hatchling
+  ];
+
+  propagatedBuildInputs = [
+    click
+    mypy-extensions
+    packaging
+    pathspec
+    platformdirs
+  ] ++ lib.optionals (pythonOlder "3.11") [
+    tomli
+  ] ++ lib.optionals (pythonOlder "3.10") [
+    typing-extensions
+  ];
+
+  passthru.optional-dependencies = {
+    colorama = [
+      colorama
+    ];
+    d = [
+      aiohttp
+    ];
+    uvloop = [
+      uvloop
+    ];
+    jupyter = [
+      ipython
+      tokenize-rt
+    ];
+  };
 
   # Necessary for the tests to pass on Darwin with sandbox enabled.
   # Black starts a local server and needs to bind a local address.
   __darwinAllowLocalNetworking = true;
 
-  checkInputs = [ pytestCheckHook parameterized ];
+  nativeCheckInputs = [
+    pytestCheckHook
+    parameterized
+  ] ++ lib.flatten (lib.attrValues passthru.optional-dependencies);
 
   preCheck = ''
     export PATH="$PATH:$out/bin"
@@ -58,28 +100,15 @@ buildPythonPackage rec {
     "test_bpo_2142_workaround"
     "test_skip_magic_trailing_comma"
   ];
-
-  propagatedBuildInputs = [
-    aiohttp
-    aiohttp-cors
-    attrs
-    click
-    colorama
-    mypy-extensions
-    pathspec
-    platformdirs
-    regex
-    tomli
-    typed-ast # required for tests and python2 extra
-    uvloop
-  ] ++ lib.optional (pythonOlder "3.7") dataclasses
-    ++ lib.optional (pythonOlder "3.8") typing-extensions;
+  # multiple tests exceed max open files on hydra builders
+  doCheck = !(stdenv.isLinux && stdenv.isAarch64);
 
   meta = with lib; {
     description = "The uncompromising Python code formatter";
     homepage = "https://github.com/psf/black";
     changelog = "https://github.com/psf/black/blob/${version}/CHANGES.md";
     license = licenses.mit;
+    mainProgram = "black";
     maintainers = with maintainers; [ sveitser autophagy ];
   };
 }

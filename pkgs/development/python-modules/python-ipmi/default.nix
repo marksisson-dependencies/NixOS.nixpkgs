@@ -10,27 +10,36 @@
 
 buildPythonPackage rec {
   pname = "python-ipmi";
-  version = "0.5.1";
+  version = "0.5.4";
+  format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "kontron";
     repo = pname;
-    rev = version;
-    sha256 = "0rcix3q845zsmfj5857kq1r5b8m7m3sad34i23k65m0p58clwdqm";
+    rev = "refs/tags/${version}";
+    hash = "sha256-IXEq3d1nXGEndciQw2MJ1Abc0vmEYez+k6aWGSWEzWA=";
   };
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "version=version," "version='${version}',"
+  '';
 
   propagatedBuildInputs = [
     future
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     nose
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "pyipmi" ];
+  pythonImportsCheck = [
+    "pyipmi"
+  ];
 
   meta = with lib; {
     description = "Python IPMI Library";

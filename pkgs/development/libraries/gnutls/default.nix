@@ -1,12 +1,28 @@
 { config, lib, stdenv, fetchurl, zlib, lzo, libtasn1, nettle, pkg-config, lzip
-, perl, gmp, autoconf, automake, libidn, p11-kit, libiconv
+, perl, gmp, autoconf, automake, libidn2, libiconv
+, fetchpatch, texinfo
 , unbound, dns-root-data, gettext, util-linux
-, guileBindings ? config.gnutls.guile or false, guile
+, cxxBindings ? !stdenv.hostPlatform.isStatic # tries to link libstdc++.so
 , tpmSupport ? false, trousers, which, nettools, libunistring
-, withSecurity ? false, Security  # darwin Security.framework
+, withP11-kit ? !stdenv.hostPlatform.isStatic, p11-kit
+, Security  # darwin Security.framework
+# certificate compression - only zlib now, more possible: zstd, brotli
+
+# for passthru.tests
+, curlWithGnuTls
+, emacs
+, ffmpeg
+, haskellPackages
+, knot-resolver
+, ngtcp2-gnutls
+, ocamlPackages
+, python3Packages
+, qemu
+, rsyslog
+, openconnect
+, samba
 }:
 
-assert guileBindings -> guile != null;
 let
 
   # XXX: Gnulib's `test-select' fails on FreeBSD:
@@ -19,11 +35,11 @@ in
 
 stdenv.mkDerivation rec {
   pname = "gnutls";
-  version = "3.7.2";
+  version = "3.8.1";
 
   src = fetchurl {
     url = "mirror://gnupg/gnutls/v${lib.versions.majorMinor version}/gnutls-${version}.tar.xz";
-    sha256 = "646e6c5a9a185faa4cea796d378a1ba8e1148dbb197ca6605f95986a25af2752";
+    hash = "sha256-uoueFa4gq6iPRGYZePW1hjSUMW/n5yLt6dBp/mKUgpw=";
   };
 
   outputs = [ "bin" "dev" "out" "man" "devdoc" ];
@@ -31,9 +47,15 @@ stdenv.mkDerivation rec {
   outputInfo = "devdoc";
   outputDoc  = "devdoc";
 
-  patches = [ ./nix-ssl-cert-file.patch ]
-    # Disable native add_system_trust.
-    ++ lib.optional (isDarwin && !withSecurity) ./no-security-framework.patch;
+  patches = [
+    (fetchpatch { #TODO: when updating drop this patch and texinfo
+      name = "GNUTLS_NO_EXTENSIONS.patch";
+      url = "https://gitlab.com/gnutls/gnutls/-/commit/abfa8634db940115a11a07596ce53c8f9c4f87d2.diff";
+      hash = "sha256-3M5WdNoVx9gUwTUPgu/sXmsaNg+j5d6liXs0UZz8fGU=";
+    })
+
+    ./nix-ssl-cert-file.patch
+  ];
 
   # Skip some tests:
   #  - pkg-config: building against the result won't work before installing (3.5.11)
@@ -51,32 +73,29 @@ stdenv.mkDerivation rec {
 
   preConfigure = "patchShebangs .";
   configureFlags =
-    lib.optionals stdenv.isLinux [
+    lib.optionals withP11-kit [
     "--with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt"
     "--with-default-trust-store-pkcs11=pkcs11:"
   ] ++ [
     "--disable-dependency-tracking"
     "--enable-fast-install"
     "--with-unbound-root-key-file=${dns-root-data}/root.key"
-  ] ++ lib.optional guileBindings [
-    "--enable-guile"
-    "--with-guile-site-dir=\${out}/share/guile/site"
-    "--with-guile-site-ccache-dir=\${out}/share/guile/site"
-    "--with-guile-extension-dir=\${out}/share/guile/site"
+    (lib.withFeature withP11-kit "p11-kit")
+    (lib.enableFeature cxxBindings "cxx")
   ];
 
   enableParallelBuilding = true;
 
-  buildInputs = [ lzo lzip libtasn1 libidn p11-kit zlib gmp libunistring unbound gettext libiconv ]
-    ++ lib.optional (isDarwin && withSecurity) Security
-    ++ lib.optional (tpmSupport && stdenv.isLinux) trousers
-    ++ lib.optional guileBindings guile;
+  buildInputs = [ lzo lzip libtasn1 libidn2 zlib gmp libunistring unbound gettext libiconv ]
+    ++ lib.optional (withP11-kit) p11-kit
+    ++ lib.optional (tpmSupport && stdenv.isLinux) trousers;
 
-  nativeBuildInputs = [ perl pkg-config ]
-    ++ lib.optionals (isDarwin && !withSecurity) [ autoconf automake ]
+  nativeBuildInputs = [ perl pkg-config texinfo ]
     ++ lib.optionals doCheck [ which nettools util-linux ];
 
-  propagatedBuildInputs = [ nettle ];
+  propagatedBuildInputs = [ nettle ]
+    # Builds dynamically linking against gnutls seem to need the framework now.
+    ++ lib.optional isDarwin Security;
 
   inherit doCheck;
   # stdenv's `NIX_SSL_CERT_FILE=/no-cert-file.crt` breaks tests.
@@ -95,6 +114,14 @@ stdenv.mkDerivation rec {
     substituteInPlace "$out/lib/libgnutls.la" \
       --replace "-lunistring" ""
   '';
+
+  passthru.tests = {
+    inherit ngtcp2-gnutls curlWithGnuTls ffmpeg emacs qemu knot-resolver samba openconnect;
+    inherit (ocamlPackages) ocamlnet;
+    haskell-gnutls = haskellPackages.gnutls;
+    python3-gnutls = python3Packages.python3-gnutls;
+    rsyslog = rsyslog.override { withGnutls = true; };
+  };
 
   meta = with lib; {
     description = "The GNU Transport Layer Security Library";
@@ -115,7 +142,7 @@ stdenv.mkDerivation rec {
 
     homepage = "https://gnutls.org/";
     license = licenses.lgpl21Plus;
-    maintainers = with maintainers; [ eelco fpletz ];
+    maintainers = with maintainers; [ vcunat ];
     platforms = platforms.all;
   };
 }

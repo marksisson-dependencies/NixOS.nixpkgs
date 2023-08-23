@@ -1,30 +1,39 @@
-{ lib, fetchFromGitHub, rustPlatform }:
+{ stdenv, lib, fetchFromGitHub, rustPlatform, AppKit, installShellFiles }:
 
 rustPlatform.buildRustPackage rec {
   pname = "du-dust";
-  version = "0.7.5";
+  version = "0.8.6";
 
   src = fetchFromGitHub {
     owner = "bootandy";
     repo = "dust";
     rev = "v${version}";
-    sha256 = "sha256-0r0cDzW18uF7DHvzkUCHHHN+2M21xdi2ffPwDGMtyw8=";
+    sha256 = "sha256-PEW13paHNQ1JAz9g3pIdCB1f1KqIz8XC4gGE0z/glOk=";
     # Remove unicode file names which leads to different checksums on HFS+
     # vs. other filesystems because of unicode normalisation.
-    extraPostFetch = ''
+    postFetch = ''
       rm -r $out/tests/test_dir_unicode/
     '';
   };
 
-  cargoSha256 = "sha256-LAow4DVqON5vrYBU8v8wzg/HcHxm1GqS9DMre3y12Jo=";
+  cargoHash = "sha256-VJBmVidLkx4nIQULtDoywV4QGmgf53YAAXLJH/LZ/j0=";
+
+  nativeBuildInputs = [ installShellFiles ];
+
+  buildInputs = lib.optionals stdenv.isDarwin [ AppKit ];
 
   doCheck = false;
+
+  postInstall = ''
+    installManPage man-page/dust.1
+    installShellCompletion completions/dust.{bash,fish} --zsh completions/_dust
+  '';
 
   meta = with lib; {
     description = "du + rust = dust. Like du but more intuitive";
     homepage = "https://github.com/bootandy/dust";
     license = licenses.asl20;
-    maintainers = with maintainers; [ infinisil SuperSandro2000 ];
+    maintainers = with maintainers; [ infinisil ];
     mainProgram = "dust";
   };
 }

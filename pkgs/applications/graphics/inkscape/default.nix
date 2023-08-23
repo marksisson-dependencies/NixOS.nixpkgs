@@ -4,12 +4,11 @@
 , boost
 , cairo
 , cmake
+, desktopToDarwinBundle
 , fetchurl
-, fetchpatch
 , gettext
 , ghostscript
 , glib
-, glib-networking
 , glibmm
 , gsl
 , gspell
@@ -45,19 +44,26 @@
 let
   python3Env = python3.withPackages
     (ps: with ps; [
+      appdirs
+      beautifulsoup4
+      cachecontrol
       numpy
       lxml
+      packaging
       pillow
       scour
-    ]);
+      pyserial
+      requests
+      pygobject3
+    ] ++ inkex.propagatedBuildInputs);
 in
 stdenv.mkDerivation rec {
   pname = "inkscape";
-  version = "1.1.1";
+  version = "1.2.2";
 
   src = fetchurl {
-    url = "https://media.inkscape.org/dl/resources/file/${pname}-${version}.tar.xz";
-    sha256 = "sha256-rsoLnTO1sc+pqnBDO97mqMPQIP+vwubwyaYO7Xp5eK8=";
+    url = "https://media.inkscape.org/dl/resources/file/inkscape-${version}.tar.xz";
+    sha256 = "oMf9DQPAohU15kjvMB3PgN18/B81ReUQZfvxuj7opcQ=";
   };
 
   # Inkscape hits the ARGMAX when linking on macOS. It appears to be
@@ -73,25 +79,15 @@ stdenv.mkDerivation rec {
       # e.g., those from the "Effects" menu.
       python3 = "${python3Env}/bin/python";
     })
-
-    # Fix parsing paths by Python extensions.
-    # https://gitlab.com/inkscape/extensions/-/merge_requests/342
-    (fetchpatch {
-      url = "https://gitlab.com/inkscape/extensions/-/commit/a82c382c610d37837c8f3f5b13224bab8fd3667e.patch";
-      sha256 = "YWrgjCnQ9q6BUsxSLQojIXnDzPxM/SgrIfj1gxQ/JKM=";
-      stripLen = 1;
-      extraPrefix = "share/extensions/";
+    (substituteAll {
+      # Fix path to ps2pdf binary
+      src = ./fix-ps2pdf-path.patch;
+      inherit ghostscript;
     })
   ];
 
   postPatch = ''
     patchShebangs share/extensions
-    substituteInPlace share/extensions/eps_input.inx \
-      --replace "location=\"path\">ps2pdf" "location=\"absolute\">${ghostscript}/bin/ps2pdf"
-    substituteInPlace share/extensions/ps_input.inx \
-      --replace "location=\"path\">ps2pdf" "location=\"absolute\">${ghostscript}/bin/ps2pdf"
-    substituteInPlace share/extensions/ps_input.py \
-      --replace "call('ps2pdf'" "call('${ghostscript}/bin/ps2pdf'"
     patchShebangs share/templates
     patchShebangs man/fix-roff-punct
 
@@ -111,14 +107,15 @@ stdenv.mkDerivation rec {
   ] ++ (with perlPackages; [
     perl
     XMLParser
-  ]);
+  ]) ++ lib.optionals stdenv.isDarwin [
+    desktopToDarwinBundle
+  ];
 
   buildInputs = [
     boehmgc
     boost
     gettext
     glib
-    glib-networking
     glibmm
     gsl
     gtkmm3
@@ -162,6 +159,7 @@ stdenv.mkDerivation rec {
     license = licenses.gpl3Plus;
     maintainers = [ maintainers.jtojnar ];
     platforms = platforms.all;
+    mainProgram = "inkscape";
     longDescription = ''
       Inkscape is a feature-rich vector graphics editor that edits
       files in the W3C SVG (Scalable Vector Graphics) file format.

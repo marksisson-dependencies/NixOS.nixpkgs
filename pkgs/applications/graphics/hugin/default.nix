@@ -5,7 +5,6 @@
 , gnumake
 , makeWrapper
 , pkg-config
-, fetchpatch
 , autopanosiftc
 , boost
 , cairo
@@ -14,7 +13,7 @@
 , fftw
 , flann
 , gettext
-, glew
+, glew-egl
 , ilmbase
 , lcms2
 , lensfun
@@ -31,26 +30,19 @@
 , perlPackages
 , sqlite
 , vigra
+, wrapGAppsHook
 , wxGTK
 , zlib
 }:
 
 stdenv.mkDerivation rec {
   pname = "hugin";
-  version = "2019.0.0";
+  version = "2022.0.0";
 
   src = fetchurl {
     url = "mirror://sourceforge/hugin/hugin-${version}.tar.bz2";
-    sha256 = "1l925qslp98gg7yzmgps10h6dq0nb60wbfk345anlxsv0g2ifizr";
+    sha256 = "sha256-l8hWKgupp0PguVWkPf3gSLHGDNnl8u4rad4agWRuBac=";
   };
-
-  patches = [
-    # Fixes build with exiv2 0.27.1
-    (fetchpatch {
-      url = "https://raw.githubusercontent.com/archlinux/svntogit-community/0467d8ba362b9c196e4c1dc4be7de0c1b336335b/hugin/trunk/hugin-exiv2-0.27.1.patch";
-      sha256 = "1yxvlpvrhyrfd2w6kwx1w3mncsvlzdhp0w7xchy8q6kc2kd5nf7r";
-    })
-  ];
 
   buildInputs = [
     boost
@@ -59,7 +51,7 @@ stdenv.mkDerivation rec {
     fftw
     flann
     gettext
-    glew
+    glew-egl
     ilmbase
     lcms2
     lensfun
@@ -79,12 +71,12 @@ stdenv.mkDerivation rec {
     zlib
   ];
 
-  nativeBuildInputs = [ cmake makeWrapper pkg-config ];
+  nativeBuildInputs = [ cmake makeWrapper pkg-config wrapGAppsHook ];
 
   # disable installation of the python scripting interface
   cmakeFlags = [ "-DBUILD_HSI:BOOl=OFF" ];
 
-  NIX_CFLAGS_COMPILE = "-I${ilmbase.dev}/include/OpenEXR";
+  env.NIX_CFLAGS_COMPILE = "-I${ilmbase.dev}/include/OpenEXR";
 
   postInstall = ''
     for p in $out/bin/*; do

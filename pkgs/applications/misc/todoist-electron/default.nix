@@ -1,12 +1,12 @@
-{ lib, stdenv, fetchurl, appimageTools, makeWrapper, electron, libsecret }:
+{ lib, stdenv, fetchurl, appimageTools, makeWrapper, electron_24, libsecret }:
 
 stdenv.mkDerivation rec {
   pname = "todoist-electron";
-  version = "1.0.1";
+  version = "8.3.3";
 
   src = fetchurl {
-    url = "https://electron-dl.todoist.com/linux/Todoist-${version}.AppImage";
-    sha256 = "1c4qmfyfi4hm3fs5bkxjbq1hxs5sgyp531xi5z5vpnzzi5z7dw0k";
+    url = "https://electron-dl.todoist.com/linux/Todoist-linux-x86_64-${version}.AppImage";
+    hash = "sha256-X928hCrYVOBTEZq1hmZWgWlabtOzQrLUuptF/SJcAto=";
   };
 
   appimageContents = appimageTools.extractType2 {
@@ -36,9 +36,10 @@ stdenv.mkDerivation rec {
   '';
 
   postFixup = ''
-    makeWrapper ${electron}/bin/electron $out/bin/${pname} \
+    makeWrapper ${electron_24}/bin/electron $out/bin/todoist-electron \
       --add-flags $out/share/${pname}/resources/app.asar \
-      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ stdenv.cc.cc libsecret ]}"
+      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ stdenv.cc.cc libsecret ]}" \
+      --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations}}"
   '';
 
   meta = with lib; {

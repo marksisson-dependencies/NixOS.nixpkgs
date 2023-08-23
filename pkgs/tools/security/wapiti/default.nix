@@ -5,47 +5,61 @@
 
 python3.pkgs.buildPythonApplication rec {
   pname = "wapiti";
-  version = "3.0.5";
+  version = "3.1.8";
+  format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "wapiti-scanner";
     repo = pname;
-    rev = version;
-    sha256 = "0663hzpmn6p5xh65d2gk4yk2zh992lfd9lhdwwabhpv3n85nza75";
+    rev = "refs/tags/${version}";
+    hash = "sha256-2ssbczUa4pTA5Fai+sK1hES8skJMIHxa/R2hNIiEVLs=";
   };
 
+  postPatch = ''
+    # Ignore pinned versions
+    sed -i -e "s/==[0-9.]*//;s/>=[0-9.]*//" pyproject.toml
+
+    # Remove code coverage checking
+    substituteInPlace pyproject.toml \
+      --replace "--cov --cov-report=xml" ""
+  '';
+
   nativeBuildInputs = with python3.pkgs; [
-    pytest-runner
+    setuptools
+    wheel
   ];
 
   propagatedBuildInputs = with python3.pkgs; [
+    aiocache
+    aiohttp
+    aiosqlite
+    arsenic
     beautifulsoup4
     browser-cookie3
-    cryptography
-    Mako
-    markupsafe
-    pysocks
+    dnspython
+    h11
+    httpcore
     httpx
     httpx-ntlm
-    httpx-socks
+    loguru
+    mako
+    markupsafe
+    mitmproxy
+    pyasn1
     six
+    sqlalchemy
     tld
     yaswfp
-  ] ++ lib.optionals (python3.pythonOlder "3.8") [ importlib-metadata ];
+  ] ++ httpx.optional-dependencies.brotli
+  ++ httpx.optional-dependencies.socks;
 
-  checkInputs = with python3.pkgs; [
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = with python3.pkgs; [
     respx
     pytest-asyncio
     pytestCheckHook
   ];
-
-  postPatch = ''
-    # Ignore pinned versions
-    substituteInPlace setup.py \
-      --replace "==" ">="
-    substituteInPlace setup.cfg \
-      --replace " --cov" ""
-  '';
 
   preCheck = ''
     export HOME=$(mktemp -d);
@@ -57,15 +71,15 @@ python3.pkgs.buildPythonApplication rec {
     "test_bad_separator_used"
     "test_blind"
     "test_chunked_timeout"
-    "test_cookies"
-    "test_drop_cookies"
-    "test_save_and_restore_state"
-    "test_explorer_extract_links"
     "test_cookies_detection"
+    "test_cookies"
     "test_csrf_cases"
     "test_detection"
     "test_direct"
+    "test_dom_detection"
+    "test_drop_cookies"
     "test_escape_with_style"
+    "test_explorer_extract_links"
     "test_explorer_filtering"
     "test_false"
     "test_frame"
@@ -73,18 +87,19 @@ python3.pkgs.buildPythonApplication rec {
     "test_html_detection"
     "test_implies_detection"
     "test_inclusion_detection"
+    "test_merge_with_and_without_redirection"
     "test_meta_detection"
+    "test_multi_detection"
     "test_no_crash"
     "test_options"
     "test_out_of_band"
-    "test_multi_detection"
-    "test_vulnerabilities"
     "test_partial_tag_name_escape"
     "test_prefix_and_suffix_detection"
     "test_qs_limit"
     "test_rare_tag_and_event"
     "test_redirect_detection"
     "test_request_object"
+    "test_save_and_restore_state"
     "test_script"
     "test_ssrf"
     "test_tag_name_escape"
@@ -92,7 +107,10 @@ python3.pkgs.buildPythonApplication rec {
     "test_title_false_positive"
     "test_title_positive"
     "test_true_positive_request_count"
+    "test_unregistered_cname"
     "test_url_detection"
+    "test_verify_dns"
+    "test_vulnerabilities"
     "test_warning"
     "test_whole"
     "test_xss_inside_tag_input"
@@ -102,13 +120,27 @@ python3.pkgs.buildPythonApplication rec {
     "test_xss_with_weak_csp"
     "test_xxe"
     # Requires a PHP installation
-    "test_timesql"
     "test_cookies"
-    # E           TypeError: Expected bytes or bytes-like object got: <class 'str'>
+    "test_fallback_to_html_injection"
+    "test_loknop_lfi_to_rce"
+    "test_redirect"
+    "test_timesql"
+    "test_xss_inside_href_link"
+    "test_xss_inside_src_iframe"
+    # TypeError: Expected bytes or bytes-like object got: <class 'str'>
     "test_persister_upload"
+    # Requires creating a socket to an external URL
+    "test_attack_unifi"
   ];
 
-  pythonImportsCheck = [ "wapitiCore" ];
+  disabledTestPaths = [
+    # Requires sslyze which is obsolete and was removed
+    "tests/attack/test_mod_ssl.py"
+  ];
+
+  pythonImportsCheck = [
+    "wapitiCore"
+  ];
 
   meta = with lib; {
     description = "Web application vulnerability scanner";
@@ -121,6 +153,7 @@ python3.pkgs.buildPythonApplication rec {
       if a script is vulnerable.
     '';
     homepage = "https://wapiti-scanner.github.io/";
+    changelog = "https://github.com/wapiti-scanner/wapiti/blob/${version}/doc/ChangeLog_Wapiti";
     license = with licenses; [ gpl2Only ];
     maintainers = with maintainers; [ fab ];
   };

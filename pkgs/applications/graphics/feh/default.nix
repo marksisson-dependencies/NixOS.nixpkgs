@@ -1,44 +1,47 @@
-{ lib, stdenv, fetchurl, makeWrapper
+{ lib, stdenv, fetchFromGitHub, makeWrapper
 , xorg, imlib2, libjpeg, libpng
 , curl, libexif, jpegexiforient, perl
 , enableAutoreload ? !stdenv.hostPlatform.isDarwin }:
 
-with lib;
-
 stdenv.mkDerivation rec {
   pname = "feh";
-  version = "3.7.2";
+  version = "3.10";
 
-  src = fetchurl {
-    url = "https://feh.finalrewind.org/${pname}-${version}.tar.bz2";
-    sha256 = "sha256-hHGP0nIM9UDSRXaElP4OtOWY9Es54jJrrow2ioKcglg=";
+  src = fetchFromGitHub {
+    owner = "derf";
+    repo = pname;
+    rev = version;
+    hash = "sha256-9NJ6zgQHcFJPmRlqJuCMXcKjLvDPUG+QvKGTJlWvWK4=";
   };
 
   outputs = [ "out" "man" "doc" ];
 
-  nativeBuildInputs = [ makeWrapper xorg.libXt ];
+  nativeBuildInputs = [ makeWrapper ];
 
-  buildInputs = [ xorg.libX11 xorg.libXinerama imlib2 libjpeg libpng curl libexif ];
+  buildInputs = [ xorg.libXt xorg.libX11 xorg.libXinerama imlib2 libjpeg libpng curl libexif ];
 
   makeFlags = [
     "PREFIX=${placeholder "out"}" "exif=1"
-  ] ++ optional stdenv.isDarwin "verscmp=0"
-    ++ optional enableAutoreload "inotify=1";
+  ] ++ lib.optional stdenv.isDarwin "verscmp=0"
+    ++ lib.optional enableAutoreload "inotify=1";
 
   installTargets = [ "install" ];
   postInstall = ''
-    wrapProgram "$out/bin/feh" --prefix PATH : "${makeBinPath [ libjpeg jpegexiforient ]}" \
+    wrapProgram "$out/bin/feh" --prefix PATH : "${lib.makeBinPath [ libjpeg jpegexiforient ]}" \
                                --add-flags '--theme=feh'
   '';
 
-  checkInputs = lib.singleton (perl.withPackages (p: [ p.TestCommand ]));
+  nativeCheckInputs = lib.singleton (perl.withPackages (p: [ p.TestCommand ]));
   doCheck = true;
 
-  meta = {
+  meta = with lib; {
     description = "A light-weight image viewer";
     homepage = "https://feh.finalrewind.org/";
-    license = licenses.mit;
+    # released under a variant of the MIT license
+    # https://spdx.org/licenses/MIT-feh.html
+    license = licenses.mit-feh;
     maintainers = with maintainers; [ viric willibutz globin ma27 ];
     platforms = platforms.unix;
+    mainProgram = "feh";
   };
 }

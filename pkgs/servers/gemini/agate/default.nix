@@ -1,17 +1,16 @@
-{ lib, stdenv, fetchFromGitHub, rustPlatform, libiconv, Security }:
+{ lib, stdenv, nixosTests, fetchFromGitHub, rustPlatform, libiconv, Security }:
 
 rustPlatform.buildRustPackage rec {
   pname = "agate";
-  version = "3.1.0";
+  version = "3.3.1";
 
   src = fetchFromGitHub {
     owner = "mbrubeck";
-    repo = pname;
+    repo = "agate";
     rev = "v${version}";
-    sha256 = "sha256-miIMz4Lk4R5So96Ceqe1Fl5ozpf47qWq0GgtKFDDCCA=";
+    hash = "sha256-gU4Q45Sb+LOmcv0j9R8yw996NUpCOnxdwT6lyvNp2pg=";
   };
-
-  cargoSha256 = "sha256-NZpqCl37dZUvXmn4Q1Pvbz3LSxk1s0s5x1CBO0POA/4=";
+  cargoHash = "sha256-6jF4ayzBN4sSk81u3iX0CxMPAsL6D+wpXRYGjgntMUE=";
 
   buildInputs = lib.optionals stdenv.isDarwin [ libiconv Security ];
 
@@ -22,6 +21,8 @@ rustPlatform.buildRustPackage rec {
     $out/bin/agate --version 2>&1 | grep "agate ${version}"
     runHook postInstallCheck
   '';
+
+  passthru.tests = { inherit (nixosTests) agate; };
 
   meta = with lib; {
     homepage = "https://github.com/mbrubeck/agate";

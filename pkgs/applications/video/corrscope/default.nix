@@ -6,35 +6,59 @@
 , wrapQtAppsHook
 , ffmpeg
 , qtbase
+, testers
+, corrscope
 }:
 
 mkDerivationWith python3Packages.buildPythonApplication rec {
   pname = "corrscope";
-  version = "0.7.1";
+  version = "0.8.1";
+  format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "corrscope";
     repo = "corrscope";
     rev = version;
-    sha256 = "0c9kmrw6pcda68li04b5j2kmsgdw1q463qlc32wn96zn9hl82v6m";
+    hash = "sha256-pS7upOYZAjgR3lWxny8TNZEj3Rrbg+L90ANZWFO9UPQ=";
   };
 
-  format = "pyproject";
-
   patches = [
-    # Remove when bumping past 0.7.1
+    # https://github.com/corrscope/corrscope/pull/446
     (fetchpatch {
-      name = "0001-Use-poetry-core.patch";
-      url = "https://github.com/corrscope/corrscope/commit/d40d1846dd54b8bccd7b8055d6aece48aacbb943.patch";
-      sha256 = "0xxsbmxdbh3agfm6ww3rpa7ab0ysppan490w0gaqwmwzrxmmdljv";
+      name = "remove-setuptools-dependency.patch";
+      url = "https://github.com/corrscope/corrscope/commit/70b123173a7a012d9f29d6d3a8960b85caf6cc79.patch";
+      hash = "sha256-YCtb7v8cGP0pdceAKeoempnRzw+LRKQqDb3AfN0z/9s=";
     })
   ];
 
-  nativeBuildInputs = [ wrapQtAppsHook ] ++ (with python3Packages; [ poetry-core ]);
+  pythonRelaxDeps = [ "attrs" ];
 
-  buildInputs = [ ffmpeg qtbase ];
+  nativeBuildInputs = [
+    wrapQtAppsHook
+  ] ++ (with python3Packages; [
+    poetry-core
+    pythonRelaxDepsHook
+  ]);
 
-  propagatedBuildInputs = with python3Packages; [ appdirs atomicwrites attrs click matplotlib numpy pyqt5 ruamel-yaml ];
+  buildInputs = [
+    ffmpeg
+    qtbase
+  ];
+
+  propagatedBuildInputs = with python3Packages; [
+    appdirs
+    appnope
+    atomicwrites
+    attrs
+    click
+    matplotlib
+    numpy
+    packaging
+    qtpy
+    pyqt5
+    ruamel-yaml
+    colorspacious
+  ];
 
   dontWrapQtApps = true;
 
@@ -44,6 +68,14 @@ mkDerivationWith python3Packages.buildPythonApplication rec {
       "''${qtWrapperArgs[@]}"
     )
   '';
+
+  passthru.tests.version = testers.testVersion {
+    package = corrscope;
+    # Tries writing to
+    # - $HOME/.local/share/corrscope on Linux
+    # - $HOME/Library/Application Support/corrscope on Darwin
+    command = "env HOME=$TMPDIR ${lib.getExe corrscope} --version";
+  };
 
   meta = with lib; {
     description = "Render wave files into oscilloscope views, featuring advanced correlation-based triggering algorithm";
@@ -58,5 +90,6 @@ mkDerivationWith python3Packages.buildPythonApplication rec {
     license = licenses.bsd2;
     maintainers = with maintainers; [ OPNA2608 ];
     platforms = platforms.all;
+    mainProgram = "corr";
   };
 }

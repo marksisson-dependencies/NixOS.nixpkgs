@@ -1,20 +1,25 @@
 { lib
-, fetchPypi
 , buildPythonPackage
 , click-plugins
 , colorama
+, fetchPypi
+, pythonOlder
 , requests
 , setuptools
-, XlsxWriter
+, tldextract
+, xlsxwriter
 }:
 
 buildPythonPackage rec {
   pname = "shodan";
-  version = "1.25.0";
+  version = "1.30.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-fivdvBtgv2IAQtABD0t2KoC0MRHb6pwEHXLUMl4mDCM=";
+    hash = "sha256-yWF8ZsR7h9SAHnCAtsdp7Jox2jmN7+CwR6Z5SSdDZFM=";
   };
 
   propagatedBuildInputs = [
@@ -22,17 +27,22 @@ buildPythonPackage rec {
     colorama
     requests
     setuptools
-    XlsxWriter
+    tldextract
+    xlsxwriter
   ];
 
   # The tests require a shodan api key, so skip them.
   doCheck = false;
-  pythonImportsCheck = [ "shodan" ];
+
+  pythonImportsCheck = [
+    "shodan"
+  ];
 
   meta = with lib; {
     description = "Python library and command-line utility for Shodan";
     homepage = "https://github.com/achillean/shodan-python";
+    changelog = "https://github.com/achillean/shodan-python/blob/${version}/CHANGELOG.md";
     license = licenses.mit;
-    maintainers = with maintainers; [ lihop ];
+    maintainers = with maintainers; [ fab lihop ];
   };
 }

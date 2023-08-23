@@ -11,29 +11,33 @@
 
 let
   boostPython = boost.override { python = python3; enablePython = true; };
-in
-stdenv.mkDerivation rec {
+
   pname = "nextpnr";
-  version = "2021.11.24"; # tagged as 0.1, but we'll keep tracking HEAD
+  version = "0.6";
 
-  srcs = [
-    (fetchFromGitHub {
-      owner  = "YosysHQ";
-      repo   = "nextpnr";
-      rev    = "fd2d4a8f999947ece42f791e19ddc4c2d8b823f2";
-      sha256 = "sha256-bGh3svJeVRJO0rTnSYoTndeQrTENx6j9t+GCGX4RX4k=";
-      name   = "nextpnr";
-    })
-    (fetchFromGitHub {
-      owner  = "YosysHQ";
-      repo   = "nextpnr-tests";
-      rev    = "ccc61e5ec7cc04410462ec3196ad467354787afb";
-      sha256 = "sha256-VT0JfpRLgfo2WG+eoMdE0scPM5nKZZ/v1XlkeDNcQCU=";
-      name   = "nextpnr-tests";
-    })
-  ];
+  main_src = fetchFromGitHub {
+    owner = "YosysHQ";
+    repo  = "nextpnr";
+    rev   = "${pname}-${version}";
+    hash  = "sha256-S6qvTzvkS2tBMvuTpmuCx6h0OcKP5NBbmgRgOpAVtnA=";
+    name  = "nextpnr";
+  };
 
-  sourceRoot = "nextpnr";
+  test_src = fetchFromGitHub {
+    owner  = "YosysHQ";
+    repo   = "nextpnr-tests";
+    rev    = "00c55a9eb9ea2e062b51fe0d64741412b185d95d";
+    sha256 = "sha256-83suMftMtnaRFq3T2/I7Uahb11WZlXhwYt6Q/rqi2Yo=";
+    name   = "nextpnr-tests";
+  };
+in
+
+stdenv.mkDerivation rec {
+  inherit pname version;
+
+  srcs = [ main_src test_src ];
+
+  sourceRoot = main_src.name;
 
   nativeBuildInputs
      = [ cmake ]
@@ -66,7 +70,7 @@ stdenv.mkDerivation rec {
   '';
 
   preBuild = ''
-    ln -s ../nextpnr-tests tests
+    ln -s ../${test_src.name} tests
   '';
 
   doCheck = true;

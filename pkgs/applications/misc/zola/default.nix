@@ -10,21 +10,21 @@
 , installShellFiles
 , libsass
 , zola
-, testVersion
+, testers
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "zola";
-  version = "0.15.2";
+  version = "0.17.2";
 
   src = fetchFromGitHub {
     owner = "getzola";
     repo = "zola";
     rev = "v${version}";
-    sha256 = "sha256-X4J3T/ob0NfCFxddadBtsPsDhfvesg6/sBJybWeubMM=";
+    hash = "sha256-br7VpxkVMZ/TgwMaFbnVMOw9RemNjur/UYnloMoDzHs=";
   };
 
-  cargoSha256 = "sha256-0tynm/DTX2oiqZOdWjRBGPk8IPIN07x2+FCXQmQ4Fzo=";
+  cargoHash = "sha256-AAub8UwAvX3zNX+SM/T9biyNxFTgfqUQG/MUGfwWuno=";
 
   nativeBuildInputs = [
     cmake
@@ -43,12 +43,12 @@ rustPlatform.buildRustPackage rec {
 
   postInstall = ''
     installShellCompletion --cmd zola \
-      --fish completions/zola.fish \
-      --zsh completions/_zola \
-      --bash completions/zola.bash
+      --bash <($out/bin/zola completion bash) \
+      --fish <($out/bin/zola completion fish) \
+      --zsh <($out/bin/zola completion zsh)
   '';
 
-  passthru.tests.version = testVersion { package = zola; };
+  passthru.tests.version = testers.testVersion { package = zola; };
 
   meta = with lib; {
     description = "A fast static site generator with everything built-in";

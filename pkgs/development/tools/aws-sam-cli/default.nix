@@ -1,37 +1,37 @@
 { lib
 , python3
+, fetchPypi
 , enableTelemetry ? false
 }:
 
 python3.pkgs.buildPythonApplication rec {
   pname = "aws-sam-cli";
-  version = "1.36.0";
+  version = "1.90.0";
 
-  src = python3.pkgs.fetchPypi {
+  src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-GJbBhe1l25ZHGWVu1o2oJvd/BNv8dv7aIYor/ebFl9U=";
+    hash = "sha256-JXUfc37O6cTTOCTTtWE05m+GR4iDyBsmRPyXoTRxFmo=";
   };
-
-  # Tests are not included in the PyPI package
-  doCheck = false;
 
   propagatedBuildInputs = with python3.pkgs; [
     aws-lambda-builders
     aws-sam-translator
+    boto3
+    cfn-lint
     chevron
-    click
     cookiecutter
     dateparser
-    python-dateutil
     docker
     flask
-    jmespath
-    requests
+    pyopenssl
+    pyyaml
+    rich
+    ruamel-yaml
     serverlessrepo
     tomlkit
-    watchdog
     typing-extensions
-    regex
+    tzlocal
+    watchdog
   ];
 
   postFixup = if enableTelemetry then "echo aws-sam-cli TELEMETRY IS ENABLED" else ''
@@ -39,20 +39,21 @@ python3.pkgs.buildPythonApplication rec {
     wrapProgram $out/bin/sam --set  SAM_CLI_TELEMETRY 0
   '';
 
-  # fix over-restrictive version bounds
   postPatch = ''
     substituteInPlace requirements/base.txt \
-      --replace "click~=7.1" "click~=8.0" \
-      --replace "Flask~=1.1.2" "Flask~=2.0" \
-      --replace "dateparser~=1.0" "dateparser>=0.7" \
-      --replace "docker~=4.2.0" "docker>=4.2.0" \
-      --replace "requests==" "requests #" \
-      --replace "watchdog==" "watchdog #" \
-      --replace "aws_lambda_builders==" "aws-lambda-builders #" \
-      --replace "typing_extensions==" "typing-extensions #" \
-      --replace "regex==" "regex #" \
-      --replace "tzlocal==3.0" "tzlocal"
+      --replace 'PyYAML>=' 'PyYAML>=5.4.1 #' \
+      --replace 'aws-sam-translator==1.70.0' 'aws-sam-translator>=1.60.1' \
+      --replace 'boto3>=' 'boto3>=1.26.79 #' \
+      --replace 'cfn-lint~=0.77.9' 'cfn-lint~=0.73.2' \
+      --replace 'docker~=6.1.0' 'docker~=6.0.1' \
+      --replace 'ruamel_yaml~=0.17.32' 'ruamel_yaml~=0.17.21' \
+      --replace 'tomlkit==0.11.8' 'tomlkit>=0.11.8' \
+      --replace 'typing_extensions~=4.4.0' 'typing_extensions~=4.4' \
+      --replace 'tzlocal==3.0' 'tzlocal>=3.0' \
+      --replace 'watchdog==' 'watchdog>=2.1.2 #'
   '';
+
+  doCheck = false;
 
   meta = with lib; {
     homepage = "https://github.com/awslabs/aws-sam-cli";

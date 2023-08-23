@@ -1,9 +1,9 @@
-{ lib, stdenvNoCC, fetchFromGitHub, python3, makeWrapper, unstableGitUpdater }:
+{ lib, stdenvNoCC, fetchFromGitHub, python3, makeWrapper, unstableGitUpdater, nixosTests }:
 
 let
   pythonEnv = python3.withPackages (packages: with packages; [
     tornado
-    pyserial
+    pyserial-asyncio
     pillow
     lmdb
     streaming-form-data
@@ -12,16 +12,21 @@ let
     libnacl
     paho-mqtt
     pycurl
+    zeroconf
+    preprocess-cancellation
+    jinja2
+    dbus-next
+    apprise
   ]);
 in stdenvNoCC.mkDerivation rec {
   pname = "moonraker";
-  version = "unstable-2021-11-13";
+  version = "unstable-2023-08-03";
 
   src = fetchFromGitHub {
     owner = "Arksine";
     repo = "moonraker";
-    rev = "bed239c90a3b5fef5c6bf4559a774b9d09987c30";
-    sha256 = "2gnW6dPsKMfoZnjs9F3opxRCeym+P43ZJOmGM44twfw=";
+    rev = "fe120952ee06607d039af8f461028e9f5b817395";
+    sha256 = "sha256-TyhpMHu06YoaV5tZGBcYulUrABW6OFYZLyCoZLRmaUU=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
@@ -34,7 +39,10 @@ in stdenvNoCC.mkDerivation rec {
       --add-flags "$out/lib/moonraker/moonraker.py"
   '';
 
-  passthru.updateScript = unstableGitUpdater { url = meta.homepage; };
+  passthru = {
+    updateScript = unstableGitUpdater { url = meta.homepage; };
+    tests.moonraker = nixosTests.moonraker;
+  };
 
   meta = with lib; {
     description = "API web server for Klipper";

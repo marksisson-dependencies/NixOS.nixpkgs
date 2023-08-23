@@ -1,49 +1,60 @@
 { lib
 , fetchPypi
-, setuptools-scm
 , buildPythonPackage
-, isPy3k
+, pythonOlder
+
+# build time
+, astropy-extension-helpers
 , cython
 , jinja2
+, oldest-supported-numpy
+, setuptools-scm
+, wheel
+
+# runtime
 , numpy
-, pytest
-, pytest-astropy
-, astropy-helpers
-, astropy-extension-helpers
+, packaging
 , pyerfa
+, pyyaml
 }:
 
-buildPythonPackage rec {
+let
   pname = "astropy";
-  version = "4.3.1";
+  version = "5.2.1";
+in
+buildPythonPackage {
+  inherit pname version;
   format = "pyproject";
 
-  disabled = !isPy3k; # according to setup.py
+  disabled = pythonOlder "3.8"; # according to setup.cfg
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-LTlRIjtOt/No/K2Mg0DSc3TF2OO2NaY2J1rNs481zVE=";
+    hash = "sha256-9q4noHf46oSQPvp2x5C5hWFzQaAISw0hw5H3o/MyrCM=";
   };
 
-  nativeBuildInputs = [ setuptools-scm astropy-helpers astropy-extension-helpers cython jinja2 ];
-  propagatedBuildInputs = [ numpy pyerfa ];
-  checkInputs = [ pytest pytest-astropy ];
-
-  preBuild = ''
-    export SETUPTOOLS_SCM_PRETEND_VERSION="${version}"
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace 'cython==' 'cython>='
   '';
 
-  # Tests must be run from the build directory.  astropy/samp tests
-  # require a network connection, so we ignore them. For some reason
-  # pytest --ignore does not work, so we delete the tests instead.
-  checkPhase = ''
-    cd build/lib.*
-    rm -f astropy/samp/tests/*
-    pytest
-  '';
+  nativeBuildInputs = [
+    astropy-extension-helpers
+    cython
+    jinja2
+    oldest-supported-numpy
+    setuptools-scm
+    wheel
+  ];
 
-  # 368 failed, 10889 passed, 978 skipped, 69 xfailed in 196.24s
-  # doCheck = false;
+  propagatedBuildInputs = [
+    numpy
+    packaging
+    pyerfa
+    pyyaml
+  ];
+
+  # infinite recursion with pytest-astropy (pytest-astropy-header depends on astropy itself)
   doCheck = false;
 
   meta = with lib; {

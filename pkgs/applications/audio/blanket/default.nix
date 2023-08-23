@@ -1,45 +1,43 @@
 { lib
-, stdenv
 , fetchFromGitHub
 , meson
 , ninja
 , pkg-config
-, wrapGAppsHook
+, wrapGAppsHook4
 , desktop-file-utils
 , appstream-glib
 , python3Packages
 , glib
-, gtk3
-, libhandy
+, gtk4
+, libadwaita
 , gobject-introspection
 , gst_all_1
 }:
 
 python3Packages.buildPythonApplication rec {
   pname = "blanket";
-  version = "0.5.0";
+  version = "0.6.0";
 
   src = fetchFromGitHub {
     owner = "rafaelmardojai";
     repo = "blanket";
-    rev = version;
-    sha256 = "00i821zqfbigxmc709322r16z75qsw4rg23yhv35gza9sl65bzkg";
+    rev = "refs/tags/${version}";
+    sha256 = "sha256-4gthT1x76IfXWkLaLMPtFS4TRlRGk5Enbu/k1jAHzwE=";
   };
 
   nativeBuildInputs = [
     meson
     ninja
     pkg-config
-    wrapGAppsHook
+    wrapGAppsHook4
     desktop-file-utils
-    appstream-glib
+    gobject-introspection
   ];
 
   buildInputs = [
     glib
-    gtk3
-    libhandy
-    gobject-introspection
+    gtk4
+    libadwaita
     gst_all_1.gstreamer
     gst_all_1.gst-plugins-base
     gst_all_1.gst-plugins-good
@@ -50,13 +48,12 @@ python3Packages.buildPythonApplication rec {
     pygobject3
   ];
 
-  # Broken with gobject-introspection setup hook
-  # https://github.com/NixOS/nixpkgs/issues/56943
-  strictDeps = false;
   format = "other";
 
   postPatch = ''
     patchShebangs build-aux/meson/postinstall.py
+    substituteInPlace build-aux/meson/postinstall.py \
+      --replace gtk-update-icon-cache gtk4-update-icon-cache
   '';
 
   meta = with lib; {

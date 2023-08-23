@@ -7,18 +7,18 @@
 
 buildPythonPackage rec {
   pname = "pyaml";
-  version = "21.8.3";
+  version = "23.7.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-oWNtY8R2MooHIT0LcRG7Y1cPGrij7d9gUiYwJQwj2XU=";
+    sha256 = "sha256-DFELu4k4MJQA4LHkesFv2Q5W1lKAWpNBcSh4ZxjzNUY=";
   };
 
   propagatedBuildInputs = [
     pyyaml
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     unidecode
   ];
 

@@ -10,16 +10,16 @@
 
 buildPythonPackage rec {
   pname = "time-machine";
-  version = "2.4.1";
+  version = "2.11.0";
   format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "adamchainz";
     repo = pname;
     rev = version;
-    sha256 = "sha256-+BQRDnxNW4PMCRsOa3pmsbM7yX0KYc5DqsPMA9mV/Eo=";
+    hash = "sha256-4HwHNowif0/YflznQrn8YRITjuiaBCB2mFIO0iCf6tA=";
   };
 
   propagatedBuildInputs = [
@@ -28,7 +28,7 @@ buildPythonPackage rec {
     backports-zoneinfo
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 

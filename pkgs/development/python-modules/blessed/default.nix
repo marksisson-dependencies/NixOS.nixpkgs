@@ -4,14 +4,14 @@
 
 buildPythonPackage rec {
   pname = "blessed";
-  version = "1.19.0";
+  version = "1.20.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "4db0f94e5761aea330b528e84a250027ffe996b5a94bf03e502600c9a5ad7a61";
+    hash = "sha256-LN1n+HRuBI8A30eiiA9NasvNs5kDG2BONLqPcdV4doA=";
   };
 
-  checkInputs = [ pytest mock glibcLocales ];
+  nativeCheckInputs = [ pytest mock glibcLocales ];
 
   # Default tox.ini parameters not needed
   checkPhase = ''

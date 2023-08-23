@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   pname = "google-java-format";
-  version = "1.13.0";
+  version = "1.17.0";
 
   src = fetchurl {
     url = "https://github.com/google/google-java-format/releases/download/v${version}/google-java-format-${version}-all-deps.jar";
-    sha256 = "sha256-oDask5L/by5mh5EyTCa9c5Y7CWgu1KDUy8EX/W6j/lU=";
+    sha256 = "sha256-MwaLu9zhCZmC7BFx9eICiY6zXykZz0hhQeQ5/G46QgM=";
   };
 
   dontUnpack = true;
@@ -38,8 +38,10 @@ stdenv.mkDerivation rec {
       A program that reformats Java source code to comply with Google Java Style.
     '';
     homepage = "https://github.com/google/google-java-format";
+    sourceProvenance = with sourceTypes; [ binaryBytecode ];
     license = licenses.asl20;
     maintainers = [ maintainers.emptyflask ];
     platforms = platforms.all;
+    mainProgram = "google-java-format";
   };
 }

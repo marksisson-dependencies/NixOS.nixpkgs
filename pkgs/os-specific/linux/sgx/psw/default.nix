@@ -25,14 +25,14 @@ stdenv.mkDerivation rec {
     let
       ae.prebuilt = fetchurl {
         url = "https://download.01.org/intel-sgx/sgx-linux/${versionTag}/prebuilt_ae_${versionTag}.tar.gz";
-        hash = "sha256-nGKZEpT2Mx0DLgqjv9qbZqBt1pQaSHcnA0K6nHma3sk";
+        hash = "sha256-JriA9UGYFkAPuCtRizk8RMM1YOYGR/eO9ILnx47A40s=";
       };
       dcap = rec {
-        version = "1.11";
+        version = "1.13";
         filename = "prebuilt_dcap_${version}.tar.gz";
         prebuilt = fetchurl {
           url = "https://download.01.org/intel-sgx/sgx-dcap/${version}/linux/${filename}";
-          hash = "sha256-ShGScS4yNLki04RNPxxLvqzGmy4U1L0gVETvfAo8w9M=";
+          hash = "sha256-0kD6hxN8qZ/7/H99aboQx7Qg7ewmYPEexoU6nqczAik=";
         };
       };
     in
@@ -59,24 +59,14 @@ stdenv.mkDerivation rec {
     protobuf
   ];
 
-  hardeningDisable = lib.optionals debug [
+  hardeningDisable = [
+    # causes redefinition of _FORTIFY_SOURCE
+    "fortify3"
+  ] ++ lib.optionals debug [
     "fortify"
   ];
 
   postPatch = ''
-    # https://github.com/intel/linux-sgx/pull/730
-    substituteInPlace buildenv.mk --replace '/bin/cp' 'cp'
-    substituteInPlace psw/ae/aesm_service/source/CMakeLists.txt \
-      --replace '/usr/bin/getconf' 'getconf'
-
-    # https://github.com/intel/SGXDataCenterAttestationPrimitives/pull/205
-    substituteInPlace ./external/dcap_source/QuoteGeneration/buildenv.mk \
-      --replace '/bin/cp' 'cp'
-    substituteInPlace external/dcap_source/tools/SGXPlatformRegistration/Makefile \
-      --replace '/bin/cp' 'cp'
-    substituteInPlace external/dcap_source/tools/SGXPlatformRegistration/buildenv.mk \
-      --replace '/bin/cp' 'cp'
-
     patchShebangs \
       linux/installer/bin/build-installpkg.sh \
       linux/installer/common/psw/createTarball.sh \
@@ -134,8 +124,8 @@ stdenv.mkDerivation rec {
 
     mkdir $out/bin
     makeWrapper $out/aesm/aesm_service $out/bin/aesm_service \
-      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ protobuf ]}:$out/aesm \
-      --run "cd $out/aesm"
+      --suffix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ protobuf ]}:$out/aesm \
+      --chdir "$out/aesm"
 
     # Make sure we didn't forget to handle any files
     rmdir $sgxPswDir || (echo "Error: The directory $installDir still contains unhandled files: $(ls -A $installDir)" >&2 && exit 1)
@@ -145,7 +135,7 @@ stdenv.mkDerivation rec {
   # NixOS module which is based on those files without relying on them. Still, it
   # is helpful to have properly patched versions for non-NixOS distributions.
   postFixup = ''
-    header "Fixing aesmd.service"
+    echo "Fixing aesmd.service"
     substituteInPlace $out/lib/systemd/system/aesmd.service \
       --replace '@aesm_folder@' \
                 "$out/aesm" \
@@ -162,18 +152,10 @@ stdenv.mkDerivation rec {
       --replace "/bin/kill" \
                 "${coreutils}/bin/kill"
 
-    header "Fixing remount-dev-exec.service"
+    echo "Fixing remount-dev-exec.service"
     substituteInPlace $out/lib/systemd/system/remount-dev-exec.service \
       --replace '/bin/mount' \
                 "${util-linux}/bin/mount"
-
-    header "Fixing linksgx.sh"
-    # https://github.com/intel/linux-sgx/pull/736
-    substituteInPlace $out/aesm/linksgx.sh \
-      --replace '/usr/bin/getent' \
-                '${glibc.bin}/bin/getent' \
-      --replace '/usr/sbin/usermod' \
-                '${shadow}/bin/usermod'
   '';
 
   passthru.tests = {

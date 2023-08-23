@@ -3,76 +3,103 @@
 , buildPythonPackage
 , fetchFromGitHub
 , pythonOlder
+
+# build-system
+, setuptools
 , setuptools-scm
+
+# dependencies
+, exceptiongroup
 , idna
 , sniffio
-, typing-extensions
-, curio
-, hypothesis
-, mock
-, pytest-mock
-, pytestCheckHook
+
+# optionals
 , trio
+
+# tests
+, hypothesis
+, psutil
+, pytest-mock
+, pytest-xdist
+, pytestCheckHook
 , trustme
 , uvloop
 }:
 
 buildPythonPackage rec {
   pname = "anyio";
-  version = "3.3.4";
+  version = "3.7.0";
   format = "pyproject";
+
   disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "agronholm";
     repo = pname;
     rev = version;
-    sha256 = "sha256-aMnXZ+4dlybId2QhjE/3STY+Sj/vzI6K7wmqqx+P8yE=";
+    hash = "sha256-uXPp2ycYl3T/ybZihDchImC/Yi4qgHI37ZeA+I6dg4c=";
   };
 
-  preBuild = ''
-    export SETUPTOOLS_SCM_PRETEND_VERSION=${version}
-  '';
+  env.SETUPTOOLS_SCM_PRETEND_VERSION = version;
 
   nativeBuildInputs = [
+    setuptools
     setuptools-scm
   ];
 
   propagatedBuildInputs = [
     idna
     sniffio
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    typing-extensions
+  ] ++ lib.optionals (pythonOlder "3.11") [
+    exceptiongroup
   ];
 
-  checkInputs = [
-    curio
+  passthru.optional-dependencies = {
+    trio = [
+      trio
+    ];
+  };
+
+  # trustme uses pyopenssl
+  doCheck = !(stdenv.isDarwin && stdenv.isAarch64);
+
+  nativeCheckInputs = [
     hypothesis
+    psutil
     pytest-mock
+    pytest-xdist
     pytestCheckHook
-    trio
     trustme
+  ] ++ lib.optionals (pythonOlder "3.12") [
     uvloop
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    mock
+  ] ++ passthru.optional-dependencies.trio;
+
+  pytestFlagsArray = [
+    "-W" "ignore::trio.TrioDeprecationWarning"
+    "-m" "'not network'"
   ];
 
   disabledTests = [
-    # block devices access
+    # INTERNALERROR> AttributeError: 'NonBaseMultiError' object has no attribute '_exceptions'. Did you mean: 'exceptions'?
+    "test_exception_group_children"
+    "test_exception_group_host"
+    "test_exception_group_filtering"
+  ] ++ lib.optionals stdenv.isDarwin [
+    # PermissionError: [Errno 1] Operation not permitted: '/dev/console'
     "test_is_block_device"
   ];
 
   disabledTestPaths = [
     # lots of DNS lookups
     "tests/test_sockets.py"
-  ] ++ lib.optionals stdenv.isDarwin [
-    # darwin sandboxing limitations
-    "tests/streams/test_tls.py"
   ];
+
+  __darwinAllowLocalNetworking = true;
 
   pythonImportsCheck = [ "anyio" ];
 
   meta = with lib; {
+    changelog = "https://github.com/agronholm/anyio/blob/${src.rev}/docs/versionhistory.rst";
     description = "High level compatibility layer for multiple asynchronous event loop implementations on Python";
     homepage = "https://github.com/agronholm/anyio";
     license = licenses.mit;

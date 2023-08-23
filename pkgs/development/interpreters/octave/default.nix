@@ -15,7 +15,7 @@
 , portaudio
 , libX11
 , graphicsmagick
-, pcre
+, pcre2
 , pkg-config
 , libGL
 , libGLU
@@ -25,10 +25,11 @@
 , fftwSinglePrec
 , zlib
 , curl
+, rapidjson
 , blas, lapack
 # These two should use the same lapack and blas as the above
 , qrupdate, arpack, suitesparse ? null
-# If set to true, the above 5 deps are overriden to use the blas and lapack
+# If set to true, the above 5 deps are overridden to use the blas and lapack
 # with 64 bit indexes support. If all are not compatible, the build will fail.
 , use64BitIdx ? false
 , libwebp
@@ -58,9 +59,6 @@
 , qtscript ? null
 , qscintilla ? null
 , qttools ? null
-# - JIT compiler for loops:
-, enableJIT ? false
-, llvm ? null
 , libiconv
 , darwin
 }:
@@ -84,7 +82,7 @@ let
   ;
   qrupdate' = qrupdate.override {
     # If use64BitIdx is false, this override doesn't evaluate to a new
-    # derivation, as blas and lapack are not overriden.
+    # derivation, as blas and lapack are not overridden.
     blas = blas';
     lapack = lapack';
   };
@@ -114,12 +112,12 @@ let
   };
 
   self = mkDerivation rec {
-    version = "6.4.0";
+    version = "8.2.0";
     pname = "octave";
 
     src = fetchurl {
       url = "mirror://gnu/octave/${pname}-${version}.tar.gz";
-      sha256 = "sha256-tI8z1Pzq85TPvqc6jIUAAJNtg6QXOaJPdWi1sKezms0=";
+      sha256 = "sha256-V9F/kYqUDTjKM0ghHhELNNc1oyKofbccF3xGkqSanIQ=";
     };
 
     buildInputs = [
@@ -129,10 +127,11 @@ let
       flex
       qhull
       graphicsmagick
-      pcre
+      pcre2
       fltk
       zlib
       curl
+      rapidjson
       blas'
       lapack'
       libsndfile
@@ -173,7 +172,6 @@ let
       texinfo
     ]
     ++ lib.optionals (sundials != null) [ sundials ]
-    ++ lib.optionals enableJIT [ llvm ]
     ++ lib.optionals enableQt [
       qtscript
       qttools
@@ -188,7 +186,7 @@ let
     NIX_LDFLAGS = lib.optionalString stdenv.isDarwin "-lobjc";
 
     # See https://savannah.gnu.org/bugs/?50339
-    F77_INTEGER_8_FLAG = if use64BitIdx then "-fdefault-integer-8" else "";
+    F77_INTEGER_8_FLAG = lib.optionalString use64BitIdx "-fdefault-integer-8";
 
     configureFlags = [
       "--with-blas=blas"
@@ -199,7 +197,6 @@ let
     ++ lib.optionals enableReadline [ "--enable-readline" ]
     ++ lib.optionals stdenv.isDarwin [ "--with-x=no" ]
     ++ lib.optionals enableQt [ "--with-qt=5" ]
-    ++ lib.optionals enableJIT [ "--enable-jit" ]
     ;
 
     # Keep a copy of the octave tests detailed results in the output
@@ -220,7 +217,7 @@ let
       inherit portaudio;
       inherit jdk;
       inherit python;
-      inherit enableQt enableJIT enableReadline enableJava;
+      inherit enableQt enableReadline enableJava;
       buildEnv = callPackage ./build-env.nix {
         octave = self;
         inherit octavePackages wrapOctave;
@@ -236,8 +233,6 @@ let
       license = lib.licenses.gpl3Plus;
       maintainers = with lib.maintainers; [ raskin doronbehar ];
       description = "Scientific Programming Language";
-      # https://savannah.gnu.org/bugs/?func=detailitem&item_id=56425 is the best attempt to fix JIT
-      broken = enableJIT;
       platforms = if overridePlatforms == null then
         (lib.platforms.linux ++ lib.platforms.darwin)
       else overridePlatforms;

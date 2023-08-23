@@ -1,33 +1,47 @@
 { lib
+, anyio
 , buildPythonPackage
-, fetchPypi
+, curio
+, fetchFromGitHub
+, hypothesis
 , pytest
-, pytest-mypy
 , pytestCheckHook
 , pythonOlder
-, types-setuptools
+, sniffio
+, trio
+, trio-asyncio
 }:
 
 buildPythonPackage rec {
   pname = "pytest-aio";
-  version = "1.4.1";
+  version = "1.5.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "ZPG6k+ZNi6FQftIVwr/Lux5rJlo284V/mjtYepNScdQ=";
+  src = fetchFromGitHub {
+    owner = "klen";
+    repo = "pytest-aio";
+    rev = "refs/tags/${version}";
+    hash = "sha256-BIVorMRWyboKFZCiELoBh/1oxSpdV263zfLce1fNVhU=";
   };
+
+  postPatch = ''
+    sed -i '/addopts/d' setup.cfg
+  '';
 
   buildInputs = [
     pytest
   ];
 
-  checkInputs = [
-    pytest-mypy
+  nativeCheckInputs = [
+    anyio
+    curio
+    hypothesis
     pytestCheckHook
-    types-setuptools
+    sniffio
+    trio
+    trio-asyncio
   ];
 
   pythonImportsCheck = [

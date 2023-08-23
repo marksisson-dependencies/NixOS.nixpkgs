@@ -1,4 +1,4 @@
 import ./common.nix {
-  version = "2.03.12";
-  sha256Hash = "1shczwfd0888dchjiaqzd48ampm6f8y0ngsqd99fy4nxlbr5q1vn";
+  version = "2.03.21";
+  hash = "sha256-HiYZIdYhmYrcN5YMYV3nhMYUXH9zeoC3gfMQj77Gen4=";
 }

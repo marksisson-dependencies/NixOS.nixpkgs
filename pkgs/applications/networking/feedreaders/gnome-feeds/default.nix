@@ -11,6 +11,7 @@
 , wrapGAppsHook
 
 , glib
+, glib-networking
 , gtk3
 , libhandy
 , listparser ? callPackage ./listparser.nix { }
@@ -44,6 +45,7 @@ python3.pkgs.buildPythonApplication rec {
 
   buildInputs = [
     glib
+    glib-networking
     gtk3
     libhandy
     webkitgtk
@@ -59,13 +61,10 @@ python3.pkgs.buildPythonApplication rec {
     pillow
     pygments
     pygobject3
-    pyreadability
+    readability-lxml
     pytz
     requests
   ];
-
-  # https://github.com/NixOS/nixpkgs/issues/56943
-  strictDeps = false;
 
   dontWrapGApps = true;
 

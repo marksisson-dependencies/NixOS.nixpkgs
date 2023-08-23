@@ -22,12 +22,12 @@ mkDerivationWith python3Packages.buildPythonApplication rec {
 
   propagatedBuildInputs = with python3Packages; [
     cadquery
-    Logbook
+    logbook
     pyqt5
     pyparsing
     pyqtgraph
     spyder
-    pathpy
+    path
     qtconsole
     requests
   ];
@@ -37,7 +37,7 @@ mkDerivationWith python3Packages.buildPythonApplication rec {
     makeWrapperArgs+=("''${qtWrapperArgs[@]}")
   '';
 
-  checkInputs = with python3Packages; [
+  nativeCheckInputs = with python3Packages; [
     pytest
     pytest-xvfb
     pytest-mock

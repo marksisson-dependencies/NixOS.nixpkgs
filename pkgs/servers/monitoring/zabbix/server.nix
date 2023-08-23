@@ -16,7 +16,7 @@ assert postgresqlSupport -> !mysqlSupport;
 let
   inherit (lib) optional optionalString;
 in
-  import ./versions.nix ({ version, sha256 }:
+  import ./versions.nix ({ version, sha256, ... }:
     stdenv.mkDerivation {
       pname = "zabbix-server";
       inherit version;
@@ -46,6 +46,7 @@ in
       ++ optional ipmiSupport openipmi;
 
       configureFlags = [
+        "--enable-ipv6"
         "--enable-server"
         "--with-iconv"
         "--with-libcurl"

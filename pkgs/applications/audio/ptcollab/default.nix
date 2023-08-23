@@ -3,33 +3,52 @@
 , stdenv
 , fetchFromGitHub
 , nix-update-script
-, qmake
-, pkg-config
-, qtbase
-, qtmultimedia
 , libvorbis
+, pkg-config
+, qmake
+, qtbase
+, qttools
+, qtmultimedia
 , rtmidi
 }:
 
 mkDerivation rec {
   pname = "ptcollab";
-  version = "0.5.0.1";
+  version = "0.6.4.7";
 
   src = fetchFromGitHub {
     owner = "yuxshao";
     repo = "ptcollab";
     rev = "v${version}";
-    sha256 = "10v310smm0df233wlh1kqv8i36lsg1m36v0flrhs2202k50d69ri";
+    hash = "sha256-KYNov/HbKM2d8VVO8iyWA3XWFDE9iWeKkRCNC1xlPNw=";
   };
 
-  nativeBuildInputs = [ qmake pkg-config ];
+  nativeBuildInputs = [
+    pkg-config
+    qmake
+    qttools
+  ];
 
-  buildInputs = [ qtbase qtmultimedia libvorbis rtmidi ];
+  buildInputs = [
+    libvorbis
+    qtbase
+    qtmultimedia
+    rtmidi
+  ];
+
+  postInstall = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    # Move appbundles to Applications before wrapping happens
+    mkdir $out/Applications
+    mv $out/{bin,Applications}/ptcollab.app
+  '';
+
+  postFixup = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    # Link to now-wrapped binary inside appbundle
+    ln -s $out/{Applications/ptcollab.app/Contents/MacOS,bin}/ptcollab
+  '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = pname;
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {
@@ -38,7 +57,5 @@ mkDerivation rec {
     license = licenses.mit;
     maintainers = with maintainers; [ OPNA2608 ];
     platforms = platforms.all;
-    # Requires Qt5.15
-    broken = stdenv.hostPlatform.isDarwin;
   };
 }

@@ -1,38 +1,21 @@
-{ lib, stdenv, fetchurl, fetchpatch, cmake, pkg-config, zlib, pcre, expat, sqlite, openssl, unixODBC, libmysqlclient }:
+{ lib, stdenv, fetchFromGitHub, cmake, pkg-config, zlib, pcre2, expat, sqlite, openssl, unixODBC, libmysqlclient }:
 
 stdenv.mkDerivation rec {
   pname = "poco";
 
-  version = "1.10.1";
+  version = "1.12.4";
 
-  src = fetchurl {
-    url = "https://pocoproject.org/releases/${pname}-${version}/${pname}-${version}-all.tar.gz";
-    sha256 = "1jilzh0h6ik5lr167nax7q6nrpzxl99p11pkl202ig06pgh32nbz";
+  src = fetchFromGitHub {
+    owner = "pocoproject";
+    repo = "poco";
+    sha256 = "sha256-gQ97fkoTGI6yuMPjEsITfapH9FSQieR8rcrPR1nExxc=";
+    rev = "poco-${version}-release";
   };
-
-  patches = [
-    # Use GNUInstallDirs (https://github.com/pocoproject/poco/pull/3105)
-    (fetchpatch {
-      name = "use-gnuinstalldirs.patch";
-      url = "https://github.com/pocoproject/poco/commit/9e8f84dff4575f01be02e0b07364efd1561ce66c.patch";
-      sha256 = "1bj4i93gxr7pwx33bfyhg20ad4ak1rbxkrlpsgzk7rm6mh0mld26";
-      # Files not included in release tarball
-      excludes = [
-        "Encodings/Compiler/CMakeLists.txt"
-        "PocoDoc/CMakeLists.txt"
-        "NetSSL_Win/CMakeLists.txt"
-        "PDF/CMakeLists.txt"
-        "SevenZip/CMakeLists.txt"
-        "ApacheConnector/CMakeLists.txt"
-        "CppParser/CMakeLists.txt"
-      ];
-    })
-  ];
 
   nativeBuildInputs = [ cmake pkg-config ];
 
-  buildInputs = [ openssl unixODBC libmysqlclient ];
-  propagatedBuildInputs = [ zlib pcre expat sqlite ];
+  buildInputs = [ unixODBC libmysqlclient ];
+  propagatedBuildInputs = [ zlib pcre2 expat sqlite openssl ];
 
   outputs = [ "out" "dev" ];
 
@@ -43,11 +26,18 @@ stdenv.mkDerivation rec {
     "-DPOCO_UNBUNDLED=ON"
   ];
 
+  postFixup = ''
+    grep -rlF INTERFACE_INCLUDE_DIRECTORIES "$dev/lib/cmake/Poco" | while read -r f; do
+      substituteInPlace "$f" \
+        --replace "$"'{_IMPORT_PREFIX}/include' ""
+    done
+  '';
+
   meta = with lib; {
     homepage = "https://pocoproject.org/";
     description = "Cross-platform C++ libraries with a network/internet focus";
     license = licenses.boost;
-    maintainers = with maintainers; [ orivej ];
+    maintainers = with maintainers; [ orivej tomodachi94 ];
     platforms = platforms.unix;
   };
 }

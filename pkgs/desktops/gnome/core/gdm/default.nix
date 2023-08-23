@@ -4,7 +4,6 @@
 , substituteAll
 , meson
 , ninja
-, python3
 , rsync
 , pkg-config
 , glib
@@ -19,6 +18,7 @@
 , gtk3
 , libcanberra-gtk3
 , pam
+, libgudev
 , libselinux
 , keyutils
 , audit
@@ -43,13 +43,13 @@ in
 
 stdenv.mkDerivation rec {
   pname = "gdm";
-  version = "41.0";
+  version = "44.1";
 
   outputs = [ "out" "dev" ];
 
   src = fetchurl {
     url = "mirror://gnome/sources/gdm/${lib.versions.major version}/${pname}-${version}.tar.xz";
-    sha256 = "VzjEKTqfWoDUpungb00N8+nzE8p7Yb+02K+rqYPiANw=";
+    sha256 = "aCZrOr59KPxGnQBnqsnF2rsMp5UswffCOKBJUfPcWw0=";
   };
 
   mesonFlags = [
@@ -70,19 +70,19 @@ stdenv.mkDerivation rec {
     meson
     ninja
     pkg-config
-    python3
     rsync
+    gobject-introspection
   ];
 
   buildInputs = [
     accountsservice
     audit
     glib
-    gobject-introspection
     gtk3
     keyutils
     libX11
     libcanberra-gtk3
+    libgudev
     libselinux
     pam
     plymouth
@@ -124,8 +124,6 @@ stdenv.mkDerivation rec {
   ];
 
   postPatch = ''
-    patchShebangs build-aux/meson_post_install.py
-
     # Upstream checks some common paths to find an `X` binary. We already know it.
     echo #!/bin/sh > build-aux/find-x-server.sh
     echo "echo ${lib.getBin xorg.xorgserver}/bin/X" >> build-aux/find-x-server.sh
@@ -141,7 +139,8 @@ stdenv.mkDerivation rec {
     # We use rsync to merge the directories.
     rsync --archive "${DESTDIR}/etc" "$out"
     rm --recursive "${DESTDIR}/etc"
-    for o in $outputs; do
+    for o in $(getAllOutputNames); do
+        if [[ "$o" = "debug" ]]; then continue; fi
         rsync --archive "${DESTDIR}/''${!o}" "$(dirname "''${!o}")"
         rm --recursive "${DESTDIR}/''${!o}"
     done
@@ -159,6 +158,8 @@ stdenv.mkDerivation rec {
   # so we need to convince it to install all files to a temporary
   # location using DESTDIR and then move it to proper one in postInstall.
   DESTDIR = "${placeholder "out"}/dest";
+
+  separateDebugInfo = true;
 
   passthru = {
     updateScript = gnome.updateScript {
