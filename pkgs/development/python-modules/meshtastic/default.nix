@@ -8,17 +8,19 @@
 , pypubsub
 , pyqrcode
 , pyserial
+, pytap2
 , pytestCheckHook
 , pythonOlder
 , pyyaml
+, requests
+, setuptools
 , tabulate
-, pytap2
 , timeago
 }:
 
 buildPythonPackage rec {
   pname = "meshtastic";
-  version = "2.0.11";
+  version = "2.2.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
@@ -27,7 +29,7 @@ buildPythonPackage rec {
     owner = "meshtastic";
     repo = "Meshtastic-python";
     rev = "refs/tags/${version}";
-    hash = "sha256-XIYzlGtj+S28N7RLvA38WSLv7LNZqKs8aJUaEG1CslI=";
+    hash = "sha256-szeY3+84xAihGK9nLgMQf9oLRDlKlaPg6+I42TJkfVY=";
   };
 
   propagatedBuildInputs = [
@@ -39,6 +41,8 @@ buildPythonPackage rec {
     pyqrcode
     pyserial
     pyyaml
+    setuptools
+    requests
     tabulate
     timeago
   ];
@@ -101,6 +105,12 @@ buildPythonPackage rec {
     "test_writeGPIOs"
     "test_reboot"
     "test_shutdown"
+    "test_main_sendtext"
+    "test_main_sendtext_with_channel"
+    "test_MeshInterface"
+    "test_getNode_not_local"
+    "test_getNode_not_local_timeout"
+    "test_main_onConnected_exception"
   ];
 
   meta = with lib; {

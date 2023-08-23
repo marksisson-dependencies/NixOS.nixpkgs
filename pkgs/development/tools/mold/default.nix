@@ -8,17 +8,18 @@
 , zlib
 , testers
 , mold
+, nix-update-script
 }:
 
 stdenv.mkDerivation rec {
   pname = "mold";
-  version = "1.10.1";
+  version = "2.1.0";
 
   src = fetchFromGitHub {
     owner = "rui314";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-5zE5a+BYzQjgVb0Ti7bSQrGzTyysOTTR0NMOO5IKG68=";
+    hash = "sha256-4W6quVSkxS2I6KEy3fVyBTypD0fg4EecgeEVM0Yw58s=";
   };
 
   nativeBuildInputs = [
@@ -33,19 +34,18 @@ stdenv.mkDerivation rec {
     mimalloc
   ];
 
-  postPatch = ''
-    sed -i CMakeLists.txt -e '/.*set(DEST\ .*/d'
-  '';
-
   cmakeFlags = [
     "-DMOLD_USE_SYSTEM_MIMALLOC:BOOL=ON"
   ];
 
-  NIX_CFLAGS_COMPILE = lib.optionals stdenv.isDarwin [
+  env.NIX_CFLAGS_COMPILE = toString (lib.optionals stdenv.isDarwin [
     "-faligned-allocation"
-  ];
+  ]);
 
-  passthru.tests.version = testers.testVersion { package = mold; };
+  passthru = {
+    updateScript = nix-update-script { };
+    tests.version = testers.testVersion { package = mold; };
+  };
 
   meta = with lib; {
     description = "A faster drop-in replacement for existing Unix linkers";
@@ -57,8 +57,8 @@ stdenv.mkDerivation rec {
     '';
     homepage = "https://github.com/rui314/mold";
     changelog = "https://github.com/rui314/mold/releases/tag/v${version}";
-    license = licenses.agpl3Plus;
-    maintainers = with maintainers; [ azahi nitsky ];
+    license = licenses.mit;
+    maintainers = with maintainers; [ azahi nitsky paveloom ];
     platforms = platforms.unix;
   };
 }

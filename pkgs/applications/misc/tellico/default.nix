@@ -24,14 +24,14 @@
 
 mkDerivation rec {
   pname = "tellico";
-  version = "3.4.5";
+  version = "3.5.1";
 
   src = fetchFromGitLab {
     domain = "invent.kde.org";
     owner = "office";
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-XWzSbtyxOkASTwT5b7+hIEwaKe2bEo6ij+CnPbYNEc0=";
+    hash = "sha256-opg4FbfOM48eqWQUJnMHH7KSo6x4S2DHd7ucPw6iTzg=";
   };
 
   postPatch = ''

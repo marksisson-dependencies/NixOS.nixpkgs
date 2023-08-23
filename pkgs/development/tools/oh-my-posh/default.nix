@@ -6,18 +6,18 @@
 
 buildGoModule rec {
   pname = "oh-my-posh";
-  version = "14.2.4";
+  version = "18.3.3";
 
   src = fetchFromGitHub {
     owner = "jandedobbeleer";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-4o0Z3xXsVTr2dE5td/i2uQoaqsBGOMSrzt2X6C9gYbA=";
+    hash = "sha256-AJw+NNTbksYSW2VqUzxLwxwd3OjM9uK/ou2CVS2zNvw=";
   };
 
-  vendorHash = "sha256-ehG71B351u+LoXDuKQkuEdEpUdHslVU2HcPKUz6FAnQ=";
+  vendorHash = "sha256-xkguBWk2Nh8w7C7tKbvaP0tRgZO4z08AEsdjNlJYC6Q=";
 
-  sourceRoot = "source/src";
+  sourceRoot = "${src.name}/src";
 
   nativeBuildInputs = [
     installShellFiles
@@ -26,7 +26,8 @@ buildGoModule rec {
   ldflags = [
     "-s"
     "-w"
-    "-X main.Version=${version}"
+    "-X github.com/jandedobbeleer/oh-my-posh/src/build.Version=${version}"
+    "-X github.com/jandedobbeleer/oh-my-posh/src/build.Date=1970-01-01T00:00:00Z"
   ];
 
   tags = [
@@ -36,8 +37,8 @@ buildGoModule rec {
   ];
 
   postPatch = ''
-    # this test requires internet access
-    rm engine/migrate_glyphs_test.go
+    # these tests requires internet access
+    rm engine/image_test.go engine/migrate_glyphs_test.go
   '';
 
   postInstall = ''

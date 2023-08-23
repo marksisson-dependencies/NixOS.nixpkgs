@@ -1,12 +1,12 @@
 { callPackage }: builtins.mapAttrs (pname: attrs: callPackage ./generic.nix (attrs // { inherit pname; })) {
   signal-desktop = {
     dir = "Signal";
-    version = "6.4.1";
-    hash = "sha256-/Rrph74nVr64Z6blNNn3oMM25YK92MZY/vuF1d+r6Yc=";
+    version = "6.27.1";
+    hash = "sha256-nEOt6bep6SqhAab8yD9NlRrDGU2IvZeOxSqPj2u1bio=";
   };
   signal-desktop-beta = {
     dir = "Signal Beta";
-    version = "6.5.0-beta.2";
-    hash = "sha256-cAX9oU3bJrTOH3RbbfUK+49OiRSLjEZLdpJNOMAa94I=";
+    version = "6.24.0-beta.1";
+    hash = "sha256-tA1xsgtAeOn0c0HcZutj+Pqrsr0JV5bQOnknH4t/QkY=";
   };
 }

@@ -1,4 +1,5 @@
-{ lib, stdenv
+{ lib
+, stdenv
 , fetchFromGitLab
 , nix-update-script
 
@@ -11,7 +12,7 @@
 , xz
 , zlib
 
-# for passthru.tests
+  # for passthru.tests
 , libgeotiff
 , python3Packages
 , imagemagick
@@ -23,13 +24,13 @@
 
 stdenv.mkDerivation rec {
   pname = "libtiff";
-  version = "4.5.0";
+  version = "4.5.1";
 
   src = fetchFromGitLab {
     owner = "libtiff";
     repo = "libtiff";
     rev = "v${version}";
-    hash = "sha256-KG6rB940JMjFUTAgtkzg+Zh75gylPY6Q7/4gEbL0Hcs=";
+    hash = "sha256-qQEthy6YhNAQmdDMyoCIvK8f3Tx25MgqhJZW74CB93E=";
   };
 
   patches = [
@@ -57,9 +58,13 @@ stdenv.mkDerivation rec {
   # sure cross-compilation works first!
   nativeBuildInputs = [ autoreconfHook pkg-config sphinx ];
 
-  propagatedBuildInputs = [ libjpeg xz zlib ]; #TODO: opengl support (bogus configure detection)
-
-  buildInputs = [ libdeflate ];
+  # TODO: opengl support (bogus configure detection)
+  propagatedBuildInputs = [
+    libdeflate
+    libjpeg
+    xz
+    zlib
+  ];
 
   enableParallelBuilding = true;
 

@@ -11,14 +11,14 @@
 
 buildPythonPackage rec {
   pname = "google-cloud-os-config";
-  version = "1.14.1";
+  version = "1.15.2";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-wDb1vy1rj0yBOk7Q1pMzNw3foOXHk18YwIbY4ZcYCxM=";
+    hash = "sha256-WgrqxnVsbA0ppvfcqxW+kA8vjn71bMU9qAyZraqYt8g=";
   };
 
   propagatedBuildInputs = [
@@ -46,6 +46,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/googleapis/python-os-config";
     changelog = "https://github.com/googleapis/python-os-config/blob/v${version}/CHANGELOG.md";
     license = licenses.asl20;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = with maintainers; [ ];
   };
 }

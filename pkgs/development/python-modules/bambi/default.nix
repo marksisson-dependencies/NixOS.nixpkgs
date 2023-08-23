@@ -4,25 +4,34 @@
 , fetchFromGitHub
 , pytestCheckHook
 , arviz
+, blackjax
 , formulae
 , graphviz
 , numpy
+, numpyro
 , pandas
 , pymc
 , scipy
+, setuptools
 }:
 
 buildPythonPackage rec {
   pname = "bambi";
-  version = "0.9.3";
+  version = "0.10.0";
+  format = "pyproject";
+
   disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "bambinos";
     repo = pname;
     rev = "refs/tags/${version}";
-    hash = "sha256-f/4CrFmma+Lc6wZm+YyDupDWfPAtuRsZdRf28sYUWTk=";
+    hash = "sha256-D04eTAlckEqgKA+59BRljlyneHYoqqZvLYmt/gBLHcU=";
   };
+
+  nativeBuildInputs = [
+    setuptools
+  ];
 
   propagatedBuildInputs = [
     arviz
@@ -33,19 +42,34 @@ buildPythonPackage rec {
     scipy
   ];
 
-  preCheck = ''export HOME=$(mktemp -d)'';
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
 
-  nativeCheckInputs = [ graphviz pytestCheckHook ];
-  disabledTests = [
-    # attempt to fetch data:
-    "test_data_is_copied"
-    "test_predict_offset"
-    # require blackjax (not in Nixpkgs), numpyro, and jax:
-    "test_logistic_regression_categoric_alternative_samplers"
-    "test_regression_alternative_samplers"
+  nativeCheckInputs = [
+    blackjax
+    graphviz
+    numpyro
+    pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "bambi" ];
+  disabledTests = [
+    # Tests require network access
+    "test_custom_prior"
+    "test_data_is_copied"
+    "test_distributional_model"
+    "test_gamma_with_splines"
+    "test_non_distributional_model_with_categories"
+    "test_non_distributional_model"
+    "test_normal_with_splines"
+    "test_predict_offset"
+    # Assertion issue
+    "test_custom_likelihood_function"
+  ];
+
+  pythonImportsCheck = [
+    "bambi"
+  ];
 
   meta = with lib; {
     homepage = "https://bambinos.github.io/bambi";

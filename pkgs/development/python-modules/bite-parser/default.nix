@@ -5,12 +5,11 @@
 , poetry-core
 , pytest-asyncio
 , pytestCheckHook
-, typing-extensions
 }:
 
 buildPythonPackage rec {
   pname = "bite-parser";
-  version = "0.2.1";
+  version = "0.2.3";
 
   disabled = pythonOlder "3.8";
 
@@ -19,7 +18,7 @@ buildPythonPackage rec {
   src = fetchPypi {
     pname = "bite_parser";
     inherit version;
-    hash = "sha256-PmZCCQzxCfCq6Mr1qn03tj/7/0we9Bfk5fj4K+wMhsk=";
+    hash = "sha256-5ZdmOhnxpBI4XGgT4n8JEriqOEkiUZ1Cc96/pyluhe4=";
   };
 
   nativeBuildInputs = [
@@ -29,7 +28,6 @@ buildPythonPackage rec {
   nativeCheckInputs = [
     pytest-asyncio
     pytestCheckHook
-    typing-extensions
   ];
 
   pythonImportsCheck = [ "bite" ];

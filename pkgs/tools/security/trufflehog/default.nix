@@ -1,20 +1,28 @@
 { lib
 , fetchFromGitHub
 , buildGoModule
+, testers
+, trufflehog
 }:
 
 buildGoModule rec {
   pname = "trufflehog";
-  version = "3.26.0";
+  version = "3.52.1";
 
   src = fetchFromGitHub {
     owner = "trufflesecurity";
     repo = "trufflehog";
     rev = "refs/tags/v${version}";
-    hash = "sha256-cjggYIc/xy7w8Q8yXd26QWr1ky4gMuwRAmxrEObVlx0=";
+    hash = "sha256-T3//AKSgnsdRWEzz+kh8rkHXBnJF9CThXervwAZ7Uog=";
   };
 
-  vendorHash = "sha256-z2na/CO/YqIYEAYJ9ATQ/wbOOBFt0Kr+ERN5TCFbZbA=";
+  vendorHash = "sha256-RHNt9GxqWb4EDKg5of5s88iUmJPI2w7i5hPoCFMmnew=";
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X=github.com/trufflesecurity/trufflehog/v3/pkg/version.BuildVersion=${version}"
+  ];
 
   # Test cases run git clone and require network access
   doCheck = false;
@@ -22,6 +30,12 @@ buildGoModule rec {
   postInstall = ''
     rm $out/bin/{generate,snifftest}
   '';
+
+  passthru = {
+    tests.version = testers.testVersion {
+      package = trufflehog;
+    };
+  };
 
   meta = with lib; {
     description = "Find credentials all over the place";

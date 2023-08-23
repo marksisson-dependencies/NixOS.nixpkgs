@@ -5,7 +5,7 @@
 , closureInfo
 , coreutils
 , e2fsprogs
-, fakechroot
+, proot
 , fakeNss
 , fakeroot
 , go
@@ -190,7 +190,7 @@ rec {
       cat > /etc/pam.d/other <<EOF
     account sufficient pam_unix.so
     auth sufficient pam_rootok.so
-    password requisite pam_unix.so nullok sha512
+    password requisite pam_unix.so nullok yescrypt
     session required pam_unix.so
     EOF
     fi
@@ -229,6 +229,15 @@ rec {
           mount /dev/${vmTools.hd} disk
           cd disk
 
+          function dedup() {
+            declare -A seen
+            while read ln; do
+              if [[ -z "''${seen["$ln"]:-}" ]]; then
+                echo "$ln"; seen["$ln"]=1
+              fi
+            done
+          }
+
           if [[ -n "$fromImage" ]]; then
             echo "Unpacking base image..."
             mkdir image
@@ -245,7 +254,8 @@ rec {
               parentID="$(cat "image/manifest.json" | jq -r '.[0].Config | rtrimstr(".json")')"
             fi
 
-            cat ./image/manifest.json  | jq -r '.[0].Layers | .[]' > layer-list
+            # In case of repeated layers, unpack only the last occurrence of each
+            cat ./image/manifest.json  | jq -r '.[0].Layers | .[]' | tac | dedup | tac > layer-list
           else
             touch layer-list
           fi
@@ -584,7 +594,7 @@ rec {
           nativeBuildInputs = [ jshon pigz jq moreutils ];
           # Image name must be lowercase
           imageName = lib.toLower name;
-          imageTag = if tag == null then "" else tag;
+          imageTag = lib.optionalString (tag != null) tag;
           inherit fromImage baseJson;
           layerClosure = writeReferencesToFile layer;
           passthru.buildArgs = args;
@@ -767,7 +777,7 @@ rec {
       fi
     done
     # Copy all layers from input images to output image directory
-    cp -R --no-clobber inputs/*/* image/
+    cp -R --update=none inputs/*/* image/
     # Merge repositories objects and manifests
     jq -s add "''${repos[@]}" > repositories
     jq -s add "''${manifests[@]}" > manifest.json
@@ -877,6 +887,13 @@ rec {
         });
 
         contentsList = if builtins.isList contents then contents else [ contents ];
+        bind-paths = builtins.toString (builtins.map (path: "--bind=${path}:${path}!") [
+          "/dev/"
+          "/proc/"
+          "/sys/"
+          "${builtins.storeDir}/"
+          "$out/layer.tar"
+        ]);
 
         # We store the customisation layer as a tarball, to make sure that
         # things like permissions set on 'extraCommands' are not overridden
@@ -888,21 +905,14 @@ rec {
           nativeBuildInputs = [
             fakeroot
           ] ++ optionals enableFakechroot [
-            fakechroot
-            # for chroot
-            coreutils
-            # fakechroot needs getopt, which is provided by util-linux
-            util-linux
+            proot
           ];
           postBuild = ''
             mv $out old_out
             (cd old_out; eval "$extraCommands" )
 
             mkdir $out
-            ${optionalString enableFakechroot ''
-              export FAKECHROOT_EXCLUDE_PATH=/dev:/proc:/sys:${builtins.storeDir}:$out/layer.tar
-            ''}
-            ${optionalString enableFakechroot ''fakechroot chroot $PWD/old_out ''}fakeroot bash -c '
+            ${optionalString enableFakechroot ''proot -r $PWD/old_out ${bind-paths} --pwd=/ ''}fakeroot bash -c '
               source $stdenv/setup
               ${optionalString (!enableFakechroot) ''cd old_out''}
               eval "$fakeRootCommands"

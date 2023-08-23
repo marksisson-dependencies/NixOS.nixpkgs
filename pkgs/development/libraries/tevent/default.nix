@@ -10,15 +10,16 @@
 , docbook_xml_dtd_42
 , which
 , wafHook
+, libxcrypt
 }:
 
 stdenv.mkDerivation rec {
   pname = "tevent";
-  version = "0.13.0";
+  version = "0.14.1";
 
   src = fetchurl {
     url = "mirror://samba/tevent/${pname}-${version}.tar.gz";
-    sha256 = "sha256-uUN6kX+lU0Q2G+tk7J4AQumcroh5iCpi3Tj2q+I3HQw=";
+    sha256 = "sha256-74X8qoD/0jUQNrpLNHYw/vKhrD2pZKfxggRmutA80A0=";
   };
 
   nativeBuildInputs = [
@@ -36,6 +37,7 @@ stdenv.mkDerivation rec {
     cmocka
     readline # required to build python
     talloc
+    libxcrypt
   ];
 
   # otherwise the configure script fails with
@@ -51,6 +53,11 @@ stdenv.mkDerivation rec {
     "--bundled-libraries=NONE"
     "--builtin-libraries=replace"
   ];
+
+  # python-config from build Python gives incorrect values when cross-compiling.
+  # If python-config is not found, the build falls back to using the sysconfig
+  # module, which works correctly in all cases.
+  PYTHON_CONFIG = "/invalid";
 
   meta = with lib; {
     description = "An event system based on the talloc memory management library";
