@@ -5,34 +5,18 @@
 let
   inherit (builtins)
     match
-    readDir
     split
     storeDir
-    tryEval
     ;
   inherit (lib)
     boolToString
     filter
-    getAttr
     isString
-    pathExists
     readFile
     ;
-
-  /*
-    Returns the type of a path: regular (for file), symlink, or directory.
-  */
-  pathType = path: getAttr (baseNameOf path) (readDir (dirOf path));
-
-  /*
-    Returns true if the path exists and is a directory, false otherwise.
-  */
-  pathIsDirectory = path: if pathExists path then (pathType path) == "directory" else false;
-
-  /*
-    Returns true if the path exists and is a regular file, false otherwise.
-  */
-  pathIsRegularFile = path: if pathExists path then (pathType path) == "regular" else false;
+  inherit (lib.filesystem)
+    pathIsRegularFile
+    ;
 
   /*
     A basic filter for `cleanSourceWith` that removes
@@ -166,7 +150,7 @@ let
       in type == "directory" || lib.any (ext: lib.hasSuffix ext base) exts;
     in cleanSourceWith { inherit filter src; };
 
-  pathIsGitRepo = path: (commitIdFromGitRepoOrError path)?value;
+  pathIsGitRepo = path: (_commitIdFromGitRepoOrError path)?value;
 
   /*
     Get the commit id of a git repo.
@@ -174,17 +158,16 @@ let
     Example: commitIdFromGitRepo <nixpkgs/.git>
   */
   commitIdFromGitRepo = path:
-    let commitIdOrError = commitIdFromGitRepoOrError path;
+    let commitIdOrError = _commitIdFromGitRepoOrError path;
     in commitIdOrError.value or (throw commitIdOrError.error);
 
-  /*
-    Get the commit id of a git repo.
+  # Get the commit id of a git repo.
 
-    Returns `{ value = commitHash }` or `{ error = "... message ..." }`.
+  # Returns `{ value = commitHash }` or `{ error = "... message ..." }`.
 
-    Example: commitIdFromGitRepo <nixpkgs/.git>
-  */
-  commitIdFromGitRepoOrError =
+  # Example: commitIdFromGitRepo <nixpkgs/.git>
+  # not exported, used for commitIdFromGitRepo
+  _commitIdFromGitRepoOrError =
     let readCommitFromFile = file: path:
         let fileName       = path + "/${file}";
             packedRefsName = path + "/packed-refs";
@@ -272,11 +255,20 @@ let
     };
 
 in {
-  inherit
-    pathType
-    pathIsDirectory
-    pathIsRegularFile
 
+  pathType = lib.warnIf (lib.isInOldestRelease 2305)
+    "lib.sources.pathType has been moved to lib.filesystem.pathType."
+    lib.filesystem.pathType;
+
+  pathIsDirectory = lib.warnIf (lib.isInOldestRelease 2305)
+    "lib.sources.pathIsDirectory has been moved to lib.filesystem.pathIsDirectory."
+    lib.filesystem.pathIsDirectory;
+
+  pathIsRegularFile = lib.warnIf (lib.isInOldestRelease 2305)
+    "lib.sources.pathIsRegularFile has been moved to lib.filesystem.pathIsRegularFile."
+    lib.filesystem.pathIsRegularFile;
+
+  inherit
     pathIsGitRepo
     commitIdFromGitRepo
 
