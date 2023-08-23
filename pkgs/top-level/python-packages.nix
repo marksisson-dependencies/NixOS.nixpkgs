@@ -2557,6 +2557,8 @@ self: super: with self; {
 
   dissect-clfs = callPackage ../development/python-modules/dissect-clfs { };
 
+  dissect-cobaltstrike = callPackage ../development/python-modules/dissect-cobaltstrike { };
+
   dissect-cstruct = callPackage ../development/python-modules/dissect-cstruct { };
 
   dissect-fat = callPackage ../development/python-modules/dissect-fat { };
@@ -10914,6 +10916,8 @@ self: super: with self; {
   scs = callPackage ../development/python-modules/scs { };
 
   sdds = callPackage ../development/python-modules/sdds { };
+
+  sdkmanager = callPackage ../development/python-modules/sdkmanager { };
 
   sdnotify = callPackage ../development/python-modules/sdnotify { };
 
