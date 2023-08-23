@@ -2,19 +2,24 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "svgbob";
-  version = "0.6.2";
+  version = "0.7.0";
 
   src = fetchCrate {
     inherit version;
     crateName = "svgbob_cli";
-    sha256 = "sha256-9JASoUN/VzZS8ihepTQL2SXZitxKBMSJEv+13vzQd3w=";
+    sha256 = "sha256-iWcd+23/Ou7K2YUDf/MJx84LsVMXXqAkGNPs6B0RDqA=";
   };
 
-  cargoSha256 = "sha256-pkdiow+9gsQ9rrSHwukd17r5CfsaJgYj6KA4wYKbtA0=";
+  cargoHash = "sha256-YbbVv2ln01nJfCaopKCwvVN7cgrcuaRHNXGHf9j9XUY=";
+
+  postInstall = ''
+    mv $out/bin/svgbob_cli $out/bin/svgbob
+  '';
 
   meta = with lib; {
     description = "Convert your ascii diagram scribbles into happy little SVG";
     homepage = "https://github.com/ivanceras/svgbob";
+    changelog = "https://github.com/ivanceras/svgbob/raw/${version}/Changelog.md";
     license = licenses.asl20;
     maintainers = [ maintainers.marsam ];
   };

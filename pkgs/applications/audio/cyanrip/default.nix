@@ -4,7 +4,7 @@
 , meson
 , ninja
 , pkg-config
-, ffmpeg
+, ffmpeg-headless
 , libcdio
 , libcdio-paranoia
 , libmusicbrainz5
@@ -12,22 +12,22 @@
 }:
 stdenv.mkDerivation rec {
   pname = "cyanrip";
-  version = "0.7.0";
+  version = "0.9.0";
 
   src = fetchFromGitHub {
     owner = "cyanreg";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0lgb92sfpf4w3nj5vlj6j7931mj2q3cmcx1app9snf853jk9ahmw";
+    sha256 = "sha256-gH/rWTRYX10Q2Y9oSaMu0bOy3SMbcSNmH3dkXHFAw90";
   };
 
   nativeBuildInputs = [ meson ninja pkg-config ];
-  buildInputs = [ ffmpeg libcdio libcdio-paranoia libmusicbrainz5 curl ];
+  buildInputs = [ ffmpeg-headless libcdio libcdio-paranoia libmusicbrainz5 curl ];
 
   meta = with lib; {
     homepage = "https://github.com/cyanreg/cyanrip";
     description = "Bule-ish CD ripper";
-    license = licenses.lgpl3Plus;
+    license = licenses.lgpl21Plus;
     platforms = platforms.all;
     maintainers = [ maintainers.zane ];
   };

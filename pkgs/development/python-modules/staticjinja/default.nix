@@ -9,14 +9,16 @@
 , pytest-check
 , pythonOlder
 , markdown
-, testVersion
+, testers
 , tomlkit
+, typing-extensions
 , staticjinja
+, callPackage
 }:
 
 buildPythonPackage rec {
   pname = "staticjinja";
-  version = "4.1.1";
+  version = "5.0.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.6";
@@ -26,7 +28,7 @@ buildPythonPackage rec {
     owner = "staticjinja";
     repo = pname;
     rev = version;
-    sha256 = "sha256-Bpgff3VaTylnYpkWoaWEiRWu4sYSP6dLbHDOjAhj7BM=";
+    hash = "sha256-LfJTQhZtnTOm39EWF1m2MP5rxz/5reE0G1Uk9L7yx0w=";
   };
 
   nativeBuildInputs = [
@@ -39,11 +41,12 @@ buildPythonPackage rec {
     easywatch
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-check
     markdown
     tomlkit
+    typing-extensions
   ];
 
   # The tests need to find and call the installed staticjinja executable
@@ -51,8 +54,9 @@ buildPythonPackage rec {
     export PATH="$PATH:$out/bin";
   '';
 
-  passthru.tests.version = testVersion {
-    package = staticjinja;
+  passthru.tests = {
+    version = testers.testVersion { package = staticjinja; };
+    minimal-template = callPackage ./test-minimal-template {};
   };
 
   meta = with lib; {

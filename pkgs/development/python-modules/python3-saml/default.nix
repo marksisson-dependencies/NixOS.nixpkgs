@@ -1,28 +1,54 @@
-{ lib, fetchFromGitHub, buildPythonPackage, isPy3k,
-isodate, lxml, xmlsec, freezegun }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, fetchpatch
+, freezegun
+, isodate
+, lxml
+, pythonOlder
+, xmlsec
+}:
 
 buildPythonPackage rec {
   pname = "python3-saml";
-  version = "1.12.0";
-  disabled = !isPy3k;
+  version = "1.15.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "onelogin";
     repo = "python3-saml";
-    rev = "v${version}";
-    sha256 = "sha256-VPUsjuo4FIes8ti0tkR0kT3J3RdUt1wtl4QEahVsc2c=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-xPPR2z3h8RpoAROpKpu9ZoDxGq5Stm9wQVt4Stj/6fg=";
   };
 
-  propagatedBuildInputs = [
-    isodate lxml xmlsec
+  patches = [
+    (fetchpatch {
+      name = "test-expired.patch";
+      url = "https://github.com/SAML-Toolkits/python3-saml/commit/bd65578e5a21494c89320094c61c1c77250bea33.diff";
+      hash = "sha256-9Trew6R5JDjtc0NRGoklqMVDEI4IEqFOdK3ezyBU6gI=";
+    })
   ];
 
-  checkInputs = [ freezegun ];
-  pythonImportsCheck = [ "onelogin.saml2" ];
+  propagatedBuildInputs = [
+    isodate
+    lxml
+    xmlsec
+  ];
+
+  nativeCheckInputs = [
+    freezegun
+  ];
+
+  pythonImportsCheck = [
+    "onelogin.saml2"
+  ];
 
   meta = with lib; {
-    description = "OneLogin's SAML Python Toolkit for Python 3";
+    description = "OneLogin's SAML Python Toolkit";
     homepage = "https://github.com/onelogin/python3-saml";
+    changelog = "https://github.com/SAML-Toolkits/python3-saml/blob/v${version}/changelog.md";
     license = licenses.mit;
     maintainers = with maintainers; [ zhaofengli ];
   };

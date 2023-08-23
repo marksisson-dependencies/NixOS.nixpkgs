@@ -6,11 +6,11 @@
 
 buildOctavePackage rec {
   pname = "nan";
-  version = "3.5.3";
+  version = "3.7.0";
 
   src = fetchurl {
     url = "mirror://sourceforge/octave/${pname}-${version}.tar.gz";
-    sha256 = "1jailahbrh847875vszibn68lp4n5sdy68q51i7hd64qix8rmmpx";
+    sha256 = "sha256-d9J6BfNFeM5LtMqth0boSPd9giYU42KBnxrsUCmKK1s=";
   };
 
   buildInputs = [

@@ -12,13 +12,13 @@
 
 mkDerivation rec {
   pname = "coreterminal";
-  version = "4.2.0";
+  version = "4.4.0";
 
   src = fetchFromGitLab {
     owner = "cubocore/coreapps";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-YXs6VTem3AaK4n1DYwKP/jqNuf09Srn2THHyJJnArlc=";
+    sha256 = "sha256-sFNKyqzNrPAGitmR8YEtIf6vtnvAP7+jXk4GFnDeGJs=";
   };
 
   nativeBuildInputs = [

@@ -1,54 +1,30 @@
 { lib
-, buildPythonPackage
-, fetchFromGitLab
-, isPy3k
-
-# dependencies
-, defusedxml
-, django
-, django-gravatar2
-, django-haystack
-, django-mailman3
-, django-paintstore
-, django-q
-, django_compressor
-, django_extensions
-, djangorestframework
-, flufl_lock
-, mistune_2_0
-, networkx
-, psycopg2
-, python-dateutil
-, robot-detection
-
-# tests
-, beautifulsoup4
-, elasticsearch
-, mock
-, whoosh
+, python3
+, fetchPypi
 }:
+
+with python3.pkgs;
 
 buildPythonPackage rec {
   pname = "HyperKitty";
-  # Note: Mailman core must be on the latest version before upgrading HyperKitty.
-  # See: https://gitlab.com/mailman/postorius/-/issues/516#note_544571309
-  #
-  # Update to next stable version > 1.3.4 that has fixed tests, see
-  # https://gitlab.com/mailman/django-mailman3/-/issues/48
-  version = "1.3.5";
-  disabled = !isPy3k;
+  version = "1.3.7";
+  disabled = pythonOlder "3.8";
 
-  src = fetchFromGitLab {
-    domain = "gitlab.com";
-    owner = "mailman";
-    repo = "hyperkitty";
-    rev = version;
-    sha256 = "0v70r0r6w0q56hk2hw1qp3ci0bwd9x8inf4gai6ybjqjfskqrxi4";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "sha256-TXSso+wwVGdBymIzns5yOS4pj1EdConmm87b/NyBAss=";
   };
+
+  patches = [
+    ./0001-Disable-broken-test_help_output-testcase.patch
+  ];
 
   postPatch = ''
     # isort is a development dependency
     sed -i '/isort/d' setup.py
+    # Fix mistune imports for mistune >= 2.0.0
+    # https://gitlab.com/mailman/hyperkitty/-/merge_requests/379
+    sed -i 's/mistune.scanner/mistune.util/' hyperkitty/lib/renderer.py
   '';
 
   propagatedBuildInputs = [
@@ -57,11 +33,11 @@ buildPythonPackage rec {
     django-haystack
     django-mailman3
     django-q
-    django_compressor
-    django_extensions
+    django-compressor
+    django-extensions
     djangorestframework
     flufl_lock
-    mistune_2_0
+    mistune
     networkx
     psycopg2
     python-dateutil
@@ -72,12 +48,12 @@ buildPythonPackage rec {
   # listed as dependencies in setup.py.  To use these, they should be
   # dependencies of the Django Python environment, but not of
   # HyperKitty so they're not included for people who don't need them.
-  checkInputs = [
+  nativeCheckInputs = [
     beautifulsoup4
     elasticsearch
     mock
     whoosh
-  ];
+  ] ++ beautifulsoup4.optional-dependencies.lxml;
 
   checkPhase = ''
     cd $NIX_BUILD_TOP/$sourceRoot

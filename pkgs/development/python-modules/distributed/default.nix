@@ -1,59 +1,83 @@
 { lib
 , buildPythonPackage
-, fetchPypi
 , click
 , cloudpickle
 , dask
+, fetchFromGitHub
+, jinja2
+, locket
 , msgpack
+, packaging
 , psutil
+, pythonOlder
+, pyyaml
+, setuptools
+, setuptools-scm
 , sortedcontainers
 , tblib
 , toolz
 , tornado
+, urllib3
+, versioneer
+, wheel
 , zict
-, pyyaml
-, mpi4py
-, bokeh
-, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "distributed";
-  version = "2021.10.0";
-  disabled = pythonOlder "3.6";
+  version = "2023.8.0";
+  format = "pyproject";
 
-  # get full repository need conftest.py to run tests
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "0kfq7lwv2n2wiws4v2rj36wx56jvkp2fl6zxg04p2lc3vcgha9za";
+  disabled = pythonOlder "3.8";
+
+  src = fetchFromGitHub {
+    owner = "dask";
+    repo = pname;
+    rev = "refs/tags/${version}";
+    hash = "sha256-FvNh7gfxUR1iIUY3kMolhzcbWupQL39E9JXWip8bdrQ=";
   };
 
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace 'dynamic = ["version"]' 'version = "${version}"'
+  '';
+
+  nativeBuildInputs = [
+    setuptools
+    setuptools-scm
+    versioneer
+  ];
+
   propagatedBuildInputs = [
-    bokeh
     click
     cloudpickle
     dask
-    mpi4py
+    jinja2
+    locket
     msgpack
+    packaging
     psutil
     pyyaml
     sortedcontainers
     tblib
     toolz
     tornado
+    urllib3
     zict
   ];
 
-  # when tested random tests would fail and not repeatably
+  # When tested random tests would fail and not repeatably
   doCheck = false;
 
-  pythonImportsCheck = [ "distributed" ];
+  pythonImportsCheck = [
+    "distributed"
+  ];
 
   meta = with lib; {
     description = "Distributed computation in Python";
     homepage = "https://distributed.readthedocs.io/";
+    changelog = "https://github.com/dask/distributed/blob/${version}/docs/source/changelog.rst";
     license = licenses.bsd3;
-    platforms = platforms.x86; # fails on aarch64
-    maintainers = with maintainers; [ teh costrouc ];
+    maintainers = with maintainers; [ teh ];
   };
 }

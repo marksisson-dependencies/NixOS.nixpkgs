@@ -1,17 +1,17 @@
-{ lib, fetchFromGitHub, buildGoModule }:
+{ lib, fetchFromGitHub, buildGoModule, nixosTests }:
 
 buildGoModule rec {
-  pname = "netdata-go.d.plugin";
-  version = "0.28.1";
+  pname = "netdata-go-plugins";
+  version = "0.54.1";
 
   src = fetchFromGitHub {
     owner = "netdata";
     repo = "go.d.plugin";
     rev = "v${version}";
-    sha256 = "0i77nvqi3dcby0gr3b06bai170q2ibp5390qfjijrk1yqz6x6sd5";
+    hash = "sha256-3cBgXkvXhSTwQ6qbUbH1nOba5QkjSKtzi2rb+OY06jE=";
   };
 
-  vendorSha256 = "1q8z4smaxzqd5iwvbnkkr33c3b94rjwa3xjirwlr595g0wn93wc7";
+  vendorHash = "sha256-DLRcS8wqnwGRLEeMqWj5SfUvE3fz1hty9jItNfmCdRw=";
 
   doCheck = false;
 
@@ -22,10 +22,13 @@ buildGoModule rec {
     cp -r config/* $out/lib/netdata/conf.d
   '';
 
+  passthru.tests = { inherit (nixosTests) netdata; };
+
   meta = with lib; {
     description = "Netdata orchestrator for data collection modules written in go";
     homepage = "https://github.com/netdata/go.d.plugin";
-    license = licenses.gpl3;
-    maintainers = [ ];
+    changelog = "https://github.com/netdata/go.d.plugin/releases/tag/v${version}";
+    license = licenses.gpl3Only;
+    maintainers = [ maintainers.raitobezarius ];
   };
 }

@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec {
   pname = "audiowaveform";
-  version = "1.5.1";
+  version = "1.8.1";
 
   src = fetchFromGitHub {
     owner = "bbc";
     repo = "audiowaveform";
     rev = version;
-    sha256 = "sha256-WODAgiwZ7UfoukTcujXE5atw/Z03+Vo6aR2jubPwQeU=";
+    sha256 = "sha256-MbOQY1Yvtwuy6IPV1BfwwRBhEQIzQ7mPzedE74xsQSk=";
   };
 
   nativeBuildInputs = [ cmake gtest ];

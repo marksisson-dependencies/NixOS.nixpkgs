@@ -1,14 +1,14 @@
 { lib
 , blinker
 , buildPythonPackage
+, django
 , fetchFromGitHub
 , flake8
-, flask_sqlalchemy
+, flask-sqlalchemy
 , isPy27
 , mock
 , peewee
 , pytest-django
-, pytest-pythonpath
 , pytestCheckHook
 , six
 , sqlalchemy
@@ -32,13 +32,12 @@ buildPythonPackage rec {
     six
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     flake8
-    flask_sqlalchemy
+    flask-sqlalchemy
     mock
     peewee
     pytest-django
-    pytest-pythonpath
     pytestCheckHook
     sqlalchemy
     webtest
@@ -54,6 +53,7 @@ buildPythonPackage rec {
 
   postPatch = ''
     substituteInPlace pytest.ini \
+      --replace "python_paths" "pythonpath" \
       --replace "--cov nplusone --cov-report term-missing" ""
   '';
 
@@ -80,5 +80,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/jmcarp/nplusone";
     maintainers = with maintainers; [ cript0nauta ];
     license = licenses.mit;
+    broken = lib.versionAtLeast django.version "4";
   };
 }

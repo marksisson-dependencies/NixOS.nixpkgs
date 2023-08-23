@@ -1,7 +1,21 @@
-{ fetchNimble }:
+{ lib, buildNimPackage, fetchFromGitHub }:
 
-fetchNimble {
+buildNimPackage (final: prev: {
   pname = "flatty";
-  version = "0.2.1";
-  hash = "sha256-TqNnRh2+i6n98ktLRVQxt9CVw17FGLNYq29rJoMus/0=";
-}
+  version = "0.3.4";
+
+  src = fetchFromGitHub {
+    owner = "treeform";
+    repo = "flatty";
+    rev = final.version;
+    hash = "sha256-ZmhjehmEJHm5qNlsGQvyYLajUdwhWt1+AtRppRrNtgA=";
+  };
+
+  doCheck = false; # tests fail with Nim-2.0.0
+
+  meta = final.src.meta // {
+    description = "Tools and serializer for plain flat binary files";
+    license = [ lib.licenses.mit ];
+    maintainers = [ lib.maintainers.ehmry ];
+  };
+})

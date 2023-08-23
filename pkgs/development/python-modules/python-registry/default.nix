@@ -4,6 +4,7 @@
 , fetchFromGitHub
 , pytestCheckHook
 , unicodecsv
+, six
 }:
 
 buildPythonPackage rec {
@@ -22,8 +23,9 @@ buildPythonPackage rec {
     unicodecsv
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
+    six
   ];
 
   disabledTestPaths = [
@@ -38,6 +40,6 @@ buildPythonPackage rec {
     description = "Pure Python parser for Windows Registry hives";
     homepage = "https://github.com/williballenthin/python-registry";
     license = licenses.asl20;
-    maintainers = teams.determinatesystems.members;
+    maintainers = [ ];
   };
 }

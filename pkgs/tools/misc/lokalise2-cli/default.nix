@@ -24,6 +24,6 @@ buildGoModule rec {
     homepage = "https://lokalise.com";
     license = licenses.bsd3;
     maintainers = with maintainers; [ timstott ];
-    platforms = platforms.unix;
+    mainProgram = "lokalise2";
   };
 }

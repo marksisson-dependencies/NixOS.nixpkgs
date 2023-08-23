@@ -1,5 +1,4 @@
-{ stdenv, lib, fetchurl, fetchFromGitHub, fetchpatch
-, cmake, pkg-config
+{ stdenv, lib, fetchurl, fetchFromGitHub, cmake, pkg-config
 , boost, openssl, unbound
 , pcsclite, readline, libsodium, hidapi
 , rapidjson
@@ -59,9 +58,11 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Private cryptocurrency based on Monero";
-    homepage    = "https://oxen.io/";
-    license     = licenses.bsd3;
-    platforms   = platforms.all;
+    homepage = "https://oxen.io/";
+    license = licenses.bsd3;
+    platforms = platforms.all;
     maintainers = [ maintainers.viric ];
+    # Fails to build on gcc-10 due to boost being built with gcc-12.
+    broken = true;
   };
 }

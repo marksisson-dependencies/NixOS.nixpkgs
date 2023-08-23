@@ -1,48 +1,60 @@
 { lib
-, buildPythonPackage
-, pythonOlder
-, fetchPypi
 , amqp
-, vine
-, cached-property
-, importlib-metadata
+, azure-identity
 , azure-servicebus
+, backports-zoneinfo
+, buildPythonPackage
 , case
-, Pyro4
+, fetchPypi
+, hypothesis
+, pyro4
 , pytestCheckHook
+, pythonOlder
 , pytz
+, vine
+, typing-extensions
 }:
 
 buildPythonPackage rec {
   pname = "kombu";
-  version = "5.2.1";
+  version = "5.3.1";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "f262a2adc71b53e5b7dad4933bbdee65d8766ca4df6a9043b13edaad2144aaec";
+    hash = "sha256-+9dXLZLAv3HBEqa0UWMVPepae2pwHsFrVown0P0jcPI=";
   };
 
   propagatedBuildInputs = [
     amqp
     vine
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    cached-property
-    importlib-metadata
+  ] ++ lib.optionals (pythonOlder "3.10") [
+    typing-extensions
+  ] ++ lib.optionals (pythonOlder "3.9") [
+    backports-zoneinfo
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    azure-identity
     azure-servicebus
     case
-    Pyro4
+    hypothesis
+    pyro4
     pytestCheckHook
     pytz
   ];
 
+  pythonImportsCheck = [
+    "kombu"
+  ];
+
   meta = with lib; {
+    changelog = "https://github.com/celery/kombu/releases/tag/v${version}";
     description = "Messaging library for Python";
-    homepage    = "https://github.com/celery/kombu";
-    license     = licenses.bsd3;
+    homepage = "https://github.com/celery/kombu";
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ fab ];
   };
 }

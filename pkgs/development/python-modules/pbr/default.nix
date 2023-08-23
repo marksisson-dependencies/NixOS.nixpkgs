@@ -7,13 +7,14 @@
 
 buildPythonPackage rec {
   pname = "pbr";
-  version = "5.6.0";
+  version = "5.11.1";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "42df03e7797b796625b1029c0400279c7c34fd7df24a7d7818a1abb5b38710dd";
+    hash = "sha256-rvxRZ1sLUz1Wu1/RyMbAUi/jGJZnmILhxMY9XkoPzLM=";
   };
 
+  # importlib-metadata could be added here if it wouldn't cause an infinite recursion
   propagatedBuildInputs = [ setuptools ];
 
   # check in passthru.tests.pytest to escape infinite recursion with fixtures

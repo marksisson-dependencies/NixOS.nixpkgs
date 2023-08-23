@@ -9,14 +9,21 @@
 
 buildPythonPackage rec {
   pname = "jenkins-job-builder";
-  version = "3.10.0";
+  version = "5.0.3";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-8MP8YHIkxDqjPsUYv6ROmuRwcGMzPpsVCRwxga3XdYU=";
+    hash = "sha256-9SrFF1QAEpbS5WWBhOA1p8/YyToSbUb69vINUMQ1cug=";
   };
 
   postPatch = ''
+    # relax version constraint, https://storyboard.openstack.org/#!/story/2009723
+    substituteInPlace requirements.txt --replace 'PyYAML>=3.10.0,<6' 'PyYAML>=3.10.0'
+
+    # Allow building with setuptools from nixpkgs.
+    # Related: https://github.com/NixOS/nixpkgs/issues/238226.
+    substituteInPlace requirements.txt --replace 'setuptools<=65.7.0' 'setuptools'
+
     export HOME=$TMPDIR
   '';
 

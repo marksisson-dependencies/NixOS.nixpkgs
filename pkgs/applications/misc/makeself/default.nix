@@ -1,7 +1,7 @@
-{ lib, stdenv, fetchFromGitHub, which, zstd, pbzip2 }:
+{ lib, stdenv, fetchFromGitHub, which, zstd, pbzip2, installShellFiles }:
 
 stdenv.mkDerivation rec {
-  version = "2.4.2";
+  version = "2.4.5";
   pname = "makeself";
 
   src = fetchFromGitHub {
@@ -9,8 +9,10 @@ stdenv.mkDerivation rec {
     repo = "makeself";
     rev = "release-${version}";
     fetchSubmodules = true;
-    sha256 = "07cq7q71bv3fwddkp2863ylry2ivds00f8sjy8npjpdbkailxm21";
+    sha256 = "sha256-15lUtErGsbXF2Gn0f0rvA18mMuVMmkKrGO2poeYZU9g=";
   };
+
+  nativeBuildInputs = [ installShellFiles ];
 
   postPatch = "patchShebangs test";
 
@@ -19,14 +21,14 @@ stdenv.mkDerivation rec {
   # when running these tests inside build, based on free disk space.
   doCheck = false;
   checkTarget = "test";
-  checkInputs = [ which zstd pbzip2 ];
+  nativeCheckInputs = [ which zstd pbzip2 ];
 
   installPhase = ''
-    mkdir -p $out/{bin,share/{${pname}-${version},man/man1}}
-    cp makeself.lsm README.md $out/share/${pname}-${version}
-    cp makeself.sh $out/bin/makeself
-    cp makeself.1  $out/share/man/man1/
-    cp makeself-header.sh $out/share/${pname}-${version}
+    runHook preInstall
+    installManPage makeself.1
+    install -Dm555 makeself.sh $out/bin/makeself
+    install -Dm444 -t $out/share/${pname}/ makeself.lsm README.md makeself-header.sh
+    runHook postInstall
   '';
 
   fixupPhase = ''

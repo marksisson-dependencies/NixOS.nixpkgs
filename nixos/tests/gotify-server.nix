@@ -4,7 +4,7 @@ import ./make-test-python.nix ({ pkgs, lib, ...} : {
     maintainers = [ ma27 ];
   };
 
-  machine = { pkgs, ... }: {
+  nodes.machine = { pkgs, ... }: {
     environment.systemPackages = [ pkgs.jq ];
 
     services.gotify = {
@@ -42,7 +42,7 @@ import ./make-test-python.nix ({ pkgs, lib, ...} : {
 
     assert title == "Gotify"
 
-    # Ensure that the UI responds with a successfuly code and that the
+    # Ensure that the UI responds with a successful code and that the
     # response is not empty
     result = machine.succeed("curl -fsS localhost:3000")
     assert result, "HTTP response from localhost:3000 must not be empty!"

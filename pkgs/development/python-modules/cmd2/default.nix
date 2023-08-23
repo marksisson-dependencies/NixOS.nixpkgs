@@ -12,19 +12,19 @@
 , pythonOlder
 , setuptools-scm
 , typing-extensions
-, vim
 , wcwidth
 }:
 
 buildPythonPackage rec {
   pname = "cmd2";
-  version = "2.2.0";
+  version = "2.4.3";
+  format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "34cd12424d9e2835eff125146af3d9f4a4c2931c6bc5a3cea9790bd4f55756d9";
+    hash = "sha256-cYc8Efcr0Z4rHbV4IUcW8NT3yPolAJPGASZamnF97lI=";
   };
 
   LC_ALL = "en_US.UTF-8";
@@ -43,11 +43,16 @@ buildPythonPackage rec {
     importlib-metadata
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     glibcLocales
     pytest-mock
-    vim
+  ];
+
+  disabledTests = [
+    # Don't require vim for tests, it causes lots of rebuilds
+    "test_find_editor_not_specified"
+    "test_transcript"
   ];
 
   postPatch = ''
@@ -63,11 +68,14 @@ buildPythonPackage rec {
 
   doCheck = !stdenv.isDarwin;
 
-  pythonImportsCheck = [ "cmd2" ];
+  pythonImportsCheck = [
+    "cmd2"
+  ];
 
   meta = with lib; {
     description = "Enhancements for standard library's cmd module";
     homepage = "https://github.com/python-cmd2/cmd2";
+    changelog = "https://github.com/python-cmd2/cmd2/releases/tag/${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ teto ];
   };

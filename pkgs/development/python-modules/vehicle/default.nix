@@ -13,16 +13,16 @@
 
 buildPythonPackage rec {
   pname = "vehicle";
-  version = "0.2.0";
+  version = "1.0.1";
   format = "pyproject";
 
-  disabled = pythonOlder "3.8";
+  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "frenck";
     repo = "python-vehicle";
-    rev = "v${version}";
-    sha256 = "0yiavz5sw8fjrh6m3mr8gyds7h6vaja3xy1516ajgz0qvijhqylg";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-nN7efkN59FCCjCk3svYCTGGdvr2RSM5VektuUkHy3Vo=";
   };
 
   nativeBuildInputs = [
@@ -35,7 +35,7 @@ buildPythonPackage rec {
     yarl
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     aresponses
     pytest-asyncio
     pytestCheckHook
@@ -54,7 +54,8 @@ buildPythonPackage rec {
 
   meta = with lib; {
     description = "Python client providing RDW vehicle information";
-    homepage = "https://github.com/frenck/python-wled";
+    homepage = "https://github.com/frenck/python-vehicle";
+    changelog = "https://github.com/frenck/python-vehicle/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

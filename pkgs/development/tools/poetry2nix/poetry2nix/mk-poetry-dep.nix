@@ -1,5 +1,4 @@
 { autoPatchelfHook
-, pkgs
 , lib
 , python
 , buildPythonPackage
@@ -8,6 +7,7 @@
 }:
 { name
 , version
+, pos ? __curPos
 , files
 , source
 , dependencies ? { }
@@ -17,7 +17,6 @@
 , sourceSpec
 , supportedExtensions ? lib.importJSON ./extensions.json
 , preferWheels ? false
-, __isBootstrap ? false  # Hack: Always add Poetry as a build input unless bootstrapping
 , ...
 }:
 
@@ -27,12 +26,11 @@ pythonPackages.callPackage
     , ...
     }@args:
     let
-      inherit (pkgs) stdenv;
-      inherit (poetryLib) isCompatible getManyLinuxDeps fetchFromLegacy fetchFromPypi moduleName;
+      inherit (python) stdenv;
+      inherit (poetryLib) isCompatible getManyLinuxDeps fetchFromLegacy fetchFromPypi normalizePackageName;
 
       inherit (import ./pep425.nix {
-        inherit lib poetryLib python;
-        inherit (pkgs) stdenv;
+        inherit lib poetryLib python stdenv;
       }) selectWheel
         ;
       fileCandidates =
@@ -44,9 +42,11 @@ pythonPackages.callPackage
         in
         builtins.filter (f: matchesVersion f.file && hasSupportedExtension f.file && isCompatibleEgg f.file) files;
       toPath = s: pwd + "/${s}";
+      isLocked = lib.length fileCandidates > 0;
       isSource = source != null;
       isGit = isSource && source.type == "git";
       isUrl = isSource && source.type == "url";
+      isWheelUrl = isSource && source.type == "url" && lib.strings.hasSuffix ".whl" source.url;
       isDirectory = isSource && source.type == "directory";
       isFile = isSource && source.type == "file";
       isLegacy = isSource && source.type == "legacy";
@@ -63,6 +63,8 @@ pythonPackages.callPackage
               inherit pythonPackages pyProject;
             } else [ ];
 
+      pname = normalizePackageName name;
+      preferWheel' = preferWheel && pname != "wheel";
       fileInfo =
         let
           isBdist = f: lib.strings.hasSuffix "whl" f.file;
@@ -71,7 +73,9 @@ pythonPackages.callPackage
           binaryDist = selectWheel fileCandidates;
           sourceDist = builtins.filter isSdist fileCandidates;
           eggs = builtins.filter isEgg fileCandidates;
-          entries = (if preferWheel then binaryDist ++ sourceDist else sourceDist ++ binaryDist) ++ eggs;
+          # the `wheel` package cannot be built from a wheel, since that requires the wheel package
+          # this causes a circular dependency so we special-case ignore its `preferWheel` attribute value
+          entries = (if preferWheel' then binaryDist ++ sourceDist else sourceDist ++ binaryDist) ++ eggs;
           lockFileEntry = (
             if lib.length entries > 0 then builtins.head entries
             else throw "Missing suitable source/wheel file entry for ${name}"
@@ -91,24 +95,15 @@ pythonPackages.callPackage
             else (builtins.elemAt (lib.strings.splitString "-" name) 2);
         };
 
-      # Prevent infinite recursion
-      skipSetupToolsSCM = [
-        "setuptools_scm"
-        "setuptools-scm"
-        "toml" # Toml is an extra for setuptools-scm
-        "tomli" # tomli is an extra for later versions of setuptools-scm
-        "packaging"
-        "six"
-        "pyparsing"
-      ];
-      baseBuildInputs = lib.optional (! lib.elem name skipSetupToolsSCM) pythonPackages.setuptools-scm;
-      format = if isDirectory || isGit || isUrl then "pyproject" else fileInfo.format;
+      format = if isWheelUrl then "wheel" else if isDirectory || isGit || isUrl then "pyproject" else fileInfo.format;
+
+      hooks = python.pkgs.callPackage ./hooks { };
     in
     buildPythonPackage {
-      pname = moduleName name;
-      version = version;
+      inherit pname version;
 
-      inherit format;
+      # Circumvent output separation (https://github.com/NixOS/nixpkgs/pull/190487)
+      format = if format == "pyproject" then "poetry2nix" else format;
 
       doCheck = false; # We never get development deps
 
@@ -116,18 +111,25 @@ pythonPackages.callPackage
       dontStrip = format == "wheel";
 
       nativeBuildInputs = [
-        pythonPackages.poetry2nixFixupHook
+        hooks.poetry2nixFixupHook
       ]
-      ++ lib.optional (!isSource && (getManyLinuxDeps fileInfo.name).str != null) autoPatchelfHook
-      ++ lib.optional (format == "pyproject") pythonPackages.removePathDependenciesHook
-      ;
+      ++ lib.optional (!pythonPackages.isPy27) hooks.poetry2nixPythonRequiresPatchHook
+      ++ lib.optional (isLocked && (getManyLinuxDeps fileInfo.name).str != null) autoPatchelfHook
+      ++ lib.optionals (format == "wheel") [
+        hooks.wheelUnpackHook
+        pythonPackages.pipInstallHook
+        pythonPackages.setuptools
+      ]
+      ++ lib.optionals (format == "pyproject") [
+        hooks.removePathDependenciesHook
+        hooks.removeGitDependenciesHook
+        hooks.pipBuildHook
+      ];
 
       buildInputs = (
-        baseBuildInputs
-        ++ lib.optional (stdenv.buildPlatform != stdenv.hostPlatform) pythonPackages.setuptools
-        ++ lib.optional (!isSource) (getManyLinuxDeps fileInfo.name).pkg
+        lib.optional (isLocked) (getManyLinuxDeps fileInfo.name).pkg
         ++ lib.optional isDirectory buildSystemPkgs
-        ++ lib.optional (!__isBootstrap) pythonPackages.poetry
+        ++ lib.optional (stdenv.buildPlatform != stdenv.hostPlatform) pythonPackages.setuptools
       );
 
       propagatedBuildInputs =
@@ -149,7 +151,9 @@ pythonPackages.callPackage
             );
           depAttrs = lib.attrNames deps;
         in
-        builtins.map (n: pythonPackages.${moduleName n}) depAttrs;
+        builtins.map (n: pythonPackages.${normalizePackageName n}) depAttrs;
+
+      inherit pos;
 
       meta = {
         broken = ! isCompatible (poetryLib.getPythonVersion python) python-versions;
@@ -159,6 +163,7 @@ pythonPackages.callPackage
 
       passthru = {
         inherit args;
+        preferWheel = preferWheel';
       };
 
       # We need to retrieve kind from the interpreter and the filename of the package
@@ -167,16 +172,30 @@ pythonPackages.callPackage
       src =
         if isGit then
           (
-            builtins.fetchGit {
+            builtins.fetchGit ({
               inherit (source) url;
               rev = source.resolved_reference or source.reference;
-              ref = sourceSpec.branch or sourceSpec.rev or (if sourceSpec?tag then "refs/tags/${sourceSpec.tag}" else "HEAD");
-            }
+              ref = sourceSpec.branch or (if sourceSpec ? tag then "refs/tags/${sourceSpec.tag}" else "HEAD");
+            } // (
+              lib.optionalAttrs ((sourceSpec ? rev) && (lib.versionAtLeast builtins.nixVersion "2.4")) {
+                allRefs = true;
+              }) // (
+              lib.optionalAttrs (lib.versionAtLeast builtins.nixVersion "2.4") {
+                submodules = true;
+              })
+            )
           )
+        else if isWheelUrl then
+          builtins.fetchurl
+            {
+              inherit (source) url;
+              sha256 = fileInfo.hash;
+            }
         else if isUrl then
           builtins.fetchTarball
             {
               inherit (source) url;
+              sha256 = fileInfo.hash;
             }
         else if isDirectory then
           (poetryLib.cleanPythonSources { src = localDepPath; })

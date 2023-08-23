@@ -16,21 +16,21 @@ let
     };
     ssl_verify_fun = builder {
       name = "ssl_verify_fun";
-      version = "1.1.6";
+      version = "1.1.7";
       src = fetchHex {
         pkg = "ssl_verify_fun";
-        version = "1.1.6";
-        sha256 = "sha256-vbDSRx9FPIj/OQjnaG+G+b4yfQZcwewW+kVAGX6gRoA=";
+        version = "1.1.7";
+        sha256 = "sha256-/kwZDo83QB0wFnyMQF7aGUafNFd5h8dt3mE+g4u8Z/g=";
       };
       beamDeps = [ ];
     };
     parse_trans = builder {
       name = "parse_trans";
-      version = "3.4.0";
+      version = "3.4.1";
       src = fetchHex {
         pkg = "parse_trans";
-        version = "3.4.0";
-        sha256 = "sha256-+Z42iDC+pEVSIk434ElDpUh08IuFkEhd6NE4MrY6LcM=";
+        version = "3.4.1";
+        sha256 = "sha256-YgpAbOddragnuC5FPBnPBndr4mb1pnz/NOHvLLtg5Jo=";
       };
       beamDeps = [ ];
     };
@@ -66,11 +66,11 @@ let
     };
     certifi = builder {
       name = "certifi";
-      version = "2.6.1";
+      version = "2.11.0";
       src = fetchHex {
         pkg = "certifi";
-        version = "2.6.1";
-        sha256 = "sha256-UkyXtJkbOEndXBemMSI4licsawr0RneLpGdaHf9Tu34=";
+        version = "2.11.0";
+        sha256 = "sha256-njfgVC7D+rqhmgc0s5ANwJV5f6xIxAoql0HYrV48m7c=";
       };
       beamDeps = [ ];
     };
@@ -96,11 +96,11 @@ let
     };
     katana_code = builder {
       name = "katana_code";
-      version = "1.1.2";
+      version = "2.0.2";
       src = fetchHex {
         pkg = "katana_code";
-        version = "1.1.2";
-        sha256 = "sha256-5+YWKkToJqA/aLUDt9kpgbiUv4NMHvDmR3g/fWaIAhw=";
+        version = "2.0.2";
+        sha256 = "sha256-Plf+1jXgsWpfvazNyHLsU96yHtn8bn65tkFf8Zm3sTg=";
       };
       beamDeps = [ ];
     };
@@ -146,11 +146,11 @@ let
     };
     elvis_core = builder {
       name = "elvis_core";
-      version = "1.1.2";
+      version = "3.0.1";
       src = fetchHex {
         pkg = "elvis_core";
-        version = "1.1.2";
-        sha256 = "sha256-xO5Cp6fC/FZ/Pqa1FQFkzWgpDxEA6bGaTPiG2Kocpzw=";
+        version = "3.0.1";
+        sha256 = "sha256-TPc1QB50ZcEIUcYkXB4+jnZJhNjAtZSdVpexS1+urUk=";
       };
       beamDeps = [ katana_code zipper ];
     };

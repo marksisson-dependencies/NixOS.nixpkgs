@@ -89,7 +89,7 @@ in
           """
           Sends a message as Alice to Bob
           """
-          bob.execute("nc -lu ::0 1234 >/tmp/msg >&2 &")
+          bob.execute("nc -lu ::0 1234 >/tmp/msg &")
           alice.sleep(1)
           alice.succeed(f"echo '{msg}' | nc -uw 0 bob 1234")
           bob.succeed(f"grep '{msg}' /tmp/msg")
@@ -100,13 +100,15 @@ in
           Starts eavesdropping on Alice and Bob
           """
           match = "src host alice and dst host bob"
-          eve.execute(f"tcpdump -i br0 -c 1 -Avv {match} >/tmp/log >&2 &")
+          eve.execute(f"tcpdump -i br0 -c 1 -Avv {match} >/tmp/log &")
 
 
       start_all()
 
       with subtest("Network is up"):
           alice.wait_until_succeeds("ping -c1 bob")
+          alice.succeed("systemctl restart ipsec")
+          bob.succeed("systemctl restart ipsec")
 
       with subtest("Eve can eavesdrop cleartext traffic"):
           eavesdrop()

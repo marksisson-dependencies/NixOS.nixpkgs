@@ -3,24 +3,40 @@
 , fetchPypi
 , google-api-core
 , libcst
-, proto-plus
-, pytestCheckHook
-, pytest-asyncio
-, pytz
 , mock
+, proto-plus
+, protobuf
+, pytest-asyncio
+, pytestCheckHook
+, pythonOlder
+, pytz
 }:
 
 buildPythonPackage rec {
   pname = "google-cloud-bigquery-datatransfer";
-  version = "3.4.1";
+  version = "3.12.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "fdc8cb68a3ee54780f673f06b3cce83a5bb5d600db7ad363c85e38bf45afb59c";
+    hash = "sha256-5jxcN69FPuAZ7xiBcBu5+aE+q4OU9OlM+i9bd6vMnJI=";
   };
 
-  propagatedBuildInputs = [ google-api-core libcst proto-plus pytz ];
-  checkInputs = [ mock pytestCheckHook pytest-asyncio ];
+  propagatedBuildInputs = [
+    google-api-core
+    libcst
+    proto-plus
+    protobuf
+    pytz
+  ] ++ google-api-core.optional-dependencies.grpc;
+
+  nativeCheckInputs = [
+    mock
+    pytest-asyncio
+    pytestCheckHook
+  ];
 
   pythonImportsCheck = [
     "google.cloud.bigquery_datatransfer"
@@ -30,7 +46,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "BigQuery Data Transfer API client library";
     homepage = "https://github.com/googleapis/python-bigquery-datatransfer";
+    changelog = "https://github.com/googleapis/python-bigquery-datatransfer/blob/v${version}/CHANGELOG.md";
     license = licenses.asl20;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = with maintainers; [ ];
   };
 }

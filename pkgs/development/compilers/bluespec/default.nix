@@ -1,6 +1,7 @@
 { lib
 , stdenv
 , fetchFromGitHub
+, fetchurl
 , autoconf
 , automake
 , fontconfig
@@ -18,20 +19,27 @@
 , gmp-static
 , verilog
 , asciidoctor
-, tex }:
+, tex
+, which
+}:
 
 let
   ghcWithPackages = ghc.withPackages (g: (with g; [ old-time regex-compat syb split ]));
 
 in stdenv.mkDerivation rec {
   pname = "bluespec";
-  version = "2021.07";
+  version = "2023.01";
 
   src = fetchFromGitHub {
     owner = "B-Lang-org";
     repo = "bsc";
     rev = version;
-    sha256 = "0gw8wyp65lpkyfhv3laazz9qypdl8qkp1j7cqp0gv11592a9p5qw";
+    sha256 = "sha256-kFHQtRaQmZiHo+IQ+mwbW23i3kbdAh/XH0OE7P/ibd0=";
+  };
+
+  yices-src = fetchurl {
+    url = "https://github.com/B-Lang-org/bsc/releases/download/${version}/yices-src-for-bsc-${version}.tar.gz";
+    sha256 = "sha256-pyEdCJvmgwOYPMZEtw7aro76tSn/Y/2GcKTyARmIh4E=";
   };
 
   enableParallelBuilding = true;
@@ -42,9 +50,7 @@ in stdenv.mkDerivation rec {
   patches = [ ./libstp_stub_makefile.patch ];
 
   postUnpack = ''
-    mkdir -p $sourceRoot/src/vendor/yices/v2.6/yices2
-    # XXX: only works because yices.src isn't a tarball.
-    cp -av ${yices.src}/* $sourceRoot/src/vendor/yices/v2.6/yices2
+    tar -C $sourceRoot/ -xf ${yices-src}
     chmod -R +rwX $sourceRoot/src/vendor/yices/v2.6/yices2
   '';
 
@@ -68,6 +74,7 @@ in stdenv.mkDerivation rec {
     libX11 # tcltk
     tcl
     tk
+    which
     xorg.libXft
     zlib
   ];
@@ -86,7 +93,7 @@ in stdenv.mkDerivation rec {
 
   makeFlags = [
     "release"
-    "NO_DEPS_CHECKS=1" # skip the subrepo check (this deriviation uses yices.src instead of the subrepo)
+    "NO_DEPS_CHECKS=1" # skip the subrepo check (this deriviation uses yices-src instead of the subrepo)
     "NOGIT=1" # https://github.com/B-Lang-org/bsc/issues/12
     "LDCONFIG=ldconfig" # https://github.com/B-Lang-org/bsc/pull/43
     "STP_STUB=1"
@@ -94,7 +101,7 @@ in stdenv.mkDerivation rec {
 
   doCheck = true;
 
-  checkInputs = [
+  nativeCheckInputs = [
     gmp-static
     verilog
   ];
@@ -118,6 +125,7 @@ in stdenv.mkDerivation rec {
     homepage = "https://github.com/B-Lang-org/bsc";
     license = lib.licenses.bsd3;
     platforms = [ "x86_64-linux" ];
+    mainProgram = "bsc";
     # darwin fails at https://github.com/B-Lang-org/bsc/pull/35#issuecomment-583731562
     # aarch64 fails, as GHC fails with "ghc: could not execute: opt"
     maintainers = with lib.maintainers; [ jcumming thoughtpolice ];

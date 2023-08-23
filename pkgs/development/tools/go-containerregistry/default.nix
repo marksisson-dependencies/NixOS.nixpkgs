@@ -4,15 +4,15 @@ let bins = [ "crane" "gcrane" ]; in
 
 buildGoModule rec {
   pname = "go-containerregistry";
-  version = "0.6.0";
+  version = "0.16.1";
 
   src = fetchFromGitHub {
     owner = "google";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0sk3g1i4w8sh40y1ffa61ap7jsscdvnhvh09k8nznydi465csbmq";
+    sha256 = "sha256-uqTWeA449MhHFWJwyqJgLsQHvjfk46S1YA+Yss5muSk=";
   };
-  vendorSha256 = null;
+  vendorHash = null;
 
   subPackages = [ "cmd/crane" "cmd/gcrane" ];
 
@@ -37,7 +37,7 @@ buildGoModule rec {
   meta = with lib; {
     description = "Tools for interacting with remote images and registries including crane and gcrane";
     homepage = "https://github.com/google/go-containerregistry";
-    license = licenses.apsl20;
+    license = licenses.asl20;
     maintainers = with maintainers; [ yurrriq ];
   };
 }

@@ -1,45 +1,64 @@
 { lib
 , buildPythonPackage
 , fetchFromGitHub
-, typing-inspect
-, marshmallow-enum
 , hypothesis
-, mypy
+, marshmallow-enum
+, poetry-core
+, poetry-dynamic-versioning
 , pytestCheckHook
+, pythonOlder
+, typing-inspect
 }:
 
 buildPythonPackage rec {
   pname = "dataclasses-json";
-  version = "0.5.6";
+  version = "0.5.14";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "lidatong";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "09253p0zjqfaqap7jgfgjl1jswwnz7mb6x7dqix09id92mnb89mf";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-pCvVKHh2elHaukEJNTw8MgJmoTlYjO9aVWFCQXXD13c=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace 'version = "0.0.0"' 'version = "${version}"'
+  '';
+
+  nativeBuildInputs = [
+    poetry-core
+    poetry-dynamic-versioning
+  ];
 
   propagatedBuildInputs = [
     typing-inspect
     marshmallow-enum
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     hypothesis
-    mypy
     pytestCheckHook
   ];
 
-  disabledTests = [
-    # AssertionError: Type annotations check failed
-    "test_type_hints"
+  disabledTestPaths = [
+    # fails with the following error and avoid dependency on mypy
+    # mypy_main(None, text_io, text_io, [__file__], clean_exit=True)
+    # TypeError: main() takes at most 4 arguments (5 given)
+    "tests/test_annotations.py"
   ];
 
-  pythonImportsCheck = [ "dataclasses_json" ];
+  pythonImportsCheck = [
+    "dataclasses_json"
+  ];
 
   meta = with lib; {
     description = "Simple API for encoding and decoding dataclasses to and from JSON";
     homepage = "https://github.com/lidatong/dataclasses-json";
+    changelog = "https://github.com/lidatong/dataclasses-json/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ albakham ];
   };

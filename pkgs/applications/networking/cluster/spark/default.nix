@@ -1,32 +1,48 @@
-{ lib, stdenv, fetchzip, makeWrapper, jdk8, python3Packages, extraPythonPackages ? [], coreutils, hadoop
-, RSupport? true, R
+{ lib
+, stdenv
+, fetchzip
+, makeWrapper
+, jdk8
+, python3Packages
+, extraPythonPackages ? [ ]
+, coreutils
+, hadoopSupport ? true
+, hadoop
+, RSupport ? true
+, R
 }:
 
-with lib;
-
 let
-  spark = { pname, version, src }:
+  spark = { pname, version, hash, extraMeta ? {} }:
     stdenv.mkDerivation rec {
-      inherit pname version src;
+      inherit pname version;
+      jdk = if hadoopSupport then hadoop.jdk else jdk8;
+      src = fetchzip {
+        url = "mirror://apache/spark/${pname}-${version}/${pname}-${version}-bin-without-hadoop.tgz";
+        inherit hash;
+      };
       nativeBuildInputs = [ makeWrapper ];
-      buildInputs = [ jdk8 python3Packages.python ]
+      buildInputs = [ jdk python3Packages.python ]
         ++ extraPythonPackages
-        ++ optional RSupport R;
+        ++ lib.optional RSupport R;
 
       untarDir = "${pname}-${version}";
       installPhase = ''
         mkdir -p $out/{lib/${untarDir}/conf,bin,/share/java}
         mv * $out/lib/${untarDir}
 
-        cp $out/lib/${untarDir}/conf/log4j.properties{.template,}
+        cp $out/lib/${untarDir}/conf/log4j.properties{.template,} || \
+          cp $out/lib/${untarDir}/conf/log4j2.properties{.template,}
 
         cat > $out/lib/${untarDir}/conf/spark-env.sh <<- EOF
-        export JAVA_HOME="${jdk8}"
+        export JAVA_HOME="${jdk}"
         export SPARK_HOME="$out/lib/${untarDir}"
+      '' + lib.optionalString hadoopSupport ''
         export SPARK_DIST_CLASSPATH=$(${hadoop}/bin/hadoop classpath)
+      '' + ''
         export PYSPARK_PYTHON="${python3Packages.python}/bin/${python3Packages.python.executable}"
         export PYTHONPATH="\$PYTHONPATH:$PYTHONPATH"
-        ${optionalString RSupport ''
+        ${lib.optionalString RSupport ''
           export SPARKR_R_SHELL="${R}/bin/R"
           export PATH="\$PATH:${R}/bin"''}
         EOF
@@ -45,31 +61,31 @@ let
       '';
 
       meta = {
-        description      = "Apache Spark is a fast and general engine for large-scale data processing";
-        homepage         = "http://spark.apache.org";
-        license          = lib.licenses.asl20;
-        platforms        = lib.platforms.all;
-        maintainers      = with maintainers; [ thoughtpolice offline kamilchm illustris ];
-        repositories.git = "git://git.apache.org/spark.git";
-      };
+        description = "Apache Spark is a fast and general engine for large-scale data processing";
+        homepage = "https://spark.apache.org/";
+        sourceProvenance = with lib.sourceTypes; [ binaryBytecode ];
+        license = lib.licenses.asl20;
+        platforms = lib.platforms.all;
+        maintainers = with lib.maintainers; [ thoughtpolice offline kamilchm illustris ];
+      } // extraMeta;
     };
-in {
-  spark3 = spark rec {
+in
+{
+  spark_3_4 = spark rec {
     pname = "spark";
-    version = "3.1.2";
-
-    src = fetchzip {
-      url    = "mirror://apache/spark/${pname}-${version}/${pname}-${version}-bin-without-hadoop.tgz";
-      sha256 = "1bgh2y6jm7wqy6yc40rx68xkki31i3jiri2yixb1bm0i9pvsj9yf";
-    };
+    version = "3.4.0";
+    hash = "sha256-0y80dRYzb6Ceu6MlGQHtpMdzOob/TBg6kf8dtF6KyCk=";
   };
-  spark2 = spark rec {
+  spark_3_3 = spark rec {
     pname = "spark";
-    version = "2.4.8";
-
-    src = fetchzip {
-      url    = "mirror://apache/spark/${pname}-${version}/${pname}-${version}-bin-without-hadoop.tgz";
-      sha256 = "1mkyq0gz9fiav25vr0dba5ivp0wh0mh7kswwnx8pvsmb6wbwyfxv";
-    };
+    version = "3.3.2";
+    hash = "sha256-AeKe2QN+mhUJgZRSIgbi/DttAWlDgwC1kl9p7syEvbo=";
+    extraMeta.knownVulnerabilities = [ "CVE-2023-22946" ];
+  };
+  spark_3_2 = spark rec {
+    pname = "spark";
+    version = "3.2.4";
+    hash = "sha256-xL4W+dTWbvmmncq3/8iXmhp24rp5SftvoRfkTyxCI8E=";
+    extraMeta.knownVulnerabilities = [ "CVE-2023-22946" ];
   };
 }

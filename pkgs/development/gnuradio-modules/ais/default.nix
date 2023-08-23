@@ -6,12 +6,14 @@
 , python
 , boost
 , cppunit
-, log4cpp
+, logLib
 , osmosdr
 , gmp
 , mpir
 , fftwFloat
 , icu
+, gnuradio
+, thrift
 }:
 
 mkDerivation rec {
@@ -31,15 +33,21 @@ mkDerivation rec {
     python
   ];
 
+  cmakeFlags = [
+    "-DCMAKE_EXE_LINKER_FLAGS=-pthread"
+  ];
+
   buildInputs = [
     cppunit
     osmosdr
     boost
-    log4cpp
+    logLib
     gmp
     mpir
     fftwFloat
     icu
+    thrift
+    gnuradio.python.pkgs.thrift
   ];
 
   meta = with lib; {

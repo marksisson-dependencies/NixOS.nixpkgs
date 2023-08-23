@@ -2,9 +2,7 @@
 , stdenv
 , fetchFromGitHub
 , pkg-config
-, docutils
 , libuuid
-, libscrypt
 , libsodium
 , keyutils
 , liburcu
@@ -12,59 +10,96 @@
 , libaio
 , zstd
 , lz4
-, python3Packages
+, attr
 , udev
 , valgrind
 , nixosTests
 , fuse3
+, cargo
+, rustc
+, coreutils
+, rustPlatform
+, makeWrapper
 , fuseSupport ? false
 }:
-
-stdenv.mkDerivation {
+let
+  rev = "cfa816bf3f823a3bedfedd8e214ea929c5c755fe";
+in stdenv.mkDerivation {
   pname = "bcachefs-tools";
-  version = "unstable-2021-11-06";
+  version = "unstable-2023-06-28";
 
   src = fetchFromGitHub {
     owner = "koverstreet";
     repo = "bcachefs-tools";
-    rev = "5b84952401146fec9a181a40877352f7faf9ee7b";
-    sha256 = "09zs2h3vzqn163v4i9lrvgy9gcjlw24lld7715j3kyyxnc5vav32";
+    inherit rev;
+    hash = "sha256-XgXUwyZV5N8buYTuiu1Y1ZU3uHXjZ/OZ1kbZ9d6Rt5I=";
   };
 
-  postPatch = ''
-    patchShebangs .
-    substituteInPlace Makefile \
-      --replace "pytest-3" "pytest --verbose" \
-      --replace "INITRAMFS_DIR=/etc/initramfs-tools" \
-                "INITRAMFS_DIR=${placeholder "out"}/etc/initramfs-tools"
-  '';
+  # errors on fsck_err function. Maybe miss-detection?
+  NIX_CFLAGS_COMPILE = "-Wno-error=format-security";
 
-  nativeBuildInputs = [ pkg-config docutils python3Packages.python ];
+  nativeBuildInputs = [
+    pkg-config
+    cargo
+    rustc
+    rustPlatform.cargoSetupHook
+    rustPlatform.bindgenHook
+    makeWrapper
+  ];
+
+  cargoRoot = "rust-src";
+  cargoDeps = rustPlatform.importCargoLock {
+    lockFile = ./Cargo.lock;
+    outputHashes = {
+      "bindgen-0.64.0" = "sha256-GNG8as33HLRYJGYe0nw6qBzq86aHiGonyynEM7gaEE4=";
+    };
+  };
 
   buildInputs = [
-    libuuid libscrypt libsodium keyutils liburcu zlib libaio
-    zstd lz4 python3Packages.pytest udev valgrind
+    libaio
+    keyutils
+    lz4
+
+    libsodium
+    liburcu
+    libuuid
+    zstd
+    zlib
+    attr
+    udev
   ] ++ lib.optional fuseSupport fuse3;
 
   doCheck = false; # needs bcachefs module loaded on builder
   checkFlags = [ "BCACHEFS_TEST_USE_VALGRIND=no" ];
-  checkInputs = [ valgrind ];
+  nativeCheckInputs = [ valgrind ];
+
+  makeFlags = [
+    "PREFIX=${placeholder "out"}"
+    "VERSION=${lib.strings.substring 0 7 rev}"
+    "INITRAMFS_DIR=${placeholder "out"}/etc/initramfs-tools"
+  ];
 
   preCheck = lib.optionalString fuseSupport ''
     rm tests/test_fuse.py
   '';
 
-  installFlags = [ "PREFIX=${placeholder "out"}" ];
-
   passthru.tests = {
     smoke-test = nixosTests.bcachefs;
+    inherit (nixosTests.installer) bcachefsSimple bcachefsEncrypted bcachefsMulti;
   };
+
+  postFixup = ''
+    wrapProgram $out/bin/mount.bcachefs \
+      --prefix PATH : ${lib.makeBinPath [ coreutils ]}
+  '';
+
+  enableParallelBuilding = true;
 
   meta = with lib; {
     description = "Tool for managing bcachefs filesystems";
     homepage = "https://bcachefs.org/";
     license = licenses.gpl2;
-    maintainers = with maintainers; [ davidak chiiruno ];
+    maintainers = with maintainers; [ davidak Madouura ];
     platforms = platforms.linux;
   };
 }

@@ -22,21 +22,21 @@
 , libopus
 , gst_all_1
 , orc
+, gdk-pixbuf
 }:
 
 stdenv.mkDerivation rec {
   pname = "spice";
-  version = "0.15.0";
+  version = "0.15.2";
 
   src = fetchurl {
     url = "https://www.spice-space.org/download/releases/spice-server/${pname}-${version}.tar.bz2";
-    sha256 = "1xd0xffw0g5vvwbq4ksmm3jjfq45f9dw20xpmi82g1fj9f7wy85k";
+    sha256 = "sha256-bZ62EX8DkXRxxLwQAEq+z/SKefuF64WhxF8CM3cBW4E=";
   };
 
-  postPatch = ''
-    patchShebangs build-aux
-  '';
-
+  patches = [
+    ./remove-rt-on-darwin.patch
+  ];
 
   nativeBuildInputs = [
     glib
@@ -49,7 +49,6 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    alsa-lib
     cyrus_sasl
     glib
     gst_all_1.gst-plugins-base
@@ -68,14 +67,24 @@ stdenv.mkDerivation rec {
     python3.pkgs.pyparsing
     spice-protocol
     zlib
+  ] ++ lib.optionals stdenv.isLinux [
+    alsa-lib
+  ] ++ lib.optionals stdenv.isDarwin [
+    gdk-pixbuf
   ];
 
-  NIX_CFLAGS_COMPILE = "-fno-stack-protector";
+  env.NIX_CFLAGS_COMPILE = "-fno-stack-protector";
 
   mesonFlags = [
     "-Dgstreamer=1.0"
-    "-Dcelt051=disabled"
   ];
+
+  postPatch = ''
+    patchShebangs build-aux
+
+    # Forgotten in 0.15.2 tarball
+    sed -i /meson.add_dist_script/d meson.build
+  '';
 
   postInstall = ''
     ln -s spice-server $out/include/spice
@@ -93,7 +102,7 @@ stdenv.mkDerivation rec {
     homepage = "https://www.spice-space.org/";
     license = licenses.lgpl21;
 
-    maintainers = [ maintainers.bluescreen303 ];
-    platforms = platforms.linux;
+    maintainers = with maintainers; [ bluescreen303 atemu ];
+    platforms = with platforms; linux ++ darwin;
   };
 }

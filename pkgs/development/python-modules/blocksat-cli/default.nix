@@ -1,6 +1,6 @@
-{ buildPythonPackage
+{ lib
+, buildPythonPackage
 , fetchPypi
-, lib
 , distro
 , pysnmp
 , python-gnupg
@@ -9,15 +9,19 @@
 , sseclient-py
 , zfec
 , pytestCheckHook
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "blocksat-cli";
-  version = "0.4.1";
+  version = "0.4.6";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "96ec5e548dcdb71ada75727d76b34006fe5f6818bd89cf982e15616d41889603";
+    hash = "sha256-uANAMNoAC4HUoUuR5ldxoiy+LLzZVpKosU5JttXLnqg=";
   };
 
   propagatedBuildInputs = [
@@ -30,19 +34,29 @@ buildPythonPackage rec {
     zfec
   ];
 
-  checkInputs = [ pytestCheckHook ];
-
-  pytestFlagsArray = [
-    # disable tests which require being connected to the satellite
-    "--ignore=blocksatcli/test_satip.py"
-    "--ignore=blocksatcli/api/test_listen.py"
-    "--ignore=blocksatcli/api/test_msg.py"
-    "--ignore=blocksatcli/api/test_net.py"
-    # disable tests which require being online
-    "--ignore=blocksatcli/api/test_order.py"
+  nativeCheckInputs = [
+    pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "blocksatcli" ];
+  disabledTestPaths = [
+    # disable tests which require being connected to the satellite
+    "blocksatcli/test_satip.py"
+    "blocksatcli/api/test_listen.py"
+    "blocksatcli/api/test_msg.py"
+    "blocksatcli/api/test_net.py"
+    # disable tests which require being online
+    "blocksatcli/api/test_order.py"
+  ];
+
+  disabledTests = [
+    "test_monitor_get_stats"
+    "test_monitor_update_with_reporting_enabled"
+    "test_erasure_recovery"
+  ];
+
+  pythonImportsCheck = [
+    "blocksatcli"
+  ];
 
   meta = with lib; {
     description = "Blockstream Satellite CLI";

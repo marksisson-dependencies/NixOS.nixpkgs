@@ -1,28 +1,32 @@
-{ lib, buildPythonPackage, fetchFromGitHub
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
 , colorama
 , hypothesis
 , poetry-core
+, setuptools
 , pylama
 , pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "isort";
-  version = "5.9.3";
+  version = "5.12.0";
   format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "PyCQA";
     repo = "isort";
-    rev = version;
-    sha256 = "sha256-JbRZ/3Xz35tGoCNnQesR08Sjoz3yimxZyxhhOXGvmXw=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-8ija4xWWZuYkElXLdziV7ulN8dubIsChcZQ5dx9hfO0=";
   };
 
   nativeBuildInputs = [
     poetry-core
+    setuptools
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     colorama
     hypothesis
     pylama
@@ -52,6 +56,7 @@ buildPythonPackage rec {
 
   disabledTests = [
     "test_run" # doesn't like paths in /build
+    "test_fuzz_show_unified_diff" # flakey
     "test_pyi_formatting_issue_942"
     "test_requirements_finder"
     "test_pipfile_finder"
@@ -74,5 +79,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/PyCQA/isort";
     license = licenses.mit;
     maintainers = with maintainers; [ couchemar ];
+    mainProgram = "isort";
   };
 }

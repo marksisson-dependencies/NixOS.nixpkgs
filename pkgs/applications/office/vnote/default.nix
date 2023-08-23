@@ -1,31 +1,42 @@
 { lib
-, mkDerivation
+, stdenv
 , fetchFromGitHub
 , qmake
 , qtbase
 , qtwebengine
+, qtx11extras
+, wrapQtAppsHook
 }:
 
-mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "vnote";
-  version = "3.8.1";
+  version = "3.16.0";
 
   src = fetchFromGitHub {
     owner = "vnotex";
-    repo = pname;
+    repo = "vnote";
+    rev = "v${finalAttrs.version}";
     fetchSubmodules = true;
-    rev = "v${version}";
-    sha256 = "sha256-GgSVBVcT0rfgglyjCmkEMbKCEltesC3eSsN38psrkS4=";
+    hash = "sha256-tcu6y2DqdhFE2nbDkiANDk/Mzidcp8PLi8bWZaI6sH0=";
   };
 
-  nativeBuildInputs = [ qmake ];
-  buildInputs = [ qtbase qtwebengine ];
+  nativeBuildInputs = [
+    qmake
+    wrapQtAppsHook
+  ];
 
-  meta = with lib; {
+  buildInputs = [
+    qtbase
+    qtwebengine
+    qtx11extras
+  ];
+
+  meta = {
     homepage = "https://vnotex.github.io/vnote";
     description = "A pleasant note-taking platform";
-    license = licenses.mit;
-    maintainers = with maintainers; [ AndersonTorres ];
-    platforms = platforms.linux;
+    changelog = "https://github.com/vnotex/vnote/releases/tag/${finalAttrs.src.rev}";
+    license = lib.licenses.lgpl3Plus;
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    platforms = lib.platforms.linux;
   };
-}
+})

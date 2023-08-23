@@ -1,34 +1,58 @@
-{ lib, stdenv, fetchurl, fetchpatch, python, root, makeWrapper, zlib, withRootSupport ? false }:
+{ lib
+, stdenv
+, fetchurl
+, fetchpatch
+, python
+, root
+, makeWrapper
+, zlib
+, withRootSupport ? false
+}:
 
 stdenv.mkDerivation rec {
   pname = "yoda";
-  version = "1.9.2";
+  version = "1.9.8";
 
   src = fetchurl {
     url = "https://www.hepforge.org/archive/yoda/YODA-${version}.tar.bz2";
-    hash = "sha256-zb7j7fBMv2brJ+gUMMDTKFEJDC2embENe3wXdx0VTOA=";
+    hash = "sha256-e8MGJGirulCv8+y4sizmdxlgNgCYkGiO9FM6qn+S5uQ=";
   };
 
   patches = [
-    # Prevent ROOT from initializing X11 or Cocoa (helps with sandboxing)
+    # A bugfix https://gitlab.com/hepcedar/yoda/-/merge_requests/116
     (fetchpatch {
-      url = "https://gitlab.com/hepcedar/yoda/-/commit/36c035f4f0385dec58702f09564ca66a14ca2c3e.diff";
-      sha256 = "sha256-afB+y33TVNJtxY5As18EcutJEGDE4g0UzMxzA+YgICk=";
+      url = "https://gitlab.com/hepcedar/yoda/-/commit/ba1275033522c66bc473dfeffae1a7971e985611.diff";
+      hash = "sha256-/8UJuypiQzywarE+o3BEMtqM+f+YzkHylugi+xTJf+w=";
       excludes = [ "ChangeLog" ];
     })
   ];
 
-  nativeBuildInputs = with python.pkgs; [ cython makeWrapper ];
-  buildInputs = [ python ]
-    ++ (with python.pkgs; [ numpy matplotlib ])
-    ++ lib.optional withRootSupport root;
-  propagatedBuildInputs = [ zlib ];
+  nativeBuildInputs = with python.pkgs; [
+    cython
+    makeWrapper
+  ];
+
+  buildInputs = [
+    python
+  ] ++ (with python.pkgs; [
+    numpy
+    matplotlib
+  ]) ++ lib.optionals withRootSupport [
+    root
+  ];
+
+  propagatedBuildInputs = [
+    zlib
+  ];
 
   enableParallelBuilding = true;
 
   postPatch = ''
     touch pyext/yoda/*.{pyx,pxd}
     patchShebangs .
+
+    substituteInPlace pyext/yoda/plotting/script_generator.py \
+      --replace '/usr/bin/env python' '${python.interpreter}'
   '';
 
   postInstall = ''
@@ -40,14 +64,15 @@ stdenv.mkDerivation rec {
   hardeningDisable = [ "format" ];
 
   doInstallCheck = true;
-  installCheckTarget = "check";
-  enableParallelChecking = false; # testreader consumes output of testwriter
 
-  meta = {
+  installCheckTarget = "check";
+
+  meta = with lib; {
     description = "Provides small set of data analysis (specifically histogramming) classes";
-    license = lib.licenses.gpl3;
+    license = licenses.gpl3Only;
     homepage = "https://yoda.hepforge.org";
-    platforms = lib.platforms.unix;
-    maintainers = with lib.maintainers; [ veprbl ];
+    changelog = "https://gitlab.com/hepcedar/yoda/-/blob/yoda-${version}/ChangeLog";
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ veprbl ];
   };
 }

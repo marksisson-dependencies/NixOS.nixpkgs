@@ -5,18 +5,20 @@
 
 buildPythonPackage rec {
   pname = "types-setuptools";
-  version = "57.4.2";
+  version = "67.4.0.3";
   format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1y0vx949wx5w4ra854ykwvgmdcwsb6v7jk29m4x1l79857sa16al";
+    hash = "sha256-GelY39vxxaYo5UwqfuhJNQUa+3J40MHNsIrBlHV+47E=";
   };
 
   # Module doesn't have tests
   doCheck = false;
 
-  pythonImportsCheck = [ "setuptools-stubs" ];
+  pythonImportsCheck = [
+    "setuptools-stubs"
+  ];
 
   meta = with lib; {
     description = "Typing stubs for setuptools";

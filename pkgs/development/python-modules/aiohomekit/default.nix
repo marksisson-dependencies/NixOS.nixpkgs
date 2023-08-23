@@ -1,24 +1,34 @@
 { lib
 , buildPythonPackage
+, aiocoap
+, async-interrupt
+, bleak
+, bleak-retry-connector
+, chacha20poly1305
+, chacha20poly1305-reuseable
 , commentjson
 , cryptography
 , fetchFromGitHub
+, orjson
 , poetry-core
 , pytest-aiohttp
 , pytestCheckHook
+, pythonOlder
 , zeroconf
 }:
 
 buildPythonPackage rec {
   pname = "aiohomekit";
-  version = "0.6.3";
+  version = "2.6.16";
   format = "pyproject";
+
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "Jc2k";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-XBinbhYUB9BuQxxmWfZUw276uNam4DgBpiCAjT7KDlg=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-2QnM5WJ0UyuRyL6NiXz22SLUMvyNfbdNIutJSNjS+G8=";
   };
 
   nativeBuildInputs = [
@@ -26,12 +36,21 @@ buildPythonPackage rec {
   ];
 
   propagatedBuildInputs = [
+    aiocoap
+    async-interrupt
+    bleak
+    bleak-retry-connector
+    chacha20poly1305
+    chacha20poly1305-reuseable
     commentjson
     cryptography
+    orjson
     zeroconf
   ];
 
-  checkInputs = [
+  doCheck = lib.versionAtLeast pytest-aiohttp.version "1.0.0";
+
+  nativeCheckInputs = [
     pytest-aiohttp
     pytestCheckHook
   ];
@@ -41,7 +60,9 @@ buildPythonPackage rec {
     "tests/test_ip_pairing.py"
   ];
 
-  pythonImportsCheck = [ "aiohomekit" ];
+  pythonImportsCheck = [
+    "aiohomekit"
+  ];
 
   meta = with lib; {
     description = "Python module that implements the HomeKit protocol";
@@ -50,6 +71,7 @@ buildPythonPackage rec {
       Homekit accessories.
     '';
     homepage = "https://github.com/Jc2k/aiohomekit";
+    changelog = "https://github.com/Jc2k/aiohomekit/releases/tag/${version}";
     license = with licenses; [ asl20 ];
     maintainers = with maintainers; [ fab ];
   };

@@ -2,30 +2,29 @@
 , buildPythonPackage
 , fetchPypi
 , pythonOlder
-, Mako
+, mako
 , python-dateutil
 , sqlalchemy
 , importlib-metadata
 , importlib-resources
 , pytest-xdist
 , pytestCheckHook
-
 }:
 
 buildPythonPackage rec {
   pname = "alembic";
-  version = "1.7.4";
+  version = "1.9.4";
   format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "9d33f3ff1488c4bfab1e1a6dfebbf085e8a8e1a3e047a43ad29ad1f67f012a1d";
+    hash = "sha256-TTvTLs27e7+0ip/p5tb9aoMaG1nQPibikiECNzc+fbU=";
   };
 
   propagatedBuildInputs = [
-    Mako
+    mako
     python-dateutil
     sqlalchemy
   ] ++ lib.optionals (pythonOlder "3.9") [
@@ -38,13 +37,9 @@ buildPythonPackage rec {
     "alembic"
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-xdist
-  ];
-
-  pytestFlagsArray = [
-    "--numprocesses" "auto"
   ];
 
   meta = with lib; {

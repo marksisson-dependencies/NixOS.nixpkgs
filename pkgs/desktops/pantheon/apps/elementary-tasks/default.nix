@@ -1,9 +1,7 @@
-{ lib, stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
 , nix-update-script
-, pantheon
-, appstream
-, desktop-file-utils
 , meson
 , ninja
 , pkg-config
@@ -11,41 +9,30 @@
 , vala
 , wrapGAppsHook
 , clutter-gtk
-, elementary-icon-theme
 , evolution-data-server
 , granite
 , geoclue2
-, geocode-glib
+, geocode-glib_2
 , gtk3
-, libchamplain
-, libgdata
+, libchamplain_libsoup3
 , libgee
 , libhandy
 , libical
+, libportal-gtk3
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-tasks";
-  version = "6.0.4";
-
-  repoName = "tasks";
+  version = "6.3.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
-    repo = repoName;
+    repo = "tasks";
     rev = version;
-    sha256 = "1gb51gm8qgd8yzhqb7v69p2f1fgm3qf534if4lc85jrjsb8hgmhl";
-  };
-
-  passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-6Vwx+NRVGDqZzN5IVk4cQxGjSkYwrrNhUVoB8TRo28U=";
   };
 
   nativeBuildInputs = [
-    appstream
-    desktop-file-utils
     meson
     ninja
     pkg-config
@@ -56,23 +43,26 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     clutter-gtk
-    elementary-icon-theme
     evolution-data-server
     granite
     geoclue2
-    geocode-glib
+    geocode-glib_2
     gtk3
-    libchamplain
-    libgdata
+    libchamplain_libsoup3
     libgee
     libhandy
     libical
+    libportal-gtk3
   ];
 
   postPatch = ''
     chmod +x meson/post_install.py
     patchShebangs meson/post_install.py
   '';
+
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     homepage = "https://github.com/elementary/tasks";

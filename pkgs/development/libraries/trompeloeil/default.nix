@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec {
   pname = "trompeloeil";
-  version = "41";
+  version = "45";
 
   src = fetchFromGitHub {
     owner = "rollbear";
     repo = "trompeloeil";
     rev = "v${version}";
-    sha256 = "sha256-NsWRN520K4FLp+8W83bXT6pgQEADYFnWiB6gy3MjsWY=";
+    sha256 = "sha256-oCDsvpH9P5onME/t+o7VGttk1cHUpneODz21/0RkVkk=";
   };
 
   nativeBuildInputs = [ cmake ];

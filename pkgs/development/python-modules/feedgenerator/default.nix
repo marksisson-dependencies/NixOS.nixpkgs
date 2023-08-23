@@ -10,13 +10,17 @@
 
 buildPythonPackage rec {
   pname = "feedgenerator";
-  version = "1.9.2";
+  version = "2.1.0";
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-sG1pQej9aiyecXkQeehsvno3iMciRKzAbwWTtJzaN5s=";
+    sha256 = "sha256-8HXyPyj9In8JfDayEhYcbPAS4cbKr3/1PV1rsCzUK50=";
   };
+
+  postPatch = ''
+    sed -i '/cov/d' setup.cfg
+  '';
 
   buildInputs = [
     glibcLocales
@@ -29,7 +33,7 @@ buildPythonPackage rec {
     six
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 

@@ -1,20 +1,23 @@
-{ buildGoModule
+{ lib
+, buildGoModule
 , fetchFromGitHub
-, lib
 }:
 
 buildGoModule rec {
   pname = "dnsx";
-  version = "1.0.6";
+  version = "1.1.4";
 
   src = fetchFromGitHub {
     owner = "projectdiscovery";
     repo = "dnsx";
-    rev = "v${version}";
-    sha256 = "sha256-rAicKytDtdnPwWdxJvBd5UnMGTAI4NHcPUjISlT7kCw=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-FNPAsslKmsLrUtiw+GlXLppsEk/VB02jkZLmrB8zZOI=";
   };
 
-  vendorSha256 = "sha256-8YoYfn2BFUnVwH9FcAgb1p5CV3dJVrWjEMPfivOGvQE=";
+  vendorSha256 = "sha256-QXmy+Ph0lKguAoIWfc41z7XH7jXGc601DD6v292Hzj0=";
+
+  # Tests require network access
+  doCheck = false;
 
   meta = with lib; {
     description = "Fast and multi-purpose DNS toolkit";
@@ -25,6 +28,7 @@ buildGoModule rec {
       resolvers.
     '';
     homepage = "https://github.com/projectdiscovery/dnsx";
+    changelog = "https://github.com/projectdiscovery/dnsx/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

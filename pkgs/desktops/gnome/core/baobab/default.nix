@@ -7,23 +7,22 @@
 , meson
 , ninja
 , pkg-config
-, python3
-, gtk3
-, libhandy
+, gtk4
+, libadwaita
 , glib
 , libxml2
-, wrapGAppsHook
+, wrapGAppsHook4
 , itstool
 , gnome
 }:
 
 stdenv.mkDerivation rec {
   pname = "baobab";
-  version = "41.0";
+  version = "44.0";
 
   src = fetchurl {
     url = "mirror://gnome/sources/${pname}/${lib.versions.major version}/${pname}-${version}.tar.xz";
-    sha256 = "ytYnjS3MgMhLVxBapbtY2KMM6Y1vq9dnUZ3bhshX6FU=";
+    sha256 = "hFtju5Ej10VoyBJsVxu8dCc0g/+SAXmizx7du++hv8A=";
   };
 
   nativeBuildInputs = [
@@ -35,18 +34,17 @@ stdenv.mkDerivation rec {
     meson
     ninja
     pkg-config
-    python3
     vala
-    wrapGAppsHook
-    # Prevents “error: Package `libhandy-1' not found in specified Vala API
+    wrapGAppsHook4
+    # Prevents “error: Package `libadwaita-1' not found in specified Vala API
     # directories or GObject-Introspection GIR directories” with strictDeps,
     # even though it should only be a runtime dependency.
-    libhandy
+    libadwaita
   ];
 
   buildInputs = [
-    gtk3
-    libhandy
+    gtk4
+    libadwaita
     glib
   ];
 
@@ -63,6 +61,6 @@ stdenv.mkDerivation rec {
     homepage = "https://wiki.gnome.org/Apps/DiskUsageAnalyzer";
     license = licenses.gpl2Plus;
     maintainers = teams.gnome.members;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

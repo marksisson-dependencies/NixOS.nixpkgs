@@ -2,14 +2,19 @@
 
 mkDerivation rec {
   pname = "corestuff";
-  version = "4.2.0";
+  version = "4.4.0";
 
   src = fetchFromGitLab {
     owner = "cubocore/coreapps";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-/mmCIHZXn/Jpjr37neI6owWuU1VO6o7wmRj6ZH8tUbo=";
+    sha256 = "sha256-F0kddb622W44MDkZOh4YTyFQ+J/UGGbkcrWXCSDYcek=";
   };
+
+  patches = [
+    # Remove autostart
+    ./0001-fix-installPhase.patch
+  ];
 
   nativeBuildInputs = [
     cmake

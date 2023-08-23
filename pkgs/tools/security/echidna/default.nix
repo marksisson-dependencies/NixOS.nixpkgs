@@ -1,49 +1,60 @@
 { lib
-, fetchpatch
+, mkDerivation
 , fetchFromGitHub
-# Haskell deps
-, mkDerivation, aeson, ansi-terminal, base, base16-bytestring, binary, brick
-, bytestring, cborg, containers, data-dword, data-has, deepseq, directory
-, exceptions, filepath, hashable, hevm, hpack, lens, lens-aeson, megaparsec
-, MonadRandom, mtl, optparse-applicative, process, random, stm, tasty
-, tasty-hunit, tasty-quickcheck, temporary, text, transformers , unix, unliftio
-, unliftio-core, unordered-containers, vector, vector-instances, vty
-, wl-pprint-annotated, word8, yaml , extra, ListLike, semver
+, haskellPackages
+, haskell
+, slither-analyzer
 }:
-mkDerivation rec {
+
+let haskellPackagesOverride = haskellPackages.override {
+      overrides = self: super: {
+        # following the revision specified in echidna/stack.yaml
+        # TODO: 0.51.3 is not in haskellPackages yet
+        hevm = haskell.lib.overrideCabal super.hevm (oa: {
+          version = "0.51.3";
+          src = fetchFromGitHub {
+            owner = "ethereum";
+            repo = "hevm";
+            rev = "release/0.51.3";
+            hash = "sha256-H6oURBGoQWSOuPhBB+UKg2UarVzXgv1tmfDBLnOtdhU=";
+          };
+          libraryHaskellDepends = oa.libraryHaskellDepends
+                                  ++ (with haskellPackages;[githash witch]);
+        });
+      };
+    };
+in mkDerivation rec {
   pname = "echidna";
-  version = "1.7.2";
+  version = "2.2.1";
 
   src = fetchFromGitHub {
     owner = "crytic";
     repo = "echidna";
     rev = "v${version}";
-    sha256 = "sha256-eFhL8Zn8204JRrF69ibPtd7VpFW63i1iVXoGwXHlqps=";
+    sha256 = "sha256-5d9ttPR3rRHywBeLM85EGCEZLNZNZzOAhIN6AJToJyI=";
   };
-
-  patches = [
-    (fetchpatch {
-      name = "update-hevm-to-0.47.0.patch";
-      url = "https://github.com/crytic/echidna/commit/25dfdad93d0e0dd822f22a1c1e63a0ecf2b22a23.patch";
-      sha256 = "sha256-dj3Ie+Z4zE1fgROE/KuWZXaH9knsXJi1ai3gu5zyw/E=";
-    })
-  ];
 
   isLibrary = true;
   isExecutable = true;
-  libraryHaskellDepends = [
-    aeson ansi-terminal base base16-bytestring binary brick bytestring cborg
-    containers data-dword data-has deepseq directory exceptions filepath
-    hashable hevm lens lens-aeson megaparsec MonadRandom mtl
-    optparse-applicative process random stm temporary text transformers unix
-    unliftio unliftio-core unordered-containers vector vector-instances vty
-    wl-pprint-annotated word8 yaml extra ListLike semver
+
+  libraryToolDepends = with haskellPackagesOverride; [
+    haskellPackages.hpack
   ];
-  libraryToolDepends = [ hpack ];
-  executableHaskellDepends = libraryHaskellDepends;
-  testHaskellDepends = [
+
+  # Note: This can be extracted from package.yaml of echidna, the list is shorter because some are transitive.
+  executableHaskellDepends = with haskellPackagesOverride;
+    [aeson base base16-bytestring binary brick bytestring code-page containers data-dword data-has directory exceptions extra
+     filepath hashable hevm html-conduit html-entities http-conduit lens ListLike MonadRandom mtl optics optparse-applicative
+     process random semver text transformers unix unliftio unordered-containers vector vector-instances vty with-utf8
+     xml-conduit yaml];
+
+  # Note: there is also a runtime dependency of slither-analyzer, let's include it also.
+  executableSystemDepends = [ slither-analyzer ];
+
+  testHaskellDepends = with haskellPackagesOverride; [
     tasty tasty-hunit tasty-quickcheck
   ];
+
   preConfigure = ''
     hpack
     # re-enable dynamic build for Linux
@@ -57,6 +68,7 @@ mkDerivation rec {
   description = "Ethereum smart contract fuzzer";
   homepage = "https://github.com/crytic/echidna";
   license = lib.licenses.agpl3Plus;
-  maintainers = with lib.maintainers; [ arturcygan ];
+  maintainers = with lib.maintainers; [ arturcygan hellwolf ];
   platforms = lib.platforms.unix;
+  mainProgram = "echidna-test";
 }

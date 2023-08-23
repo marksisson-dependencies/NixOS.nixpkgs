@@ -10,30 +10,33 @@
 
 buildPythonPackage rec {
   pname = "time-machine";
-  version = "2.4.0";
-  disabled = pythonOlder "3.6";
+  version = "2.11.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "adamchainz";
     repo = pname;
     rev = version;
-    sha256 = "sha256-1k8mGkgJw0MfydJ/Sm8qDvFNaIqoHR1fZkVrXxvc8Zk=";
+    hash = "sha256-4HwHNowif0/YflznQrn8YRITjuiaBCB2mFIO0iCf6tA=";
   };
 
   propagatedBuildInputs = [
     python-dateutil
-  #] ++ lib.optionals (pythonOlder "3.9") [
+  ] ++ lib.optionals (pythonOlder "3.9") [
     backports-zoneinfo
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
   disabledTests = lib.optionals (pythonAtLeast "3.9") [
     # Assertion Errors related to Africa/Addis_Ababa
-    "test_destination_datetime_tzinfo_zoneinfo"
     "test_destination_datetime_tzinfo_zoneinfo_nested"
+    "test_destination_datetime_tzinfo_zoneinfo_no_orig_tz"
+    "test_destination_datetime_tzinfo_zoneinfo"
     "test_move_to_datetime_with_tzinfo_zoneinfo"
   ];
 

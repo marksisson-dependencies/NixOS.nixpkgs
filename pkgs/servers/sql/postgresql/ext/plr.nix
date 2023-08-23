@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec {
   pname = "plr";
-  version = "8.4.4";
+  version = "8.4.6";
 
   src = fetchFromGitHub {
     owner = "postgres-plr";
     repo = "plr";
     rev = "REL${builtins.replaceStrings ["."] ["_"] version}";
-    sha256 = "15dygf8klx2a4kzpmc1qnch629gcaa43ba1p3cqk9r1db4ima24k";
+    sha256 = "sha256-c+wKWL66pulihVQnhdbzivrZOMD1/FfOpb+vFoHgqVg=";
   };
 
   nativeBuildInputs = [ pkg-config ];

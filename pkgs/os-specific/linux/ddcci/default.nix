@@ -1,16 +1,25 @@
-{ lib, stdenv, fetchFromGitLab, kernel }:
+{ lib, stdenv, fetchFromGitLab, kernel, fetchpatch }:
 
 stdenv.mkDerivation rec {
   pname = "ddcci-driver";
-  version = "0.4.1";
+  version = "0.4.3";
   name = "${pname}-${kernel.version}-${version}";
 
   src = fetchFromGitLab {
     owner = "${pname}-linux";
     repo = "${pname}-linux";
     rev = "v${version}";
-    sha256 = "1qhsm0ccwfmwn0r6sbc6ms4lf4a3iqfcgqmbs6afr6hhxkqll3fg";
+    hash = "sha256-1Z6V/AorD4aslLKaaCZpmkD2OiQnmpu3iroOPlNPtLE=";
   };
+
+  patches = [
+    # https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux/-/merge_requests/12
+    (fetchpatch {
+      name = "kernel-6.2-6.3.patch";
+      url = "https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux/-/commit/1ef6079679acc455f75057dd7097b5b494a241dc.patch";
+      hash = "sha256-2C2leS20egGY3J2tq96gsUQXYw13wBJ3ZWrdIXxmEYs=";
+    })
+  ];
 
   hardeningDisable = [ "pic" ];
 
@@ -38,6 +47,6 @@ stdenv.mkDerivation rec {
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ ];
     platforms = platforms.linux;
-    broken = kernel.kernelOlder "5.1" || kernel.kernelAtLeast "5.15";
+    broken = kernel.kernelOlder "5.1";
   };
 }

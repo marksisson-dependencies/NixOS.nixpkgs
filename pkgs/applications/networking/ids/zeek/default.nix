@@ -1,10 +1,13 @@
 { lib
 , stdenv
+, callPackage
 , fetchurl
 , cmake
 , flex
 , bison
+, spicy-parser-generator
 , openssl
+, libkqueue
 , libpcap
 , zlib
 , file
@@ -16,29 +19,71 @@
 , gettext
 , coreutils
 , ncurses
-, caf
 }:
 
+let
+  broker = callPackage ./broker { };
+in
 stdenv.mkDerivation rec {
   pname = "zeek";
-  version = "4.1.1";
+  version = "5.2.2";
 
   src = fetchurl {
     url = "https://download.zeek.org/zeek-${version}.tar.gz";
-    sha256 = "0wq3kjc3zc5ikzwix7k7gr92v75rg6283kx5fzvc3lcdkaczq2lc";
+    sha256 = "sha256-4MJBV8yWpy5LvkyyipOZdDjU6FV7F8INc/zWddRGFcY=";
   };
 
-  nativeBuildInputs = [ cmake flex bison file ];
-  buildInputs = [ openssl libpcap zlib curl libmaxminddb gperftools python3 swig ncurses ]
-    ++ lib.optionals stdenv.isDarwin [ gettext ];
+  strictDeps = true;
 
-  outputs = [ "out" "lib" "py" ];
+  patches = [
+    ./avoid-broken-tests.patch
+    ./debug-runtime-undef-fortify-source.patch
+    ./fix-installation.patch
+  ];
+
+  nativeBuildInputs = [
+    bison
+    cmake
+    file
+    flex
+    python3
+  ];
+
+  buildInputs = [
+    broker
+    spicy-parser-generator
+    curl
+    gperftools
+    libmaxminddb
+    libpcap
+    ncurses
+    openssl
+    swig
+    zlib
+  ] ++ lib.optionals stdenv.isLinux [
+    libkqueue
+  ] ++ lib.optionals stdenv.isDarwin [
+    gettext
+  ];
+
+  postPatch = ''
+    patchShebangs ./auxil/spicy/spicy/scripts
+
+    substituteInPlace auxil/spicy/CMakeLists.txt --replace "hilti-toolchain-tests" ""
+    substituteInPlace auxil/spicy/spicy/hilti/CMakeLists.txt --replace "hilti-toolchain-tests" ""
+  '';
 
   cmakeFlags = [
-    "-DCAF_ROOT=${caf}"
-    "-DZEEK_PYTHON_DIR=${placeholder "py"}/lib/${python3.libPrefix}/site-packages"
+    "-DBroker_ROOT=${broker}"
+    "-DSPICY_ROOT_DIR=${spicy-parser-generator}"
     "-DENABLE_PERFTOOLS=true"
     "-DINSTALL_AUX_TOOLS=true"
+    "-DZEEK_ETC_INSTALL_DIR=/etc/zeek"
+    "-DZEEK_LOG_DIR=/var/log/zeek"
+    "-DZEEK_STATE_DIR=/var/lib/zeek"
+    "-DZEEK_SPOOL_DIR=/var/spool/zeek"
+  ] ++ lib.optionals stdenv.isLinux [
+    "-DLIBKQUEUE_ROOT_DIR=${libkqueue}"
   ];
 
   postInstall = ''
@@ -53,8 +98,12 @@ stdenv.mkDerivation rec {
     done
   '';
 
+  passthru = {
+    inherit broker;
+  };
+
   meta = with lib; {
-    description = "Powerful network analysis framework much different from a typical IDS";
+    description = "Network analysis framework much different from a typical IDS";
     homepage = "https://www.zeek.org";
     changelog = "https://github.com/zeek/zeek/blob/v${version}/CHANGES";
     license = licenses.bsd3;

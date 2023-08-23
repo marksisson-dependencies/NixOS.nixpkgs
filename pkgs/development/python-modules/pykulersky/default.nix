@@ -11,14 +11,16 @@
 
 buildPythonPackage rec {
   pname = "pykulersky";
-  version = "0.5.2";
+  version = "0.5.5";
+  format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "emlove";
     repo = pname;
     rev = version;
-    sha256 = "1fzfixnl28rny7c3wr6gcdpqhyrz7z2aqq6qfwkxnkq2kqdbpmmg";
+    hash = "sha256-coO+WBnv5HT14ym719qr3Plm1JuiaNdAvD1QVPj65oU=";
   };
 
   propagatedBuildInputs = [
@@ -26,13 +28,15 @@ buildPythonPackage rec {
     click
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytest-mock
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "pykulersky" ];
+  pythonImportsCheck = [
+    "pykulersky"
+  ];
 
   meta = with lib; {
     description = "Python module to control Brightech Kuler Sky Bluetooth LED devices";

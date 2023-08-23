@@ -1,41 +1,50 @@
 { lib
 , stdenv
 , fetchFromGitHub
-, pkg-config
-, meson
-, ninja
 , cairo
 , glib
+, libdrm
 , libinput
-, libxml2
-, pango
-, wayland
-, wayland-protocols
-, wlroots
 , libxcb
 , libxkbcommon
-, xwayland
-, libdrm
+, libxml2
+, gettext
+, meson
+, ninja
+, pango
+, pkg-config
 , scdoc
+, wayland-scanner
+, wayland
+, wayland-protocols
+, wlroots_0_16
+, xcbutilwm
+, xwayland
 }:
 
-stdenv.mkDerivation rec {
+let
+  wlroots = wlroots_0_16;
+in
+stdenv.mkDerivation (finalAttrs: {
   pname = "labwc";
-  version = "0.3.0";
+  version = "0.6.4";
 
   src = fetchFromGitHub {
-    owner = "johanmalm";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-v8LGiQG/n1IXeVMPWyiP9MgZzZLW78JftvxnRVTswaM=";
+    owner = "labwc";
+    repo = "labwc";
+    rev = finalAttrs.version;
+    hash = "sha256-8FMC0tq5Gp5qDPUmoJTCrHEergDMUbiTco17jPTJUgE=";
   };
 
   nativeBuildInputs = [
+    gettext
     meson
     ninja
     pkg-config
     scdoc
+    wayland-scanner
   ];
+
   buildInputs = [
     cairo
     glib
@@ -48,16 +57,20 @@ stdenv.mkDerivation rec {
     wayland
     wayland-protocols
     wlroots
+    xcbutilwm
     xwayland
   ];
 
-  mesonFlags = [ "-Dxwayland=enabled" ];
+  mesonFlags = [
+    (lib.mesonEnable "xwayland" true)
+  ];
 
   meta = with lib; {
-    homepage = "https://github.com/johanmalm/labwc";
-    description = "Openbox alternative for Wayland";
+    homepage = "https://github.com/labwc/labwc";
+    description = "A Wayland stacking compositor, similar to Openbox";
+    changelog = "https://raw.githubusercontent.com/labwc/labwc/${finalAttrs.version}/NEWS.md";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ AndersonTorres ];
-    platforms = platforms.unix;
+    inherit (wayland.meta) platforms;
   };
-}
+})

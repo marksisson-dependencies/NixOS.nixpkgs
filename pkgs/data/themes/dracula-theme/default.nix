@@ -1,10 +1,10 @@
-{ lib, stdenv, fetchFromGitHub, gtk-engine-murrine }:
+{ lib, stdenvNoCC, fetchFromGitHub, gtk-engine-murrine }:
 
 let
   themeName = "Dracula";
-  version = "2.0";
+  version = "4.0.0";
 in
-stdenv.mkDerivation {
+stdenvNoCC.mkDerivation {
   pname = "dracula-theme";
   inherit version;
 
@@ -12,7 +12,7 @@ stdenv.mkDerivation {
     owner = "dracula";
     repo = "gtk";
     rev = "v${version}";
-    sha256 = "10j706gnhdplhykdisp64vzzxpzgn48b5f1fkndcp340x7hf2mf3";
+    hash = "sha256-q3/uBd+jPFhiVAllyhqf486Jxa0mnCDSIqcm/jwGtJA=";
   };
 
   propagatedUserEnvPkgs = [
@@ -22,7 +22,7 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/share/themes/${themeName}
-    cp -a {assets,cinnamon,gnome-shell,gtk-2.0,gtk-3.0,gtk-3.20,index.theme,metacity-1,unity,xfwm4} $out/share/themes/${themeName}
+    cp -a {assets,cinnamon,gnome-shell,gtk-2.0,gtk-3.0,gtk-3.20,gtk-4.0,index.theme,metacity-1,unity,xfwm4} $out/share/themes/${themeName}
 
     cp -a kde/{color-schemes,plasma} $out/share/
     cp -a kde/kvantum $out/share/Kvantum
@@ -30,6 +30,11 @@ stdenv.mkDerivation {
     cp -a kde/aurorae/* $out/share/aurorae/themes/
     mkdir -p $out/share/sddm/themes
     cp -a kde/sddm/* $out/share/sddm/themes/
+
+    mkdir -p $out/share/icons/Dracula-cursors
+    mv kde/cursors/Dracula-cursors/index.theme $out/share/icons/Dracula-cursors/cursor.theme
+    mv kde/cursors/Dracula-cursors/cursors $out/share/icons/Dracula-cursors/cursors
+
     runHook postInstall
   '';
 

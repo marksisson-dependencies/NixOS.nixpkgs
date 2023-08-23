@@ -4,19 +4,20 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "waypipe-unstable";
-  version = "0.8.1";
+  pname = "waypipe";
+  version = "0.8.6";
 
   src = fetchFromGitLab {
     domain = "gitlab.freedesktop.org";
     owner = "mstoeckl";
     repo = "waypipe";
     rev = "v${version}";
-    sha256 = "1v08dv3dfz420v51ahz7qgv3429073kmgrf8f66s4c3jlpch2pa1";
+    hash = "sha256-1VLPnP4BmF9Zha0uVsPjA/WbF/oLfZmdDX57SzqrV5A=";
   };
 
+  strictDeps = true;
+  depsBuildBuild = [ pkg-config ];
   nativeBuildInputs = [ meson ninja pkg-config scdoc ];
-
   buildInputs = [
     # Optional dependencies:
     mesa lz4 zstd ffmpeg libva

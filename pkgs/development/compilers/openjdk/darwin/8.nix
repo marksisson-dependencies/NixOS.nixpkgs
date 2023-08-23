@@ -1,39 +1,50 @@
-{ lib, stdenv, fetchurl, unzip, setJavaClassPath }:
+{ lib
+, stdenv
+, fetchurl
+, unzip
+, setJavaClassPath
+, enableJavaFX ? false
+}:
 let
   # Details from https://www.azul.com/downloads/?version=java-8-lts&os=macos&package=jdk
   # Note that the latest build may differ by platform
   dist = {
     x86_64-darwin = {
       arch = "x64";
-      zuluVersion = "8.54.0.21";
-      jdkVersion = "8.0.292";
-      sha256 = "1pgl0bir4r5v349gkxk54k6v62w241q7vw4gjxhv2g6pfq6hv7in";
+      zuluVersion = "8.72.0.17";
+      jdkVersion = "8.0.382";
+      hash =
+        if enableJavaFX then "sha256-/x8FqygivzddXsOwIV8aj/u+LPXMmokgu97vLAVEv80="
+        else "sha256-3dTPIPGUeT6nb3gncNvEa4VTRyQIBJpp8oZadrT2ToE=";
     };
 
     aarch64-darwin = {
       arch = "aarch64";
-      zuluVersion = "8.54.0.21";
-      jdkVersion = "8.0.292";
-      sha256 = "05w89wfjlfbpqfjnv6wisxmaf13qb28b2223f9264jyx30qszw1c";
+      zuluVersion = "8.72.0.17";
+      jdkVersion = "8.0.382";
+      hash =
+        if enableJavaFX then "sha256-FkQ+0MzSZWUzc/HmiDVZEHGOrdKAVCdK5pm9wXXzzaU="
+        else "sha256-rN5AI4xAWppE4kJlzMod0JmGyHdHjTXYtx8/wOW6CFk=";
     };
   }."${stdenv.hostPlatform.system}";
 
   jce-policies = fetchurl {
-    # Ugh, unversioned URLs... I hope this doesn't change often enough to cause pain before we move to a Darwin source build of OpenJDK!
-    url    = "http://cdn.azul.com/zcek/bin/ZuluJCEPolicies.zip";
-    sha256 = "0nk7m0lgcbsvldq2wbfni2pzq8h818523z912i7v8hdcij5s48c0";
+    url = "https://web.archive.org/web/20211126120343/http://cdn.azul.com/zcek/bin/ZuluJCEPolicies.zip";
+    hash = "sha256-gCGii4ysQbRPFCH9IQoKCCL8r4jWLS5wo1sv9iioZ1o=";
   };
+
+  javaPackage = if enableJavaFX then "ca-fx-jdk" else "ca-jdk";
 
   jdk = stdenv.mkDerivation rec {
     # @hlolli: Later version than 1.8.0_202 throws error when building jvmci.
     # dyld: lazy symbol binding failed: Symbol not found: _JVM_BeforeHalt
     # Referenced from: ../libjava.dylib Expected in: .../libjvm.dylib
-    pname = "zulu${dist.zuluVersion}-ca-jdk";
+    pname = "zulu${dist.zuluVersion}-${javaPackage}";
     version = dist.jdkVersion;
 
     src = fetchurl {
-      url = "https://cdn.azul.com/zulu/bin/zulu${dist.zuluVersion}-ca-jdk${dist.jdkVersion}-macosx_${dist.arch}.tar.gz";
-      inherit (dist) sha256;
+      url = "https://cdn.azul.com/zulu/bin/zulu${dist.zuluVersion}-${javaPackage}${dist.jdkVersion}-macosx_${dist.arch}.tar.gz";
+      inherit (dist) hash;
       curlOpts = "-H Referer:https://www.azul.com/downloads/zulu/";
     };
 
@@ -68,11 +79,18 @@ let
       EOF
     '';
 
+    # fixupPhase is moving the man to share/man which breaks it because it's a
+    # relative symlink.
+    postFixup = ''
+      ln -nsf ../zulu-${lib.versions.major version}.jdk/Contents/Home/man $out/share/man
+    '';
+
     passthru = {
       jre = jdk;
       home = jdk;
     };
 
-    meta = import ./meta.nix lib;
+    meta = import ./meta.nix lib version;
   };
-in jdk
+in
+jdk

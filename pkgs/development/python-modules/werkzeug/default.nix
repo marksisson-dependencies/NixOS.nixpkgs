@@ -4,31 +4,37 @@
 , pythonOlder
 , fetchPypi
 , watchdog
-, dataclasses
+, ephemeral-port-reserve
 , pytest-timeout
 , pytest-xprocess
 , pytestCheckHook
+, markupsafe
+# for passthru.tests
+, moto, sentry-sdk
 }:
 
 buildPythonPackage rec {
   pname = "werkzeug";
-  version = "2.0.1";
-  disabled = pythonOlder "3.6";
+  version = "2.2.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     pname = "Werkzeug";
     inherit version;
-    sha256 = "0hlwawnn8c41f254qify5jnjj8xb97n294h09bqimzqhs0qdpq8x";
+    hash = "sha256-LhzMlBfU2jWLnebxdOOsCUOR6h1PvvLWZ4ZdgZ39Cv4=";
   };
 
-  propagatedBuildInputs = lib.optionals (!stdenv.isDarwin) [
+  propagatedBuildInputs = [
+    markupsafe
+  ] ++ lib.optionals (!stdenv.isDarwin) [
     # watchdog requires macos-sdk 10.13+
     watchdog
-  ] ++ lib.optionals (pythonOlder "3.7") [
-    dataclasses
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    ephemeral-port-reserve
     pytest-timeout
     pytest-xprocess
     pytestCheckHook
@@ -38,11 +44,20 @@ buildPythonPackage rec {
     "test_get_machine_id"
   ];
 
+  disabledTestPaths = [
+    # ConnectionRefusedError: [Errno 111] Connection refused
+    "tests/test_serving.py"
+  ];
+
   pytestFlagsArray = [
     # don't run tests that are marked with filterwarnings, they fail with
     # warnings._OptionError: unknown warning category: 'pytest.PytestUnraisableExceptionWarning'
     "-m 'not filterwarnings'"
   ];
+
+  passthru.tests = {
+    inherit moto sentry-sdk;
+  };
 
   meta = with lib; {
     homepage = "https://palletsprojects.com/p/werkzeug/";
@@ -54,5 +69,6 @@ buildPythonPackage rec {
       utility libraries.
     '';
     license = licenses.bsd3;
+    maintainers = with maintainers; [ ];
   };
 }

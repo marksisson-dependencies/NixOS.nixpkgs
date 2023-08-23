@@ -3,28 +3,39 @@
 , rustPlatform
 , fetchFromGitHub
 , pkg-config
-, dbus
-, openssl
 , Foundation
+, dbusSupport ? stdenv.isLinux, dbus
+# rustls will be used for TLS if useOpenSSL=false
+, useOpenSSL ? stdenv.isLinux, openssl
+, notificationSupport ? stdenv.isLinux
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "tiny";
-  version = "0.10.0";
+  version = "0.11.0";
 
   src = fetchFromGitHub {
     owner = "osa1";
     repo = pname;
     rev = "v${version}";
-    sha256 = "177d1x4z0mh0p7c5ldq70cn1j3pac50d8cil2ni50hl49c3x6yy1";
+    hash = "sha256-oOaLQh9gJlurHi9awoRh4wQnXwkuOGJLnGQA6di6k1Q=";
   };
 
-  cargoSha256 = "05q3f1wp48mwkz8n0102rwb6jzrgpx3dlbxzf3zcw8r1mblgzim1";
+  cargoPatches = [ ./Cargo.lock.patch ];
 
-  cargoBuildFlags = lib.optionals stdenv.isLinux [ "--features=desktop-notifications" ];
+  cargoHash = "sha256-wUBScLNRNAdDZ+HpQjYiExgPJnE9cxviooHePbJI13Q=";
 
   nativeBuildInputs = lib.optional stdenv.isLinux pkg-config;
-  buildInputs = lib.optionals stdenv.isLinux [ dbus openssl ] ++ lib.optional stdenv.isDarwin Foundation;
+  buildInputs = lib.optionals dbusSupport [ dbus ]
+                ++ lib.optionals useOpenSSL [ openssl ]
+                ++ lib.optional stdenv.isDarwin Foundation;
+
+  buildFeatures = lib.optional notificationSupport "desktop-notifications";
+
+  checkFlags = [
+    # flaky test
+    "--skip=tests::config::parsing_tab_configs"
+  ];
 
   meta = with lib; {
     description = "A console IRC client";

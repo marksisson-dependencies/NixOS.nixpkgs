@@ -5,8 +5,8 @@ self: super: {
     _: {
       src = pkgs.fetchgit {
         url = "https://github.com/NixOS/nixops.git";
-        rev = "35ac02085169bc2372834d6be6cf4c1bdf820d09";
-        sha256 = "1jh0jrxyywjqhac2dvpj7r7isjv68ynbg7g6f6rj55raxcqc7r3j";
+        rev = "fc9b55c55da62f949028143b974f67fdc7f40c8b";
+        sha256 = "0f5r17rq3rf3ylp16cq50prn8qmfc1gwpqgqfj491w38sr5sspf8";
       };
     }
   );
@@ -15,8 +15,18 @@ self: super: {
     _: {
       src = pkgs.fetchgit {
         url = "https://github.com/NixOS/nixops-aws.git";
-        rev = "44f774272bd522cc7e87074c056f2225f771ded0";
-        sha256 = "0x9pv186nkcfisr1c1nxw8gpazkrg546dfl95140rif0xzw3pizx";
+        rev = "8802d1cda9004ec1362815292c2a8ab95e6d64e8";
+        sha256 = "1rf2dxn4gdm9a91jji4f100y62ap3p3svs6qhxf78319phba6hlb";
+      };
+    }
+  );
+
+  nixops-digitalocean = super.nixops-digitalocean.overridePythonAttrs (
+    _: {
+      src = pkgs.fetchgit {
+        url = "https://github.com/nix-community/nixops-digitalocean.git";
+        rev = "e977b7f11e264a6a2bff2dcbc7b94c6a97b92fff";
+        sha256 = "020fg1kjh3x57dj95micpq6mxjg5j50jy6cs5f10i33ayy3556v8";
       };
     }
   );
@@ -35,8 +45,8 @@ self: super: {
     _: {
       src = pkgs.fetchgit {
         url = "https://github.com/nix-community/nixops-gce.git";
-        rev = "712453027486e62e087b9c91e4a8a171eebb6ddd";
-        sha256 = "0siw2silxvbxdfgb2dcymn11nqdf8an7q43wcq1lyg1ac07w7dwh";
+        rev = "d13cb794aef763338f544010ceb1816fe31d7f42";
+        sha256 = "0i57qhiga4nr0ms9gj615l599vxy78lzw7hap4rbzbhl5bl1yijj";
       };
     }
   );
@@ -51,12 +61,32 @@ self: super: {
     }
   );
 
+  nixops-hetzner = super.nixops-hetzner.overridePythonAttrs (
+    _: {
+      src = pkgs.fetchgit {
+        url = "https://github.com/NixOS/nixops-hetzner";
+        rev = "bc7a68070c7371468bcc8bf6e36baebc6bd2da35";
+        sha256 = "0kmzv5dzh828yh5jwjs5klfslx3lklrqvpvbh29b398m5r9bbqkn";
+      };
+    }
+  );
+
+  nixops-hetznercloud = super.nixops-hetznercloud.overridePythonAttrs (
+    _: {
+      src = pkgs.fetchgit {
+        url = "https://github.com/lukebfox/nixops-hetznercloud.git";
+        rev = "e14f340f7ffe9e2aa7ffbaac0b8a2e3b4cc116b3";
+        sha256 = "0vhapgzhqfk3y8a26ck09g0ilydsbjlx5g77f8bscdqz818lki12";
+      };
+    }
+  );
+
   nixops-virtd = super.nixops-virtd.overridePythonAttrs (
     _: {
       src = pkgs.fetchgit {
         url = "https://github.com/nix-community/nixops-libvirtd.git";
-        rev = "1245280d97e0adc4643d02d1cf62ddd582c73e49";
-        sha256 = "1z3zsx54585rcyabj6hrbwbd1c783rrlfj53np1sa3i7m93vmxzc";
+        rev = "be1ea32e02d8abb3dbe1b09b7c5a7419a7412991";
+        sha256 = "1mklm3lmicvhs0vcib3ss21an45wk24m1mkcwy1zvbpbmvhdz2m4";
       };
     }
   );

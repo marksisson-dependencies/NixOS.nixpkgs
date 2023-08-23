@@ -2,13 +2,13 @@
 
 buildGoModule rec {
   pname = "reproxy";
-  version = "0.9.0";
+  version = "1.0.0";
 
   src = fetchFromGitHub {
     owner = "umputun";
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-z10KfDwIwitiR6ei1xV9//zhH7DLTow1giEYyjh8FIg=";
+    hash = "sha256-ac4fOOMht2WGlrXLN95NEIA8ivqghhVuxHnBumvajx0=";
   };
 
   postPatch = ''
@@ -25,7 +25,7 @@ buildGoModule rec {
       --replace "TestFile_Events_BusyListener" "SkipFile_Events_BusyListener"
   '';
 
-  vendorSha256 = null;
+  vendorHash = null;
 
   ldflags = [
     "-s" "-w" "-X main.revision=${version}"

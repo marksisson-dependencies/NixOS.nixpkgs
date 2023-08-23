@@ -1,19 +1,22 @@
-{ lib, stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
 , python3Packages
+, testers
+, stig
 }:
 
 python3Packages.buildPythonApplication rec {
   pname = "stig";
   # This project has a different concept for pre release / alpha,
   # Read the project's README for details: https://github.com/rndusr/stig#stig
-  version = "0.12.2a0";
+  version = "0.12.5a0";
 
   src = fetchFromGitHub {
     owner = "rndusr";
     repo = "stig";
     rev = "v${version}";
-    sha256 = "0sk4vgj3cn75nyrng2d6q0pj1h968kcmbpr9sv1lj1g8fc7g0n4f";
+    sha256 = "sha256-e27DBzing38llFxPIsMGkZJXp2q7jjFlQdtfsqLXNHw=";
   };
 
   propagatedBuildInputs = with python3Packages; [
@@ -27,7 +30,7 @@ python3Packages.buildPythonApplication rec {
     setproctitle
   ];
 
-  checkInputs = with python3Packages; [
+  nativeCheckInputs = with python3Packages; [
     asynctest
     pytestCheckHook
   ];
@@ -40,14 +43,21 @@ python3Packages.buildPythonApplication rec {
 
   pytestFlagsArray = [
     "tests"
-    # test_string__month_day_hour_minute_second fails on darwin
-    "--deselect=tests/client_test/ttypes_test.py::TestTimestamp::test_string__month_day_hour_minute_second"
     # TestScrollBarWithScrollable.test_wrapping_bug fails
     "--deselect=tests/tui_test/scroll_test.py::TestScrollBarWithScrollable::test_wrapping_bug"
+    # https://github.com/rndusr/stig/issues/214
+    "--deselect=tests/completion_test/classes_test.py::TestCandidates::test_candidates_are_sorted_case_insensitively"
   ] ++ lib.optionals stdenv.isDarwin [
+    "--deselect=tests/client_test/ttypes_test.py::TestTimestamp::test_string__month_day_hour_minute_second"
     "--deselect=tests/client_test/aiotransmission_test/api_torrent_test.py"
     "--deselect=tests/client_test/aiotransmission_test/rpc_test.py"
   ];
+
+  passthru.tests = testers.testVersion {
+    package = stig;
+    command = "stig -v";
+    version = "stig version ${version}";
+  };
 
   meta = with lib; {
     description = "TUI and CLI for the BitTorrent client Transmission";

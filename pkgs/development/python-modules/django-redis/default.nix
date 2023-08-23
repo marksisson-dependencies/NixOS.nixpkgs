@@ -1,15 +1,29 @@
 { lib
 , fetchFromGitHub
+, pythonAtLeast
 , pythonOlder
 , buildPythonPackage
+
+# propagated
 , django
+, hiredis
+, lz4
+, msgpack
 , redis
+
+# testing
+, pkgs
+, pytest-django
+, pytest-mock
 , pytestCheckHook
 }:
 
-buildPythonPackage rec {
+let
   pname = "django-redis";
-  version = "5.0.0";
+  version = "5.2.0";
+in
+buildPythonPackage {
+  inherit pname version;
   format = "setuptools";
   disabled = pythonOlder "3.6";
 
@@ -17,7 +31,7 @@ buildPythonPackage rec {
     owner = "jazzband";
     repo = "django-redis";
     rev = version;
-    sha256 = "1np10hfyg4aamlz7vav9fy80gynb1lhl2drqkbckr3gg1gbz6crj";
+    hash = "sha256-e8wCgfxBT+WKFY4H83CTMirTpQym3QAoeWnXbRCDO90=";
   };
 
   postPatch = ''
@@ -26,6 +40,9 @@ buildPythonPackage rec {
 
   propagatedBuildInputs = [
     django
+    hiredis
+    lz4
+    msgpack
     redis
   ];
 
@@ -33,12 +50,38 @@ buildPythonPackage rec {
     "django_redis"
   ];
 
-  checkInputs = [
+  DJANGO_SETTINGS_MODULE = "tests.settings.sqlite";
+
+  preCheck = ''
+    ${pkgs.redis}/bin/redis-server &
+    REDIS_PID=$!
+  '';
+
+  postCheck = ''
+    kill $REDIS_PID
+  '';
+
+  nativeCheckInputs = [
+    pytest-django
+    pytest-mock
     pytestCheckHook
   ];
 
-  disabledTestPaths = [
-    "tests/test_backend.py"  # django.core.exceptions.ImproperlyConfigured: Requested setting DJANGO_REDIS_SCAN_ITERSIZE, but settings are not configured.
+  pytestFlagsArray = lib.optionals (pythonAtLeast "3.11") [
+    # DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13
+    "-W" "ignore::DeprecationWarning"
+  ];
+
+  disabledTests = [
+    # ModuleNotFoundError: No module named 'test_cache_options'
+    "test_custom_key_function"
+    # ModuleNotFoundError: No module named 'test_client'
+    "test_delete_pattern_calls_get_client_given_no_client"
+    "test_delete_pattern_calls_make_pattern"
+    "test_delete_pattern_calls_scan_iter_with_count_if_itersize_given"
+    "test_delete_pattern_calls_scan_iter_with_count_if_itersize_given"
+    "test_delete_pattern_calls_scan_iter"
+    "test_delete_pattern_calls_delete_for_given_keys"
   ];
 
   meta = with lib; {

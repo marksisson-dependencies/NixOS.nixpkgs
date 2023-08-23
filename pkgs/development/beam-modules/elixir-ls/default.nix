@@ -1,27 +1,30 @@
-{ lib, elixir, fetchFromGitHub, fetchMixDeps, mixRelease }:
+{ lib, elixir, fetchFromGitHub, fetchMixDeps, mixRelease, nix-update-script }:
 # Based on the work of Hauleth
 # None of this would have happened without him
 
-mixRelease rec {
+let
   pname = "elixir-ls";
-  version = "0.8.1";
-  inherit elixir;
-
+  version = "0.15.1";
   src = fetchFromGitHub {
     owner = "elixir-lsp";
     repo = "elixir-ls";
     rev = "v${version}";
-    sha256 = "sha256-KlZq12RCor9GrwA8QMP3R+jUQ/xFHRjkLwwkvthiMU0=";
+    hash = "sha256-bWR5wKOVE9qPQyFjiaBumsWwG7vv9pFCVvXO4N8a3HA=";
     fetchSubmodules = true;
   };
+in
+mixRelease  {
+  inherit pname version src elixir;
+
+  stripDebug = true;
 
   mixFodDeps = fetchMixDeps {
     pname = "mix-deps-${pname}";
     inherit src version elixir;
-    sha256 = "sha256-OzjToAg+q/ybCyqzNFk28OBsItjFTbdPi416EPh2qX0=";
+    hash = "sha256-7AE6RUD7DLo5uTxPMiUDm9MIBYcrNatrIuILK9jinNk=";
   };
 
-  # elixir_ls is an umbrella app
+  # elixir-ls is an umbrella app
   # override configurePhase to not skip umbrella children
   configurePhase = ''
     runHook preConfigure
@@ -29,7 +32,7 @@ mixRelease rec {
     runHook postConfigure
   '';
 
-  # elixir_ls require a special step for release
+  # elixir-ls require a special step for release
   # compile and release need to be performed together because
   # of the no-deps-check requirement
   buildPhase = ''
@@ -69,5 +72,5 @@ mixRelease rec {
     platforms = platforms.unix;
     maintainers = teams.beam.members;
   };
-  passthru.updateScript = ./update.sh;
+  passthru.updateScript = nix-update-script { };
 }

@@ -2,12 +2,12 @@
 
 buildPythonPackage rec {
   pname = "pyqt-builder";
-  version = "1.10.1";
+  version = "1.14.1";
 
   src = fetchPypi {
     pname = "PyQt-builder";
     inherit version;
-    sha256 = "05vyckg4pq95s3b23drhd24sjwzic1k36nwckxz5jc83mixhqywn";
+    hash = "sha256-g7w+MAr/i0FAWAS2qcKRM4mrWcSK2fDLhYSm73O8pQI=";
   };
 
   propagatedBuildInputs = [ packaging sip ];
@@ -21,6 +21,6 @@ buildPythonPackage rec {
     description = "PEP 517 compliant build system for PyQt";
     homepage = "https://pypi.org/project/PyQt-builder/";
     license = licenses.gpl3Only;
-    maintainers = with maintainers; [ ];
+    maintainers = with maintainers; [ nrdxp ];
   };
 }

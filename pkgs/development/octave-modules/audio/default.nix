@@ -9,11 +9,11 @@
 
 buildOctavePackage rec {
   pname = "audio";
-  version = "2.0.2";
+  version = "2.0.5";
 
   src = fetchurl {
     url = "mirror://sourceforge/octave/${pname}-${version}.tar.gz";
-    sha256 = "18lyvwmdy4b9pcv5sm7g17n3is32q23daw8fcsalkf4rj6cc6qdk";
+    sha256 = "sha256-/4akeeOQnvTlk9ah+e8RJfwJG2Eq2HAGOCejhiIUjF4=";
   };
 
   nativeBuildInputs = [

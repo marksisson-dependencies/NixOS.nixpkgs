@@ -1,8 +1,8 @@
 { buildPythonPackage
+, build
 , git
 , gnupg
 , pbr
-, mock
 , sphinx
 , stestr
 , testresources
@@ -10,11 +10,10 @@
 , virtualenv
 }:
 
-buildPythonPackage rec {
+buildPythonPackage {
   pname = "pbr";
-  inherit (pbr) version;
-
-  src = pbr.src;
+  inherit (pbr) version src;
+  format = "other";
 
   postPatch = ''
     # only a small portion of the listed packages are actually needed for running the tests
@@ -24,12 +23,15 @@ buildPythonPackage rec {
 
   dontBuild = true;
   dontInstall = true;
+  preConfigure = ''
+    pythonOutputDistPhase() { touch $dist; }
+  '';
 
-  checkInputs = [
+  nativeCheckInputs = [
     pbr
+    build
     git
     gnupg
-    mock
     sphinx
     stestr
     testresources

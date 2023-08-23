@@ -25,21 +25,34 @@
 
 stdenv.mkDerivation rec {
   pname = "foxotron";
-  version = "2021-08-13";
+  version = "2023-07-16";
 
   src = fetchFromGitHub {
     owner = "Gargaj";
     repo = "Foxotron";
     rev = version;
     fetchSubmodules = true;
-    sha256 = "sha256-0cnLHTZMeh8ilP0iXaMpFgKQAkizy/FimxXFDbH0b2w=";
+    sha256 = "sha256-s1eWZMVitVSP7nJJ5wXvnV8uI6yto7LmvlvocOwVAxw=";
   };
+
+  postPatch = ''
+    substituteInPlace CMakeLists.txt \
+      --replace "set(CMAKE_OSX_ARCHITECTURES x86_64)" ""
+  '';
 
   nativeBuildInputs = [ cmake pkg-config makeWrapper ];
 
   buildInputs = [ zlib ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [ libX11 libXrandr libXinerama libXcursor libXi libXext alsa-lib fontconfig libGLU ]
     ++ lib.optionals stdenv.hostPlatform.isDarwin [ AVFoundation Carbon Cocoa CoreAudio Kernel OpenGL ];
+
+  env.NIX_CFLAGS_COMPILE = toString [
+    # Needed with GCC 12
+    "-Wno-error=array-bounds"
+  ];
+
+  # error: writing 1 byte into a region of size 0
+  hardeningDisable = [ "fortify3" ];
 
   installPhase = ''
     runHook preInstall
@@ -48,16 +61,14 @@ stdenv.mkDerivation rec {
     cp -R ${lib.optionalString stdenv.hostPlatform.isDarwin "Foxotron.app/Contents/MacOS/"}Foxotron \
       ../{config.json,Shaders,Skyboxes} $out/lib/foxotron/
     wrapProgram $out/lib/foxotron/Foxotron \
-      --run "cd $out/lib/foxotron"
+      --chdir "$out/lib/foxotron"
     ln -s $out/{lib/foxotron,bin}/Foxotron
 
     runHook postInstall
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = pname;
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

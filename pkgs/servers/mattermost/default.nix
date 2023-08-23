@@ -1,58 +1,66 @@
-{ lib, stdenv, fetchurl, fetchFromGitHub, buildGoModule, buildEnv }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, fetchpatch
+, fetchurl
+, nixosTests
+}:
 
-let
-  version = "5.37.2";
+buildGoModule rec {
+  pname = "mattermost";
+  version = "7.10.3";
 
-  mattermost-server = buildGoModule rec {
-    pname = "mattermost-server";
-    inherit version;
-
-    src = fetchFromGitHub {
-      owner = "mattermost";
-      repo = pname;
-      rev = "v${version}";
-      sha256 = "sha256-kO5wSj/ApPhS2k9a9VjS3Qk55azNZeiFmevAxSkdGe0=";
-    };
-
-    vendorSha256 = null;
-    doCheck = false;
-
-    ldflags = [
-      "-s" "-w" "-X github.com/mattermost/mattermost-server/v${lib.versions.major version}/model.BuildNumber=${version}"
-    ];
-
+  src = fetchFromGitHub {
+    owner = "mattermost";
+    repo = "mattermost";
+    rev = "v${version}";
+    hash = "sha256-nzQUkcCFEZYvqMLRv1d81pfoz/MDYjWetGLtFXf8H/Q=";
   };
 
-  mattermost-webapp = stdenv.mkDerivation {
-    pname = "mattermost-webapp";
-    inherit version;
-
-    src = fetchurl {
-      url = "https://releases.mattermost.com/${version}/mattermost-${version}-linux-amd64.tar.gz";
-      sha256 = "sha256-BzQVkOPo/f6O2ncQ0taS3cZkglOL+D+zBcfNYrpMgTM=";
-    };
-
-    installPhase = ''
-      mkdir -p $out
-      tar --strip 1 --directory $out -xf $src \
-        mattermost/client \
-        mattermost/i18n \
-        mattermost/fonts \
-        mattermost/templates \
-        mattermost/config
-    '';
+  webapp = fetchurl {
+    url = "https://releases.mattermost.com/${version}/mattermost-${version}-linux-amd64.tar.gz";
+    hash = "sha256-oD67sTyTvB0DVcw3e6x79Y4K8xlX75YreRwnc9olTy4=";
   };
 
-in
-  buildEnv {
-    name = "mattermost-${version}";
-    paths = [ mattermost-server mattermost-webapp ];
+  vendorHash = "sha256-7YxbBmkKeb20a3BNllB3RtvjAJLZzoC2OBK4l1Ud1bw=";
 
-    meta = with lib; {
-      description = "Open-source, self-hosted Slack-alternative";
-      homepage = "https://www.mattermost.org";
-      license = with licenses; [ agpl3 asl20 ];
-      maintainers = with maintainers; [ fpletz ryantm ];
-      platforms = platforms.unix;
-    };
-  }
+  patches = [
+    (fetchpatch {
+      # Current version was set to 7.10.4 in the v7.10.3 tag, reverting it so `mattermost version` exposes the correct version
+      # and to make smoke tests happy
+      url = "https://github.com/mattermost/mattermost/commit/fbdadeacc85ae47145f69ffb766d4105aede69d5.patch";
+      hash = "sha256-9BNEc5VefRuPKb3/rQNiekNbAIBRsjAtdCKUVrh9BuY=";
+      revert = true;
+    })
+  ];
+
+  subPackages = [ "cmd/mattermost" ];
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X github.com/mattermost/mattermost-server/v6/model.Version=${version}"
+    "-X github.com/mattermost/mattermost-server/v6/model.BuildNumber=${version}-nixpkgs"
+    "-X github.com/mattermost/mattermost-server/v6/model.BuildDate=1970-01-01"
+    "-X github.com/mattermost/mattermost-server/v6/model.BuildHash=v${version}"
+    "-X github.com/mattermost/mattermost-server/v6/model.BuildHashEnterprise=v${version}"
+    "-X github.com/mattermost/mattermost-server/v6/model.BuildEnterpriseReady=false"
+  ];
+
+  postInstall = ''
+    tar --strip 1 --directory $out -xf $webapp \
+      mattermost/{client,i18n,fonts,templates,config}
+
+    # For some reason a bunch of these files are executable
+    find $out/{client,i18n,fonts,templates,config} -type f -exec chmod -x {} \;
+  '';
+
+  passthru.tests.mattermost = nixosTests.mattermost;
+
+  meta = with lib; {
+    description = "Mattermost is an open source platform for secure collaboration across the entire software development lifecycle";
+    homepage = "https://www.mattermost.org";
+    license = with licenses; [ agpl3 asl20 ];
+    maintainers = with maintainers; [ ryantm numinit kranzes ];
+  };
+}

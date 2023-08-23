@@ -13,13 +13,13 @@
 
 stdenv.mkDerivation rec {
   pname = "ksnip";
-  version = "1.9.1";
+  version = "1.10.1";
 
   src = fetchFromGitHub {
     owner = "ksnip";
     repo = "ksnip";
     rev = "v${version}";
-    sha256 = "1izsk586n9fbm0di0hj6pxs7r0a6w554gpad1ghf247icr0pfc1l";
+    sha256 = "sha256-n7YwDXd73hyrzb6L8utZFuHh9HnjVtkU6CC4jfWPj/I=";
   };
 
   nativeBuildInputs = [
@@ -38,7 +38,7 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     homepage = "https://github.com/ksnip/ksnip";
-    description = "Cross-platform screenshot tool wihth many annotation features";
+    description = "Cross-platform screenshot tool with many annotation features";
     longDescription = ''
       Features:
 

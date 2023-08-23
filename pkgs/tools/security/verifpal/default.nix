@@ -6,15 +6,15 @@
 
 buildGoModule rec {
   pname = "verifpal";
-  version = "0.26.0";
+  version = "0.27.0";
 
   src = fetchgit {
     url = "https://source.symbolic.software/verifpal/verifpal.git";
     rev = "v${version}";
-    sha256 = "1ag1fpgk4xa5041y6a0pchmh32j876bl0iqjb7lxxqg5nc76d3v1";
+    hash = "sha256-rihY5p6nJ1PKjI+gn3NNXy+uzeBG2UNyRYy3UjScf2Q=";
   };
 
-  vendorSha256 = "XHeXonzRDHXayge5G3apvDarbOfTiV+UQ+IqSbrLkCk=";
+  vendorHash = "sha256-XOCRwh2nEIC+GjGwqd7nhGWQD7vBMLEZZ2FNxs0NX+E=";
 
   nativeBuildInputs = [ pigeon ];
 
@@ -31,6 +31,5 @@ buildGoModule rec {
     description = "Cryptographic protocol analysis for students and engineers";
     maintainers = with lib.maintainers; [ zimbatm ];
     license = with lib.licenses; [ gpl3 ];
-    platforms = [ "x86_64-linux" ];
   };
 }

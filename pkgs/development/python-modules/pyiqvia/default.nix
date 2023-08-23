@@ -4,6 +4,7 @@
 , aresponses
 , backoff
 , fetchFromGitHub
+, fetchpatch
 , poetry-core
 , pytest-aiohttp
 , pytest-asyncio
@@ -13,7 +14,7 @@
 
 buildPythonPackage rec {
   pname = "pyiqvia";
-  version = "2021.10.0";
+  version = "2022.10.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.8";
@@ -21,9 +22,23 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "bachya";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-FCavSy33fkXlboRAmGr0BkEkXLTOzsyGXQkws0LqiJk=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-4xoK/SwpcsjIpGUertWoSlRsKIpgpV1XmuIzDJcZMZg=";
   };
+
+  patches = [
+    # This patch removes references to setuptools and wheel that are no longer
+    # necessary and changes poetry to poetry-core, so that we don't need to add
+    # unnecessary nativeBuildInputs.
+    #
+    #   https://github.com/bachya/pyiqvia/pull/245
+    #
+    (fetchpatch {
+      name = "clean-up-build-dependencies.patch";
+      url = "https://github.com/bachya/pyiqvia/commit/760d5bd1f4d60f3a97f6ea9a9a57860f4be3abdd.patch";
+      hash = "sha256-RLRbHmaR2A8MNc96WHx0L8ccyygoBUaOulAuRJkFuUM=";
+    })
+  ];
 
   nativeBuildInputs = [
     poetry-core
@@ -34,7 +49,9 @@ buildPythonPackage rec {
     backoff
   ];
 
-  checkInputs = [
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
     aresponses
     pytest-aiohttp
     pytest-asyncio
@@ -51,7 +68,7 @@ buildPythonPackage rec {
   ];
 
   meta = with lib; {
-    description = "Python3 API for IQVIA data";
+    description = "Module for working with IQVIA data";
     longDescription = ''
       pyiqvia is an async-focused Python library for allergen, asthma, and
       disease data from the IQVIA family of websites (such as https://pollen.com,

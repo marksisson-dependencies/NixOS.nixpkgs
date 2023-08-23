@@ -2,14 +2,9 @@
 , stdenv
 , nix-update-script
 , appstream
-, appstream-glib
 , dbus
-, desktop-file-utils
-, elementary-gtk-theme
-, elementary-icon-theme
 , fetchFromGitHub
 , flatpak
-, gettext
 , glib
 , granite
 , gtk3
@@ -20,8 +15,6 @@
 , libxml2
 , meson
 , ninja
-, packagekit
-, pantheon
 , pkg-config
 , python3
 , vala
@@ -31,26 +24,17 @@
 
 stdenv.mkDerivation rec {
   pname = "appcenter";
-  version = "3.8.2";
+  version = "7.3.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "sha256-NHKP1vzb8qu+EkUWDvLWLl4U4pW9ZxbE7YFI6Vwesfg=";
-  };
-
-  passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-Lj3j812XaCIN+TFSDAvIgtl49n5jG4fVlAFvrWqngpM=";
   };
 
   nativeBuildInputs = [
-    appstream-glib
     dbus # for pkg-config
-    desktop-file-utils
-    gettext
     meson
     ninja
     pkg-config
@@ -61,8 +45,6 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     appstream
-    elementary-gtk-theme
-    elementary-icon-theme
     flatpak
     glib
     granite
@@ -72,11 +54,13 @@ stdenv.mkDerivation rec {
     libhandy
     libsoup
     libxml2
-    packagekit
     polkit
   ];
 
   mesonFlags = [
+    # We don't have a working nix packagekit backend yet.
+    "-Dpackagekit_backend=false"
+    "-Dubuntu_drivers_backend=false"
     "-Dpayments=false"
     "-Dcurated=false"
   ];
@@ -85,6 +69,10 @@ stdenv.mkDerivation rec {
     chmod +x meson/post_install.py
     patchShebangs meson/post_install.py
   '';
+
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     homepage = "https://github.com/elementary/appcenter";

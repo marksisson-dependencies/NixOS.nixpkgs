@@ -9,10 +9,10 @@ let
   testsForLinuxPackages = linuxPackages: (import ./make-test-python.nix ({ pkgs, ... }: {
     name = "kernel-${linuxPackages.kernel.version}";
     meta = with pkgs.lib.maintainers; {
-      maintainers = [ nequissimus atemu ];
+      maintainers = [ nequissimus atemu ma27 ];
     };
 
-    machine = { ... }:
+    nodes.machine = { ... }:
       {
         boot.kernelPackages = linuxPackages;
       };
@@ -30,12 +30,21 @@ let
       linux_5_4_hardened
       linux_5_10_hardened
       linux_5_15_hardened
+      linux_6_1_hardened
+      linux_6_4_hardened
+      linux_rt_5_4
+      linux_rt_5_10
+      linux_rt_5_15
+      linux_rt_6_1
+      linux_libre
 
       linux_testing;
   };
 
 in mapAttrs (_: lP: testsForLinuxPackages lP) kernels // {
-  inherit testsForLinuxPackages;
+  passthru = {
+    inherit testsForLinuxPackages;
 
-  testsForKernel = kernel: testsForLinuxPackages (pkgs.linuxPackagesFor kernel);
+    testsForKernel = kernel: testsForLinuxPackages (pkgs.linuxPackagesFor kernel);
+  };
 }

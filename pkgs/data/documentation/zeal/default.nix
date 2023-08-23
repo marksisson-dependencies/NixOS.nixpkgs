@@ -1,16 +1,33 @@
-{ lib, fetchFromGitHub, cmake, extra-cmake-modules, pkg-config
-, qtbase, qtimageformats, qtwebengine, qtx11extras, mkDerivation
-, libarchive, libXdmcp, libpthreadstubs, xcbutilkeysyms  }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, extra-cmake-modules
+, pkg-config
+, qtbase
+, qtimageformats
+, qtwebengine
+, qtx11extras ? null # qt5 only
+, libarchive
+, libXdmcp
+, libpthreadstubs
+, wrapQtAppsHook
+, xcbutilkeysyms
+}:
 
-mkDerivation rec {
+let
+  isQt5 = lib.versions.major qtbase.version == "5";
+
+in
+stdenv.mkDerivation rec {
   pname = "zeal";
-  version = "0.6.999";
+  version = "0.6.1.20230320";
 
   src = fetchFromGitHub {
     owner = "zealdocs";
     repo = "zeal";
-    rev = "1ce0e2e446232e7647c5588c1f603f1dd88e0f67";
-    sha256 = "0gj5qcm7ck8m5zfmiabay2f7wbxldmrkw8m3xi7v9i8y8hx0jkxr";
+    rev = "a617ae5e06b95cec99bae058650e55b98613916d";
+    hash = "sha256-WL2uqA0sZ5Q3lZIA9vkLVyfec/jBkfGcWb6XQ7AuM94=";
   };
 
   # we only need this if we are using a version that hasn't been released. We
@@ -20,15 +37,22 @@ mkDerivation rec {
   postPatch = ''
     sed -i CMakeLists.txt \
       -e 's@^project.*@project(Zeal VERSION ${version})@'
+  '' + lib.optionalString (!isQt5) ''
+    substituteInPlace src/app/CMakeLists.txt \
+      --replace "COMPONENTS Widgets" "COMPONENTS Widgets QmlIntegration"
   '';
 
-  nativeBuildInputs = [ cmake extra-cmake-modules pkg-config ];
+  nativeBuildInputs = [ cmake extra-cmake-modules pkg-config wrapQtAppsHook ];
 
   buildInputs = [
-    qtbase qtimageformats qtwebengine qtx11extras
+    qtbase
+    qtimageformats
+    qtwebengine
     libarchive
-    libXdmcp libpthreadstubs xcbutilkeysyms
-  ];
+    libXdmcp
+    libpthreadstubs
+    xcbutilkeysyms
+  ] ++ lib.optionals isQt5 [ qtx11extras ];
 
   meta = with lib; {
     description = "A simple offline API documentation browser";

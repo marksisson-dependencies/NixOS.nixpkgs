@@ -6,7 +6,7 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-O2EeOTZgv6poNcaOlHhLroD+B7hJCXi17KsDoNL8fqI=";
+    hash = "sha256-O2EeOTZgv6poNcaOlHhLroD+B7hJCXi17KsDoNL8fqI=";
   };
 
   nativeBuildInputs = [ setuptools-scm ];
@@ -14,8 +14,13 @@ buildPythonPackage rec {
   doCheck = false;
 
   meta = with lib; {
-    description = "Dictionary wrapper for quick access to deeply nested keys";
     homepage = "https://github.com/pawelzny/dotty_dict";
+    description = "Dictionary wrapper for quick access to deeply nested keys";
+    longDescription = ''
+      This is a version of dotty-dict by QMK (https://qmk.fm) since the original
+      dotty-dict published to pypi has non-ASCII characters that breaks with
+      some non-UTF8 locale settings.
+    '';
     license = licenses.mit;
     maintainers = with maintainers; [ babariviere ];
   };

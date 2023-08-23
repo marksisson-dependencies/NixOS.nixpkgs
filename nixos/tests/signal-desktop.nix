@@ -16,7 +16,7 @@ in {
     maintainers = [ flokli primeos ];
   };
 
-  machine = { ... }:
+  nodes.machine = { ... }:
 
   {
     imports = [
@@ -29,7 +29,6 @@ in {
     environment.systemPackages = with pkgs; [
       signal-desktop file sqlite sqlcipher-signal
     ];
-    virtualisation.memorySize = 1024;
   };
 
   enableOCR = true;
@@ -44,7 +43,7 @@ in {
     machine.execute("su - alice -c signal-desktop >&2 &")
 
     # Wait for the Signal window to appear. Since usually the tests
-    # are run sandboxed and therfore with no internet, we can not wait
+    # are run sandboxed and therefore with no internet, we can not wait
     # for the message "Link your phone ...". Nor should we wait for
     # the "Failed to connect to server" message, because when manually
     # running this test it will be not sandboxed.
@@ -61,7 +60,7 @@ in {
     )
     # Only SQLCipher should be able to read the encrypted DB:
     machine.fail(
-        "su - alice -c 'sqlite3 ~/.config/Signal/sql/db.sqlite .databases'"
+        "su - alice -c 'sqlite3 ~/.config/Signal/sql/db.sqlite .tables'"
     )
     print(machine.succeed(
         "su - alice -c 'sqlcipher ~/.config/Signal/sql/db.sqlite'"

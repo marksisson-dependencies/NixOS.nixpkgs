@@ -5,20 +5,28 @@
 , coreutils
 , pythonOlder
 , astunparse
+, flit-core
 , jq
 , bc
 }:
 
 buildPythonPackage rec {
   pname = "pyp";
-  version = "0.3.4";
+  version = "1.1.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "hauntsaninja";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-K9dGmvy4siurmhqwNfg1dT0TWc6tCSaxfPyaJkYM2Vw=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-A1Ip41kxH17BakHEWEuymfa24eBEl5FIHAWL+iZFM4I=";
   };
+
+  nativeBuildInputs = [
+    flit-core
+  ];
 
   propagatedBuildInputs = lib.optionals (pythonOlder "3.9") [
     astunparse
@@ -27,15 +35,20 @@ buildPythonPackage rec {
   preCheck = ''
     export PATH=$out/bin:$PATH
   '';
-  checkInputs = [
+
+  nativeCheckInputs = [
     pytestCheckHook
     coreutils
     jq
     bc
   ];
 
+  pythonImportsCheck = [
+    "pyp"
+  ];
+
   meta = with lib; {
-    description = "Easily run Python at the shell! Magical, but never mysterious.";
+    description = "Easily run Python at the shell! Magical, but never mysterious";
     homepage = "https://github.com/hauntsaninja/pyp";
     license = licenses.mit;
     maintainers = with maintainers; [ rmcgibbo ];

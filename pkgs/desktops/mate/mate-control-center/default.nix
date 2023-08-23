@@ -1,16 +1,33 @@
-{ lib, stdenv, fetchurl, pkg-config, gettext, itstool, libxml2, dbus-glib
-, libxklavier, libcanberra-gtk3, librsvg, libappindicator-gtk3
-, desktop-file-utils, dconf, gtk3, polkit, mate, hicolor-icon-theme, wrapGAppsHook
+{ lib
+, stdenv
+, fetchurl
+, pkg-config
+, gettext
+, itstool
+, libxml2
+, dbus-glib
+, libxklavier
+, libcanberra-gtk3
+, librsvg
+, libappindicator-gtk3
+, glib
+, desktop-file-utils
+, dconf
+, gtk3
+, polkit
+, mate
+, hicolor-icon-theme
+, wrapGAppsHook
 , mateUpdateScript
 }:
 
 stdenv.mkDerivation rec {
   pname = "mate-control-center";
-  version = "1.26.0";
+  version = "1.26.1";
 
   src = fetchurl {
     url = "https://pub.mate-desktop.org/releases/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "0jhkn0vaz8glji4j5ar6im8l2wf40kssl07gfkz40rcgfzm18rr8";
+    sha256 = "4F9JKjtleqVvxY989xvIyA344lNR/eTbT1I6uNtbVgg=";
   };
 
   nativeBuildInputs = [
@@ -45,12 +62,14 @@ stdenv.mkDerivation rec {
     gappsWrapperArgs+=(
       # WM keyboard shortcuts
       --prefix XDG_DATA_DIRS : "${mate.marco}/share"
+      # Desktop font, works only when passed after gtk3 schemas in the wrapper for some reason
+      --prefix XDG_DATA_DIRS : "${glib.getSchemaDataDirPath mate.caja}"
     )
   '';
 
   enableParallelBuilding = true;
 
-  passthru.updateScript = mateUpdateScript { inherit pname version; };
+  passthru.updateScript = mateUpdateScript { inherit pname; };
 
   meta = with lib; {
     description = "Utilities to configure the MATE desktop";

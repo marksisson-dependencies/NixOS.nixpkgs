@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   pname = "tboot";
-  version = "1.10.2";
+  version = "1.11.1";
 
   src = fetchurl {
     url = "mirror://sourceforge/tboot/${pname}-${version}.tar.gz";
-    sha256 = "sha256-Lheco7ULg87lbC8qXkCWwG3R8jiPdQgznDkPBPy6sRE=";
+    sha256 = "sha256-1sPCbF/e5tWOEfBHM67lnK/QFyHRFZjRjAKxXAfw6nc=";
   };
 
   buildInputs = [ openssl trousers zlib ];

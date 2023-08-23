@@ -14,16 +14,17 @@ let
   };
   mkDerivation = mkDerivationWith stdenv.mkDerivation;
 
-  callPackage = self.newScope {
+  callPackage = self.newScope ({
     inherit (gnuradio)
-      # Packages that are potentially overriden and used as deps here.
+      # Packages that are potentially overridden and used as deps here.
       boost
-      uhd
       volk
+      logLib
     ;
     inherit mkDerivationWith mkDerivation;
-  };
-
+  } // lib.optionalAttrs (gnuradio.hasFeature "gr-uhd") {
+    inherit (gnuradio) uhd;
+  });
 in {
 
   inherit callPackage mkDerivation mkDerivationWith;
@@ -36,6 +37,8 @@ in {
   osmosdr = callPackage ../development/gnuradio-modules/osmosdr/default.nix { };
 
   ais = callPackage ../development/gnuradio-modules/ais/default.nix { };
+
+  grnet = callPackage ../development/gnuradio-modules/grnet/default.nix { };
 
   gsm = callPackage ../development/gnuradio-modules/gsm/default.nix { };
 

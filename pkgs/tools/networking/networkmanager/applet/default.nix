@@ -6,7 +6,6 @@
 , pkg-config
 , networkmanager
 , gnome
-, libnotify
 , libsecret
 , polkit
 , modemmanager
@@ -25,11 +24,11 @@
 
 stdenv.mkDerivation rec {
   pname = "network-manager-applet";
-  version = "1.24.0";
+  version = "1.32.0";
 
   src = fetchurl {
     url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "sha256-ufS8pdA1Jxjge3OF+xlam7yP1oa3lZt0E3hU1SqrnFg=";
+    sha256 = "sha256-orWv+hUFrUOQKVn9vgnlvOxXsR7TM/pgRY/7nGLvujg=";
   };
 
   mesonFlags = [
@@ -43,7 +42,6 @@ stdenv.mkDerivation rec {
     libnma
     gtk3
     networkmanager
-    libnotify
     libsecret
     gsettings-desktop-schemas
     polkit
@@ -83,7 +81,8 @@ stdenv.mkDerivation rec {
     homepage = "https://gitlab.gnome.org/GNOME/network-manager-applet/";
     description = "NetworkManager control applet for GNOME";
     license = licenses.gpl2Plus;
-    maintainers = with maintainers; [ phreedom ];
+    maintainers = with maintainers; [ ];
+    mainProgram = "nm-applet";
     platforms = platforms.linux;
   };
 }

@@ -1,21 +1,26 @@
-{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
+{ lib, stdenv, buildGoModule, fetchFromGitHub, nixosTests
+  # darwin
+  , CoreFoundation, IOKit
+}:
 
 buildGoModule rec {
   pname = "node_exporter";
-  version = "1.2.2";
+  version = "1.6.1";
   rev = "v${version}";
 
   src = fetchFromGitHub {
     inherit rev;
     owner = "prometheus";
     repo = "node_exporter";
-    sha256 = "11xjbkws3vv5r4p6w6qfmm9wrmlhzwmvlx3vcgz99ylz34r19xvc";
+    sha256 = "sha256-BCZLMSJP/63N+pZsK8er87Zem7IFGdkyruDs6UVDZSM=";
   };
 
-  vendorSha256 = "0wwji220pidrmsjzd9c3n40v237680av750jf6hdvp0aqi63p9nr";
+  vendorHash = "sha256-hn2cMKhLl5qsm4sZErs6PXTs8yajowxw9a9vtHe5cAk=";
 
   # FIXME: tests fail due to read-only nix store
   doCheck = false;
+
+  buildInputs = lib.optionals stdenv.isDarwin [ CoreFoundation IOKit ];
 
   excludedPackages = [ "docs/node-mixin" ];
 
@@ -34,6 +39,7 @@ buildGoModule rec {
   meta = with lib; {
     description = "Prometheus exporter for machine metrics";
     homepage = "https://github.com/prometheus/node_exporter";
+    changelog = "https://github.com/prometheus/node_exporter/blob/v${version}/CHANGELOG.md";
     license = licenses.asl20;
     maintainers = with maintainers; [ benley fpletz globin Frostman ];
   };

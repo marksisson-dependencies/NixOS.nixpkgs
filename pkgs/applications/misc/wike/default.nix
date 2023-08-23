@@ -1,26 +1,31 @@
-{ lib, stdenv, fetchFromGitHub
-, meson, pkg-config, ninja
+{ lib
+, fetchFromGitHub
 , python3
-, glib, appstream-glib , desktop-file-utils
-, gobject-introspection, gtk3
-, wrapGAppsHook
-, libhandy, webkitgtk, glib-networking
-, gnome, dconf
+, meson
+, ninja
+, pkg-config
+, appstream-glib
+, desktop-file-utils
+, gobject-introspection
+, wrapGAppsHook4
+, glib
+, gtk4
+, librsvg
+, libadwaita
+, glib-networking
+, webkitgtk_6_0
 }:
-let
-  pythonEnv = python3.withPackages (p: with p; [
-    pygobject3
-    requests
-  ]);
-in stdenv.mkDerivation rec {
+
+python3.pkgs.buildPythonApplication rec {
   pname = "wike";
-  version = "1.5.7";
+  version = "2.0.1";
+  format = "other";
 
   src = fetchFromGitHub {
     owner = "hugolabe";
     repo = "Wike";
     rev = version;
-    sha256 = "sha256-SB+ApuSovqQCaZYPhH+duf+c07JDSSCRz8hTVhEa4gY=";
+    hash = "sha256-R8Zg/2tr9MrmtTdbvqD+Ra8+MEBJdgMqC3ptx1VgkeA=";
   };
 
   nativeBuildInputs = [
@@ -30,31 +35,40 @@ in stdenv.mkDerivation rec {
     appstream-glib
     desktop-file-utils
     gobject-introspection
-    wrapGAppsHook
+    wrapGAppsHook4
   ];
 
   buildInputs = [
     glib
-    pythonEnv
-    gtk3
-    libhandy
-    webkitgtk
+    gtk4
+    librsvg
+    libadwaita
     glib-networking
-    gnome.adwaita-icon-theme
-    dconf
+    webkitgtk_6_0
+  ];
+
+  propagatedBuildInputs = with python3.pkgs; [
+    requests
+    pygobject3
   ];
 
   postPatch = ''
     patchShebangs build-aux/meson/postinstall.py
-    substituteInPlace src/wike.in    --replace "@PYTHON@" "${pythonEnv}/bin/python"
-    substituteInPlace src/wike-sp.in --replace "@PYTHON@" "${pythonEnv}/bin/python"
+    substituteInPlace build-aux/meson/postinstall.py \
+      --replace gtk-update-icon-cache gtk4-update-icon-cache
+  '';
+
+  # prevent double wrapping
+  dontWrapGApps = true;
+  preFixup = ''
+    makeWrapperArgs+=("''${gappsWrapperArgs[@]}")
   '';
 
   meta = with lib; {
     description = "Wikipedia Reader for the GNOME Desktop";
     homepage = "https://github.com/hugolabe/Wike";
     license = licenses.gpl3Plus;
-    platforms = webkitgtk.meta.platforms;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ samalws ];
   };
 }

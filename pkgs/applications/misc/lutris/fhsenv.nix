@@ -1,4 +1,4 @@
-{ lib, buildFHSUserEnv, lutris-unwrapped
+{ lib, buildFHSEnv, lutris-unwrapped
 , extraPkgs ? pkgs: [ ]
 , extraLibraries ? pkgs: [ ]
 , steamSupport ? true
@@ -7,16 +7,19 @@
 let
 
   qt5Deps = pkgs: with pkgs.qt5; [ qtbase qtmultimedia ];
-  gnomeDeps = pkgs: with pkgs; [ gnome.zenity gtksourceview gnome.gnome-desktop gnome.libgnome-keyring webkitgtk ];
+  gnomeDeps = pkgs: with pkgs; [ gnome.zenity gtksourceview gnome-desktop gnome.libgnome-keyring webkitgtk ];
   xorgDeps = pkgs: with pkgs.xorg; [
     libX11 libXrender libXrandr libxcb libXmu libpthreadstubs libXext libXdmcp
     libXxf86vm libXinerama libSM libXv libXaw libXi libXcursor libXcomposite
   ];
 
-in buildFHSUserEnv {
+in buildFHSEnv {
   name = "lutris";
 
   runScript = "lutris";
+
+  # Many native and WINE games need 32bit
+  multiArch = true;
 
   targetPkgs = pkgs: with pkgs; [
     lutris-unwrapped
@@ -24,13 +27,16 @@ in buildFHSUserEnv {
     # Adventure Game Studio
     allegro dumb
 
+    # Curl
+    libnghttp2
+
     # Desmume
     lua agg soundtouch openal desktop-file-utils atk
 
     # DGen // TODO: libarchive is broken
 
     # Dolphin
-    bluez ffmpeg gettext portaudio wxGTK30 miniupnpc mbedtls lzo sfml gsm
+    bluez ffmpeg gettext portaudio miniupnpc mbedtls_2 lzo sfml gsm
     wavpack orc nettle gmp pcre vulkan-loader
 
     # DOSBox
@@ -62,13 +68,14 @@ in buildFHSUserEnv {
     # Osmose
     qt4
 
+    # Overwatch 2
+    libunwind
+
     # PPSSPP
     glew snappy
 
     # Redream // "redream is not available for the x86_64 architecture"
 
-    # ResidualVM
-    flac
 
     # rpcs3 // TODO: "error while loading shared libraries: libz.so.1..."
     llvm
@@ -76,8 +83,11 @@ in buildFHSUserEnv {
     # ScummVM
     nasm sndio
 
+    # ResidualVM is now merged with ScummVM and therefore does not exist anymore
+    flac
+
     # Snes9x
-    epoxy minizip
+    libepoxy minizip
 
     # Vice
     bison flex
@@ -121,6 +131,15 @@ in buildFHSUserEnv {
     ln -sf ${lutris-unwrapped}/share/applications $out/share
     ln -sf ${lutris-unwrapped}/share/icons $out/share
   '';
+
+  # allows for some gui applications to share IPC
+  # this fixes certain issues where they don't render correctly
+  unshareIpc = false;
+
+  # Some applications such as Natron need access to MIT-SHM or other
+  # shared memory mechanisms. Unsharing the pid namespace
+  # breaks the ability for application to reference shared memory.
+  unsharePid = false;
 
   meta = {
     inherit (lutris-unwrapped.meta)

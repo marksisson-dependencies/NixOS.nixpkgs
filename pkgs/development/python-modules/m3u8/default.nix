@@ -1,23 +1,41 @@
-{ lib, buildPythonPackage, fetchFromGitHub, requests, iso8601, bottle, pytest, pytest-cov }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, iso8601
+, bottle
+, pytestCheckHook
+}:
 
 buildPythonPackage rec {
   pname = "m3u8";
-  version = "0.6.0";
+  version = "3.5.0";
 
   src = fetchFromGitHub {
     owner = "globocom";
     repo = pname;
-    rev = version;
-    sha256 = "0cmg993icpsa1b19kljxvjwhs167bsqrs0ad4wnwsi8qq6na5d4p";
+    rev = "refs/tags/${version}";
+    hash = "sha256-9Xmbc1aL7SI24FFn0/5KJtAM3+Xyvd3bwUh8DU1wGKE=";
   };
 
-  checkInputs = [ bottle pytest pytest-cov ];
+  propagatedBuildInputs = [
+    iso8601
+  ];
 
-  checkPhase = ''
-    pytest tests/test_{parser,model,variant_m3u8}.py
-  '';
+  nativeCheckInputs = [
+    bottle
+    pytestCheckHook
+  ];
 
-  propagatedBuildInputs = [ requests iso8601 ];
+  disabledTests = [
+    # Tests require network access
+    "test_load_should_create_object_from_uri"
+    "test_load_should_create_object_from_uri_with_relative_segments"
+    "test_load_should_remember_redirect"
+  ];
+
+  pythonImportsCheck = [
+    "m3u8"
+  ];
 
   meta = with lib; {
     homepage = "https://github.com/globocom/m3u8";
@@ -26,4 +44,3 @@ buildPythonPackage rec {
     maintainers = with maintainers; [ Scriptkiddi ];
   };
 }
-

@@ -8,12 +8,12 @@
 
 buildPythonPackage rec {
   pname = "ruamel-yaml";
-  version = "0.17.16";
+  version = "0.17.32";
 
   src = fetchPypi {
     pname = "ruamel.yaml";
     inherit version;
-    sha256 = "1a771fc92d3823682b7f0893ad56cb5a5c87c48e62b5399d6f42c8759a583b33";
+    hash = "sha256-7JOQY3YZFOFFQpcqXLptM8I7CFmrY0L2HPBwz8YA78I=";
   };
 
   # Tests use relative paths
@@ -27,7 +27,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "YAML parser/emitter that supports roundtrip preservation of comments, seq/map flow style, and map key order";
     homepage = "https://sourceforge.net/projects/ruamel-yaml/";
+    changelog = "https://sourceforge.net/p/ruamel-yaml/code/ci/default/tree/CHANGES";
     license = licenses.mit;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = with maintainers; [ ];
   };
 }

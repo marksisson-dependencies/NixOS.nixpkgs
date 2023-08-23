@@ -1,23 +1,21 @@
 { lib, stdenv
 , fetchFromGitHub
-, fetchpatch
 , rustPlatform
 , Security
-, libiconv
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "grex";
-  version = "1.3.0";
-
-  cargoSha256 = "sha256-zNwTk4RcTv2dGbKWelOPSvasBmj7tnjLhQ0DZhZ9hxk=";
+  version = "1.4.2";
 
   src = fetchFromGitHub {
     owner = "pemistahl";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-NMz35jgd7XPemVdA8nol2H6cgWD3yEPh0FEMPw8kgKQ=";
+    sha256 = "sha256-kbrBnpoVeXSgmIqElpfAnoSutYwsnFaxFJpRsJPUE8k=";
   };
+
+  cargoSha256 = "sha256-WO8h5JUEiCpfsROQoRZj7I6em6REcJ2PfmoGN1zKRPg=";
 
   buildInputs = lib.optionals stdenv.isDarwin [ Security ];
 

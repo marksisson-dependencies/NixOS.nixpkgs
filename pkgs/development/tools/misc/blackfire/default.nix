@@ -2,7 +2,6 @@
 , lib
 , fetchurl
 , dpkg
-, autoPatchelfHook
 , writeShellScript
 , curl
 , jq
@@ -11,16 +10,12 @@
 
 stdenv.mkDerivation rec {
   pname = "blackfire";
-  version = "2.5.1";
+  version = "2.20.0";
 
-  src = fetchurl {
-    url = "https://packages.blackfire.io/debian/pool/any/main/b/blackfire/blackfire_${version}_amd64.deb";
-    sha256 = "wak7LE5j6OKIHqCsEGrxSq1FAFzehMetYj6c/Zkr9dk=";
-  };
+  src = passthru.sources.${stdenv.hostPlatform.system} or (throw "Unsupported platform for blackfire: ${stdenv.hostPlatform.system}");
 
-  nativeBuildInputs = [
+  nativeBuildInputs = lib.optionals stdenv.isLinux [
     dpkg
-    autoPatchelfHook
   ];
 
   dontUnpack = true;
@@ -28,38 +23,83 @@ stdenv.mkDerivation rec {
   installPhase = ''
     runHook preInstall
 
-    dpkg-deb -x $src $out
-    mv $out/usr/* $out
-    rmdir $out/usr
+    if ${ lib.boolToString stdenv.isLinux }
+    then
+      dpkg-deb -x $src $out
+      mv $out/usr/* $out
+      rmdir $out/usr
 
-    # Fix ExecStart path and replace deprecated directory creation method,
-    # use dynamic user.
-    substituteInPlace "$out/lib/systemd/system/blackfire-agent.service" \
-      --replace '/usr/' "$out/" \
-      --replace 'ExecStartPre=/bin/mkdir -p /var/run/blackfire' 'RuntimeDirectory=blackfire' \
-      --replace 'ExecStartPre=/bin/chown blackfire: /var/run/blackfire' "" \
-      --replace 'User=blackfire' 'DynamicUser=yes' \
-      --replace 'PermissionsStartOnly=true' ""
+      # Fix ExecStart path and replace deprecated directory creation method,
+      # use dynamic user.
+      substituteInPlace "$out/lib/systemd/system/blackfire-agent.service" \
+        --replace '/usr/' "$out/" \
+        --replace 'ExecStartPre=/bin/mkdir -p /var/run/blackfire' 'RuntimeDirectory=blackfire' \
+        --replace 'ExecStartPre=/bin/chown blackfire: /var/run/blackfire' "" \
+        --replace 'User=blackfire' 'DynamicUser=yes' \
+        --replace 'PermissionsStartOnly=true' ""
 
-    # Modernize socket path.
-    substituteInPlace "$out/etc/blackfire/agent" \
-      --replace '/var/run' '/run'
+      # Modernize socket path.
+      substituteInPlace "$out/etc/blackfire/agent" \
+        --replace '/var/run' '/run'
+    else
+      mkdir $out
+
+      tar -zxvf $src
+
+      mv etc $out
+      mv usr/* $out
+    fi
 
     runHook postInstall
   '';
 
   passthru = {
-    updateScript = writeShellScript "update-${pname}" ''
+    sources = {
+      "x86_64-linux" = fetchurl {
+        url = "https://packages.blackfire.io/debian/pool/any/main/b/blackfire/blackfire_${version}_amd64.deb";
+        sha256 = "zsG527W8/gr6wqbHfzOuihf/a8k4QeFdU6ajlJgGncs=";
+      };
+      "i686-linux" = fetchurl {
+        url = "https://packages.blackfire.io/debian/pool/any/main/b/blackfire/blackfire_${version}_i386.deb";
+        sha256 = "0ov+VJSJleI0aiMiZ+KdtQJ6nYcI6NZxZiShWGhV9N0=";
+      };
+      "aarch64-linux" = fetchurl {
+        url = "https://packages.blackfire.io/debian/pool/any/main/b/blackfire/blackfire_${version}_arm64.deb";
+        sha256 = "IEyAR6C2px2C/LEHLW5ZBamhmveCBwcgmm6w7KW6Cyg=";
+      };
+      "aarch64-darwin" = fetchurl {
+        url = "https://packages.blackfire.io/blackfire/${version}/blackfire-darwin_arm64.pkg.tar.gz";
+        sha256 = "fD8iNRSY860hBiZ4uFqDO1LCa49/gyC9M2rBlvm2ZWI=";
+      };
+      "x86_64-darwin" = fetchurl {
+        url = "https://packages.blackfire.io/blackfire/${version}/blackfire-darwin_amd64.pkg.tar.gz";
+        sha256 = "E6UuLldO7N59PAkzR49FXJZYJ15yGbePtHVdacwyJ20=";
+      };
+    };
+
+    updateScript = writeShellScript "update-blackfire" ''
+      set -o errexit
       export PATH="${lib.makeBinPath [ curl jq common-updater-scripts ]}"
-      update-source-version "$UPDATE_NIX_ATTR_PATH" "$(curl https://blackfire.io/api/v1/releases | jq .cli --raw-output)"
+      NEW_VERSION=$(curl -s https://blackfire.io/api/v1/releases | jq .cli --raw-output)
+
+      if [[ "${version}" = "$NEW_VERSION" ]]; then
+          echo "The new version same as the old version."
+          exit 0
+      fi
+
+      for platform in ${lib.escapeShellArgs meta.platforms}; do
+        update-source-version "blackfire" "0" "${lib.fakeSha256}" --source-key="sources.$platform"
+        update-source-version "blackfire" "$NEW_VERSION" --source-key="sources.$platform"
+      done
     '';
   };
 
   meta = with lib; {
     description = "Blackfire Profiler agent and client";
     homepage = "https://blackfire.io/";
+    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     license = licenses.unfree;
-    maintainers = with maintainers; [ jtojnar ];
-    platforms = [ "x86_64-linux" ];
+    maintainers = with maintainers; [ shyim ];
+    platforms = [ "x86_64-linux" "aarch64-linux" "i686-linux" "x86_64-darwin" "aarch64-darwin" ];
   };
 }

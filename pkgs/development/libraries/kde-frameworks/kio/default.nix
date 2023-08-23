@@ -9,7 +9,7 @@
 }:
 
 mkDerivation {
-  name = "kio";
+  pname = "kio";
   nativeBuildInputs = [ extra-cmake-modules kdoctools ];
   buildInputs = [
     karchive kconfigwidgets kdbusaddons ki18n kiconthemes knotifications
@@ -21,7 +21,9 @@ mkDerivation {
   ];
   propagatedBuildInputs = [
     kbookmarks kcompletion kconfig kcoreaddons kitemviews kjobwidgets kservice
-    kxmlgui qtbase qttools solid kded
+    kxmlgui qtbase qttools solid
+  ] ++ lib.optionals stdenv.isLinux [
+    kded
   ];
   outputs = [ "out" "dev" ];
   patches = [

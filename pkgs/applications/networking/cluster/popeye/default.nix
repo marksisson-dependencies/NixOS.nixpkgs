@@ -2,13 +2,13 @@
 
 buildGoModule rec {
   pname = "popeye";
-  version = "0.9.8";
+  version = "0.11.1";
 
   src = fetchFromGitHub {
     rev = "v${version}";
     owner = "derailed";
     repo = "popeye";
-    sha256 = "sha256-uGy2BbZS4SGT0w9ICYPUIfFawSvIVMsEezPfPAPQU/Q=";
+    sha256 = "sha256-A1jUlEgjBoiN+NYwpyW/1eYzkCK3UuPID++fu+zGvzk=";
   };
 
   ldflags = [
@@ -17,9 +17,7 @@ buildGoModule rec {
     "-X github.com/derailed/popeye/cmd.commit=${version}"
   ];
 
-  vendorSha256 = "sha256-vUUDLMicop5QzZmAHi5qrc0hx8oV2xWNFHvCWioLhl8=";
-
-  doCheck = true;
+  vendorHash = "sha256-MEsChBBn0mixgJ7pzRoqAqup75b/mVv6k3OMmzgyLC4=";
 
   doInstallCheck = true;
   installCheckPhase = ''
@@ -32,6 +30,5 @@ buildGoModule rec {
     changelog = "https://github.com/derailed/popeye/releases/tag/v${version}";
     license = licenses.asl20;
     maintainers = [ maintainers.bryanasdev000 ];
-    platforms = platforms.linux;
   };
 }

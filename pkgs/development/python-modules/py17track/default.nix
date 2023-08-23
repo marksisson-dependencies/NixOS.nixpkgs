@@ -1,10 +1,10 @@
 { lib
 , aiohttp
 , aresponses
-, async-timeout
 , attrs
 , buildPythonPackage
 , fetchFromGitHub
+, fetchpatch
 , poetry-core
 , pytest-asyncio
 , pytestCheckHook
@@ -14,16 +14,31 @@
 
 buildPythonPackage rec {
   pname = "py17track";
-  version = "3.3.0";
+  version = "2021.12.2";
   format = "pyproject";
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "bachya";
     repo = pname;
     rev = version;
-    sha256 = "1rnq9ybzj2l3699mjyplc29mxla8fayh52x52cnsz21ixlfd9fky";
+    hash = "sha256-T0Jjdu6QC8rTqZwe4cdsBbs0hQXUY6CkrImCgYwWL9o=";
   };
+
+  patches = [
+    # This patch removes references to setuptools and wheel that are no longer
+    # necessary and changes poetry to poetry-core, so that we don't need to add
+    # unnecessary nativeBuildInputs.
+    #
+    #   https://github.com/bachya/py17track/pull/80
+    #
+    (fetchpatch {
+      name = "clean-up-build-dependencies.patch";
+      url = "https://github.com/bachya/py17track/commit/3b52394759aa50c62e2a56581e30cdb94003e2f1.patch";
+      hash = "sha256-iLgklhEZ61rrdzQoO6rp1HGZcqLsqGNitwIiPNLNHQ4=";
+    })
+  ];
 
   nativeBuildInputs = [
     poetry-core
@@ -31,26 +46,26 @@ buildPythonPackage rec {
 
   propagatedBuildInputs = [
     aiohttp
-    async-timeout
     attrs
     pytz
   ];
 
-  checkInputs = [
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
     aresponses
     pytest-asyncio
     pytestCheckHook
   ];
 
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace ">=19.3,<21.0" ">=19.3,<22.0"
-  '';
+  disabledTestPaths = [
+    # Ignore the examples directory as the files are prefixed with test_
+    "examples/"
+  ];
 
-  # Ignore the examples directory as the files are prefixed with test_
-  disabledTestPaths = [ "examples/" ];
-
-  pythonImportsCheck = [ "py17track" ];
+  pythonImportsCheck = [
+    "py17track"
+  ];
 
   meta = with lib; {
     description = "Python library to track package info from 17track.com";

@@ -1,26 +1,30 @@
-{ lib, fetchFromGitHub, buildGoModule
-, enableUnfree ? true }:
+{ lib
+, fetchFromGitHub
+, buildGoModule
+, enableUnfree ? true
+}:
 
 buildGoModule rec {
   pname = "drone.io${lib.optionalString (!enableUnfree) "-oss"}";
-  version = "2.0.3";
-
-  vendorSha256 = "sha256-3qTH/p0l6Ke1F9SUcvK2diqZooOMnlXYO1PHLdJJ8PM=";
-
-  doCheck = false;
+  version = "2.20.0";
 
   src = fetchFromGitHub {
-    owner = "drone";
+    owner = "harness";
     repo = "drone";
     rev = "v${version}";
-    sha256 = "sha256-MKV5kor+Wm9cuIFFcjSNyCgVKtY+/B9sgBOXMMRvMPI=";
+    sha256 = "sha256-YiKULnLSP5wgrYob1t4HssGS9ubSR5dHECIwnAicg8M=";
   };
+
+  vendorHash = "sha256-3GPe76zcyKItYWedmnAnmN4c1AorQePxxWXkRk0vNpk=";
 
   tags = lib.optionals (!enableUnfree) [ "oss" "nolimit" ];
 
+  doCheck = false;
+
   meta = with lib; {
-    maintainers = with maintainers; [ elohmeier vdemeester ];
-    license = with licenses; if enableUnfree then unfreeRedistributable else asl20;
     description = "Continuous Integration platform built on container technology";
+    homepage = "https://github.com/harness/drone";
+    maintainers = with maintainers; [ elohmeier vdemeester techknowlogick ];
+    license = with licenses; if enableUnfree then unfreeRedistributable else asl20;
   };
 }

@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "kubeconform";
-  version = "0.4.12";
+  version = "0.6.3";
 
   src = fetchFromGitHub {
     owner = "yannh";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-03eGWuDV/GS2YgDQ7LaqonU7K/ohI8sQD4dXbJGXeXw=";
+    sha256 = "sha256-Tu1hAWAqnTGq9NL0kjG2VGzSKDh55HyAoa0nhsJdNLw=";
   };
 
-  vendorSha256 = null;
+  vendorHash = null;
 
   meta = with lib; {
     description = "A FAST Kubernetes manifests validator, with support for Custom Resources!";

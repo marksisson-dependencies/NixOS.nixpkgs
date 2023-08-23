@@ -1,8 +1,8 @@
 { stdenv, lib, makeDesktopItem
-, unzip, libsecret, libXScrnSaver, libxshmfence, wrapGAppsHook
-, gtk2, atomEnv, at-spi2-atk, autoPatchelfHook
-, systemd, fontconfig, libdbusmenu, glib, buildFHSUserEnvBubblewrap
-, writeShellScriptBin
+, unzip, libsecret, libXScrnSaver, libxshmfence, buildPackages
+, atomEnv, at-spi2-atk, autoPatchelfHook
+, systemd, fontconfig, libdbusmenu, glib, buildFHSEnv, wayland
+, libglvnd, libkrb5
 
 # Populate passthru.tests
 , tests
@@ -11,23 +11,26 @@
 , nodePackages, bash
 
 # Attributes inherit from specific versions
-, version, src, meta, sourceRoot
+, version, src, meta, sourceRoot, commandLineArgs
 , executableName, longName, shortName, pname, updateScript
-# sourceExecutableName is the name of the binary in the source archive, over
-# which we have no control
+, dontFixup ? false
+, rev ? null, vscodeServer ? null
 , sourceExecutableName ? executableName
+, useVSCodeRipgrep ? false
+, ripgrep
 }:
 
 let
-  inherit (stdenv.hostPlatform) system;
   unwrapped = stdenv.mkDerivation {
 
-    inherit pname version src sourceRoot;
+    inherit pname version src sourceRoot dontFixup;
 
     passthru = {
       inherit executableName longName tests updateScript;
       fhs = fhs {};
       fhsWithPackages = f: fhs { additionalPkgs = f; };
+    } // lib.optionalAttrs (vscodeServer != null) {
+      inherit rev vscodeServer;
     };
 
     desktopItem = makeDesktopItem {
@@ -36,20 +39,17 @@ let
       comment = "Code Editing. Redefined.";
       genericName = "Text Editor";
       exec = "${executableName} %F";
-      icon = "code";
-      startupNotify = "true";
-      categories = "Utility;TextEditor;Development;IDE;";
-      mimeType = "text/plain;inode/directory;";
-      extraEntries = ''
-        StartupWMClass=${shortName}
-        Actions=new-empty-window;
-        Keywords=vscode;
-
-        [Desktop Action new-empty-window]
-        Name=New Empty Window
-        Exec=${executableName} --new-window %F
-        Icon=code
-      '';
+      icon = "vs${executableName}";
+      startupNotify = true;
+      startupWMClass = shortName;
+      categories = [ "Utility" "TextEditor" "Development" "IDE" ];
+      mimeTypes = [ "text/plain" "inode/directory" ];
+      keywords = [ "vscode" ];
+      actions.new-empty-window = {
+        name = "New Empty Window";
+        exec = "${executableName} --new-window %F";
+        icon = "vs${executableName}";
+      };
     };
 
     urlHandlerDesktopItem = makeDesktopItem {
@@ -58,25 +58,30 @@ let
       comment = "Code Editing. Redefined.";
       genericName = "Text Editor";
       exec = executableName + " --open-url %U";
-      icon = "code";
-      startupNotify = "true";
-      categories = "Utility;TextEditor;Development;IDE;";
-      mimeType = "x-scheme-handler/vscode;";
-      extraEntries = ''
-        NoDisplay=true
-        Keywords=vscode;
-      '';
+      icon = "vs${executableName}";
+      startupNotify = true;
+      categories = [ "Utility" "TextEditor" "Development" "IDE" ];
+      mimeTypes = [ "x-scheme-handler/vscode" ];
+      keywords = [ "vscode" ];
+      noDisplay = true;
     };
 
     buildInputs = [ libsecret libXScrnSaver libxshmfence ]
-      ++ lib.optionals (!stdenv.isDarwin) ([ gtk2 at-spi2-atk ] ++ atomEnv.packages);
+      ++ lib.optionals (!stdenv.isDarwin) ([ at-spi2-atk libkrb5 ] ++ atomEnv.packages);
 
-    runtimeDependencies = lib.optional (stdenv.isLinux) [ (lib.getLib systemd) fontconfig.lib libdbusmenu ];
+    runtimeDependencies = lib.optionals stdenv.isLinux [ (lib.getLib systemd) fontconfig.lib libdbusmenu wayland libsecret ];
 
-    nativeBuildInputs = [unzip] ++ lib.optionals (!stdenv.isDarwin) [ autoPatchelfHook wrapGAppsHook ];
+    nativeBuildInputs = [ unzip ]
+      ++ lib.optionals stdenv.isLinux [
+        autoPatchelfHook
+        nodePackages.asar
+        # override doesn't preserve splicing https://github.com/NixOS/nixpkgs/issues/132651
+        (buildPackages.wrapGAppsHook.override { inherit (buildPackages) makeWrapper; })
+      ];
 
     dontBuild = true;
     dontConfigure = true;
+    noDumpEnvVars = true;
 
     installPhase = ''
       runHook preInstall
@@ -94,12 +99,18 @@ let
       ln -s "$desktopItem/share/applications/${executableName}.desktop" "$out/share/applications/${executableName}.desktop"
       ln -s "$urlHandlerDesktopItem/share/applications/${executableName}-url-handler.desktop" "$out/share/applications/${executableName}-url-handler.desktop"
 
+      # These are named vscode.png, vscode-insiders.png, etc to match the name in upstream *.deb packages.
       mkdir -p "$out/share/pixmaps"
-      cp "$out/lib/vscode/resources/app/resources/linux/code.png" "$out/share/pixmaps/code.png"
+      cp "$out/lib/vscode/resources/app/resources/linux/code.png" "$out/share/pixmaps/vs${executableName}.png"
 
       # Override the previously determined VSCODE_PATH with the one we know to be correct
       sed -i "/ELECTRON=/iVSCODE_PATH='$out/lib/vscode'" "$out/bin/${executableName}"
       grep -q "VSCODE_PATH='$out/lib/vscode'" "$out/bin/${executableName}" # check if sed succeeded
+
+      # Remove native encryption code, as it derives the key from the executable path which does not work for us.
+      # The credentials should be stored in a secure keychain already, so the benefit of this is questionable
+      # in the first place.
+      rm -rf $out/lib/vscode/resources/app/node_modules/vscode-encrypt
     '') + ''
       runHook postInstall
     '';
@@ -108,6 +119,8 @@ let
       gappsWrapperArgs+=(
         # Add gio to PATH so that moving files to the trash works when not using a desktop environment
         --prefix PATH : ${glib.bin}/bin
+        --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations}}"
+        --add-flags ${lib.escapeShellArg commandLineArgs}
       )
     '';
 
@@ -117,14 +130,31 @@ let
       # this is a fix for "save as root" functionality
       packed="resources/app/node_modules.asar"
       unpacked="resources/app/node_modules"
-      ${nodePackages.asar}/bin/asar extract "$packed" "$unpacked"
-      substituteInPlace $unpacked/sudo-prompt/index.js \
+      asar extract "$packed" "$unpacked"
+      substituteInPlace $unpacked/@vscode/sudo-prompt/index.js \
         --replace "/usr/bin/pkexec" "/run/wrappers/bin/pkexec" \
         --replace "/bin/bash" "${bash}/bin/bash"
       rm -rf "$packed"
 
-      # this fixes bundled ripgrep
-      chmod +x resources/app/node_modules/vscode-ripgrep/bin/rg
+      # without this symlink loading JsChardet, the library that is used for auto encoding detection when files.autoGuessEncoding is true,
+      # fails to load with: electron/js2c/renderer_init: Error: Cannot find module 'jschardet'
+      # and the window immediately closes which renders VSCode unusable
+      # see https://github.com/NixOS/nixpkgs/issues/152939 for full log
+      ln -rs "$unpacked" "$packed"
+    '' + (let
+      vscodeRipgrep = if stdenv.isDarwin then
+        "Contents/Resources/app/node_modules.asar.unpacked/@vscode/ripgrep/bin/rg"
+      else
+        "resources/app/node_modules/@vscode/ripgrep/bin/rg";
+    in if !useVSCodeRipgrep then ''
+      rm ${vscodeRipgrep}
+      ln -s ${ripgrep}/bin/rg ${vscodeRipgrep}
+    '' else ''
+      chmod +x ${vscodeRipgrep}
+    '');
+
+    postFixup = lib.optionalString stdenv.isLinux ''
+      patchelf --add-needed ${libglvnd}/lib/libGLESv2.so.2 $out/lib/vscode/${executableName}
     '';
 
     inherit meta;
@@ -137,9 +167,9 @@ let
   # in order to create or update extensions.
   # See: #83288 #91179 #73810 #41189
   #
-  # buildFHSUserEnv allows for users to use the existing vscode
+  # buildFHSEnv allows for users to use the existing vscode
   # extension tooling without significant pain.
-  fhs = { additionalPkgs ? pkgs: [] }: buildFHSUserEnvBubblewrap {
+  fhs = { additionalPkgs ? pkgs: [] }: buildFHSEnv {
     # also determines the name of the wrapped command
     name = executableName;
 
@@ -153,6 +183,7 @@ let
       icu
       libunwind
       libuuid
+      lttng-ust
       openssl
       zlib
 
@@ -160,12 +191,13 @@ let
       krb5
     ]) ++ additionalPkgs pkgs;
 
-    # restore desktop item icons
+    extraBwrapArgs = [
+      "--bind-try /etc/nixos/ /etc/nixos/"
+    ];
+
+    # symlink shared assets, including icons and desktop entries
     extraInstallCommands = ''
-      mkdir -p "$out/share/applications"
-      for item in ${unwrapped}/share/applications/*.desktop; do
-        ln -s "$item" "$out/share/applications/"
-      done
+      ln -s "${unwrapped}/share" "$out/"
     '';
 
     runScript = "${unwrapped}/bin/${executableName}";
@@ -181,7 +213,7 @@ let
 
     meta = meta // {
       description = ''
-        Wrapped variant of ${pname} which launches in a FHS compatible envrionment.
+        Wrapped variant of ${pname} which launches in a FHS compatible environment.
         Should allow for easy usage of extensions without nix-specific modifications.
       '';
     };

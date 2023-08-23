@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   pname = "libedit";
-  version = "20210714-3.1";
+  version = "20221030-3.1";
 
   src = fetchurl {
     url = "https://thrysoee.dk/editline/${pname}-${version}.tar.gz";
-    sha256 = "sha256-MCO0mK1ZP9d0WuOyCrrVRt5Qa2e4+7VXljfKaauC28k=";
+    sha256 = "sha256-8JJaWt9LG/EW7hl2a32qdmkXrsGYdHlDscTt9npL4rs=";
   };
 
   outputs = [ "out" "dev" ];

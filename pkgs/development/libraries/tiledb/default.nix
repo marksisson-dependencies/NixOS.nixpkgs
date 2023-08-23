@@ -6,14 +6,14 @@
 , lz4
 , bzip2
 , zstd
-, spdlog_0
+, spdlog
 , tbb
 , openssl
 , boost
 , libpqxx
 , clang-tools
 , catch2
-, python
+, python3
 , gtest
 , doxygen
 , fixDarwinDylibNames
@@ -21,13 +21,13 @@
 
 stdenv.mkDerivation rec {
   pname = "tiledb";
-  version = "2.3.3";
+  version = "2.8.3";
 
   src = fetchFromGitHub {
     owner = "TileDB-Inc";
     repo = "TileDB";
     rev = version;
-    sha256 = "sha256-3Z5+QUzo2f24q11j6s8KX2vHLFkipFvGk2VFComWW/o=";
+    hash = "sha256-HKMVwrPnk9/mukH3mJ2LEAvA9LBF4PcgBZjbbLhO9qU=";
   };
 
   # (bundled) blosc headers have a warning on some archs that it will be using
@@ -39,11 +39,11 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     clang-tools
     cmake
-    python
+    python3
     doxygen
   ] ++ lib.optional stdenv.hostPlatform.isDarwin fixDarwinDylibNames;
 
-  checkInputs = [
+  nativeCheckInputs = [
     gtest
   ];
 
@@ -53,7 +53,7 @@ stdenv.mkDerivation rec {
     lz4
     bzip2
     zstd
-    spdlog_0
+    spdlog
     tbb
     openssl
     boost
@@ -66,7 +66,7 @@ stdenv.mkDerivation rec {
     ln -sf ${catch2}/include/catch2 build/externals/src/ep_catch/single_include
   '';
 
-  doCheck = false; # 9 failing tests due to what seems an overflow
+  doCheck = true;
 
   installTargets = [ "install-tiledb" "doc" ];
 

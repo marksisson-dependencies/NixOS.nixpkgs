@@ -1,26 +1,45 @@
-{ lib, buildPythonPackage, fetchFromGitHub, requests, mock, httpretty, pytestCheckHook }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, requests
+, mock
+, httpretty
+, pytestCheckHook
+, pythonOlder
+}:
 
 buildPythonPackage rec {
   pname = "youtube-transcript-api";
-  version = "0.4.2";
+  version = "0.6.1";
+  format = "setuptools";
 
-  # PyPI tarball is missing some test files
+  disabled = pythonOlder "3.7";
+
   src = fetchFromGitHub {
     owner = "jdepoix";
-    repo = "youtube-transcript-api";
-    rev = "v${version}";
-    sha256 = "04x7mfp4q17w3n8dnklbxblz22496g7g4879nz0wzgijg3m6cwlp";
+    repo = pname;
+    rev = "refs/tags/v${version}";
+    hash = "sha256-7s2qzmfYkaQ7xAi/U+skOEVTAj2gp+2WnODu9k1ojJY=";
   };
 
-  propagatedBuildInputs = [ requests ];
+  propagatedBuildInputs = [
+    requests
+  ];
 
-  checkInputs = [ mock httpretty pytestCheckHook ];
+  nativeCheckInputs = [
+    mock
+    httpretty
+    pytestCheckHook
+  ];
 
-  pythonImportsCheck = [ "youtube_transcript_api" ];
+  pythonImportsCheck = [
+    "youtube_transcript_api"
+  ];
 
   meta = with lib; {
     description = "Python API which allows you to get the transcripts/subtitles for a given YouTube video";
     homepage = "https://github.com/jdepoix/youtube-transcript-api";
+    changelog = "https://github.com/jdepoix/youtube-transcript-api/releases/tag/v${version}";
     license = licenses.mit;
     maintainers = [ maintainers.marsam ];
   };

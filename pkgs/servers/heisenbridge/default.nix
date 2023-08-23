@@ -1,22 +1,29 @@
-{ lib, fetchurl, python3Packages }:
+{ lib, fetchFromGitHub, python3 }:
 
-python3Packages.buildPythonPackage rec {
+python3.pkgs.buildPythonApplication rec {
   pname = "heisenbridge";
-  version = "1.6.0";
+  version = "1.14.4";
 
-  # Use the release tarball because it has the version set correctly using the
-  # version.txt file.
-  src = fetchurl {
-    url = "https://github.com/hifi/heisenbridge/releases/download/v${version}/heisenbridge-${version}.tar.gz";
-    sha256 = "sha256-NhHMReY48lg1FhJlCRjRiSpy+9bDLtIV+j+zX8GZcL4=";
+  src = fetchFromGitHub {
+    owner = "hifi";
+    repo = pname;
+    rev = "refs/tags/v${version}";
+    sha256 = "sha256-4poHHwJ9WcOTTwOtPfANMqusaLltaoLryxNMQE1Parc=";
   };
 
-  propagatedBuildInputs = with python3Packages; [
-    aiohttp
+  postPatch = ''
+    echo "${version}" > heisenbridge/version.txt
+  '';
+
+  propagatedBuildInputs = with python3.pkgs; [
     irc
+    ruamel-yaml
     mautrix
     python-socks
-    pyyaml
+  ];
+
+  nativeCheckInputs = with python3.pkgs; [
+    pytestCheckHook
   ];
 
   meta = with lib; {

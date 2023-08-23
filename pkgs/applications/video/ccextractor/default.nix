@@ -9,7 +9,7 @@
 , makeWrapper
 , tesseract4
 , leptonica
-, ffmpeg
+, ffmpeg_4
 }:
 
 stdenv.mkDerivation rec {
@@ -23,15 +23,26 @@ stdenv.mkDerivation rec {
     sha256 = "sha256-usVAKBkdd8uz9cD5eLd0hnwGonOJLscRdc+iWDlNXVc=";
   };
 
-  sourceRoot = "source/src";
+  postPatch = ''
+    # https://github.com/CCExtractor/ccextractor/issues/1467
+    sed -i '/allheaders.h/a#include <leptonica/pix_internal.h>' src/lib_ccx/ocr.c
+  '' + lib.optionalString stdenv.isDarwin ''
+    substituteInPlace src/CMakeLists.txt \
+    --replace 'add_definitions(-DGPAC_CONFIG_LINUX)' 'add_definitions(-DGPAC_CONFIG_DARWIN)'
+  '';
+
+  cmakeDir = "../src";
 
   nativeBuildInputs = [ pkg-config cmake makeWrapper ];
 
   buildInputs = [ zlib ]
     ++ lib.optional (!stdenv.isLinux) libiconv
-    ++ lib.optionals enableOcr [ leptonica tesseract4 ffmpeg ];
+    ++ lib.optionals enableOcr [ leptonica tesseract4 ffmpeg_4 ];
 
-  cmakeFlags = lib.optionals enableOcr [ "-DWITH_OCR=on" "-DWITH_HARDSUBX=on" ];
+  cmakeFlags = [
+    # file RPATH_CHANGE could not write new RPATH:
+    "-DCMAKE_SKIP_BUILD_RPATH=ON"
+  ] ++ lib.optionals enableOcr [ "-DWITH_OCR=on" "-DWITH_HARDSUBX=on" ];
 
   postInstall = lib.optionalString enableOcr ''
     wrapProgram "$out/bin/ccextractor" \

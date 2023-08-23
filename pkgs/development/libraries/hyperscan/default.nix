@@ -1,5 +1,5 @@
 { lib, stdenv, fetchFromGitHub, cmake, ragel, python3
-, coreutils, gnused, util-linux
+, util-linux, fetchpatch
 , boost
 , withStatic ? false # build only shared libs by default, build static+shared if true
 }:
@@ -9,25 +9,22 @@
 #         which is fixed 8.41 version requirement (nixpkgs have 8.42+, and
 #         I not see any reason (for now) to backport 8.41.
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "hyperscan";
-  version = "5.4.0";
+  version = "5.4.2";
 
   src = fetchFromGitHub {
     owner = "intel";
-    repo = pname;
-    sha256 = "sha256-AJAjaXVnGqIlMk+gb6lpTLUdZr8nxn2XSW4fj6j/cmk=";
-    rev = "v${version}";
+    repo = "hyperscan";
+    hash = "sha256-tzmVc6kJPzkFQLUM1MttQRLpgs0uckbV6rCxEZwk1yk=";
+    rev = "v${finalAttrs.version}";
   };
 
   outputs = [ "out" "dev" ];
 
   buildInputs = [ boost ];
   nativeBuildInputs = [
-    cmake ragel python3
-    # Consider simply using busybox for these
-    # Need at least: rev, sed, cut, nm
-    coreutils gnused util-linux
+    cmake ragel python3 util-linux
   ];
 
   cmakeFlags = [
@@ -61,7 +58,7 @@ stdenv.mkDerivation rec {
 
     homepage = "https://www.hyperscan.io/";
     maintainers = with maintainers; [ avnik ];
-    platforms = [ "x86_64-linux" ]; # can't find nm on darwin ; might build on aarch64 but untested
+    platforms = [ "x86_64-linux" ];
     license = licenses.bsd3;
   };
-}
+})

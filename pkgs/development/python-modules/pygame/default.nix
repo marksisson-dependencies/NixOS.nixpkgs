@@ -1,11 +1,16 @@
 { stdenv, lib, substituteAll, fetchFromGitHub, buildPythonPackage, python, pkg-config, libX11
 , SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, libpng, libjpeg, portmidi, freetype, fontconfig
 , AppKit
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "pygame";
-  version = "2.1.0";
+  version = "2.2.0";
+
+  disabled = pythonOlder "3.6";
+
+  format = "setuptools";
 
   src = fetchFromGitHub {
     owner = pname;
@@ -14,8 +19,8 @@ buildPythonPackage rec {
     # Unicode file names lead to different checksums on HFS+ vs. other
     # filesystems because of unicode normalisation. The documentation
     # has such files and will be removed.
-    sha256 = "sha256-Pe7BJ+8rXw+hhRv64fI+79gJcU1npQFFAXxECx2+Trw=";
-    extraPostFetch = "rm -rf $out/docs/reST";
+    hash = "sha256-SMkY3uN3kAlb/pbm047W0G8MJ7G8mCsfGVSPhzd5aEo=";
+    postFetch = "rm -rf $out/docs/reST";
   };
 
   patches = [
@@ -25,6 +30,7 @@ buildPythonPackage rec {
       buildinputs_include = builtins.toJSON (builtins.concatMap (dep: [
         "${lib.getDev dep}/"
         "${lib.getDev dep}/include"
+        "${lib.getDev dep}/include/SDL2"
       ]) buildInputs);
       buildinputs_lib = builtins.toJSON (builtins.concatMap (dep: [
         "${lib.getLib dep}/"
@@ -51,7 +57,7 @@ buildPythonPackage rec {
   ];
 
   preConfigure = ''
-    ${python.interpreter} buildconfig/config.py
+    ${python.pythonForBuild.interpreter} buildconfig/config.py
   '';
 
   checkPhase = ''
@@ -72,7 +78,7 @@ buildPythonPackage rec {
     description = "Python library for games";
     homepage = "https://www.pygame.org/";
     license = licenses.lgpl21Plus;
-    maintainers = with maintainers; [ angustrau ];
+    maintainers = with maintainers; [ emilytrau ];
     platforms = platforms.unix;
   };
 }

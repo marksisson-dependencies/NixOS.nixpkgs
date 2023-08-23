@@ -1,7 +1,7 @@
 { lib
 , stdenv
-, fetchpatch
 , python3Packages
+, fetchPypi
 , wrapGAppsHook
 , gtk3
 , gobject-introspection
@@ -9,33 +9,24 @@
 , poppler_gi
 , withGstreamer ? stdenv.isLinux
 , withVLC ? stdenv.isLinux
- }:
+}:
 
 python3Packages.buildPythonApplication rec {
   pname = "pympress";
-  version = "1.6.3";
+  version = "1.7.2";
 
-  src = python3Packages.fetchPypi {
+  src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-f+OjE0x/3yfJYHCLB+on7TT7MJ2vNu87SHRi67qFDCM=";
+    sha256 = "LFUzrGHr8jmUqoIcKokC0gNDVmW1EUZlj9eI+GDycvI=";
   };
-
-  patches = [
-    # Should not be needed once v1.6.4 is released
-    (fetchpatch {
-      name = "fix-setuptools-version-parsing.patch";
-      url = "https://github.com/Cimbali/pympress/commit/474514d71396ac065e210fd846e07ed1139602d0.diff";
-      sha256 = "sha256-eiw54sjMrXrNrhtkAXxiSTatzoA0NDA03L+HpTDax58=";
-    })
-  ];
 
   nativeBuildInputs = [
     wrapGAppsHook
+    gobject-introspection
   ];
 
   buildInputs = [
     gtk3
-    gobject-introspection
     poppler_gi
   ] ++ lib.optional withGstreamer libcanberra-gtk3;
 

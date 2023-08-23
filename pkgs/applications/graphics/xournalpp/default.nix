@@ -6,9 +6,11 @@
 , wrapGAppsHook
 , pkg-config
 
+, alsa-lib
 , glib
 , gsettings-desktop-schemas
 , gtk3
+, gtksourceview4
 , librsvg
 , libsndfile
 , libxml2
@@ -23,20 +25,23 @@
 
 stdenv.mkDerivation rec {
   pname = "xournalpp";
-  version = "1.1.0";
+  version = "1.2.0";
 
   src = fetchFromGitHub {
     owner = "xournalpp";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-FIIpWgWvq1uo/lIQXpOkUTZ6YJPtOtxKF8VjXSgqrlE=";
+    rev = "v${version}";
+    sha256 = "sha256-0xsNfnKdGl34qeN0KZbII9w6PzC1HvvO7mtlNlRvUqQ=";
   };
 
   nativeBuildInputs = [ cmake gettext pkg-config wrapGAppsHook ];
   buildInputs =
-    [ glib
+    [
+      alsa-lib
+      glib
       gsettings-desktop-schemas
       gtk3
+      gtksourceview4
       librsvg
       libsndfile
       libxml2
@@ -48,13 +53,14 @@ stdenv.mkDerivation rec {
     ]
     ++ lib.optional withLua lua;
 
-  buildFlags = "translations";
+  buildFlags = [ "translations" ];
 
   hardeningDisable = [ "format" ];
 
   meta = with lib; {
     description = "Xournal++ is a handwriting Notetaking software with PDF annotation support";
     homepage    = "https://xournalpp.github.io/";
+    changelog   = "https://github.com/xournalpp/xournalpp/blob/v${version}/CHANGELOG.md";
     license     = licenses.gpl2Plus;
     maintainers = with maintainers; [ andrew-d sikmir ];
     platforms   = platforms.linux;

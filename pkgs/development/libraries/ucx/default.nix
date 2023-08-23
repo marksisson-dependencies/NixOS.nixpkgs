@@ -1,21 +1,46 @@
-{ lib, stdenv, fetchFromGitHub, autoreconfHook, doxygen
-, numactl, rdma-core, libbfd, libiberty, perl, zlib
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, doxygen, numactl
+, rdma-core, libbfd, libiberty, perl, zlib, symlinkJoin, pkg-config
+, config
+, enableCuda ? config.cudaSupport
+, cudatoolkit
+, enableRocm ? false
+, rocm-core, rocm-runtime, rocm-device-libs, hip
 }:
 
+let
+  # Needed for configure to find all libraries
+  cudatoolkit' = symlinkJoin {
+    inherit (cudatoolkit) name meta;
+    paths = [ cudatoolkit cudatoolkit.lib ];
+  };
+  rocm = symlinkJoin {
+    name = "rocm";
+    paths = [ rocm-core rocm-runtime rocm-device-libs hip ];
+  };
+
+in
 stdenv.mkDerivation rec {
   pname = "ucx";
-  version = "1.11.2";
+  version = "1.14.1";
 
   src = fetchFromGitHub {
     owner = "openucx";
     repo = "ucx";
     rev = "v${version}";
-    sha256 = "0a4rbgr3hn3h42krb7lasfidhqcavacbpp1pv66l4lvfc0gkwi2i";
+    sha256 = "sha256-oAigiCgbr27pX+kNl+RW1P10TKYFSKrHDK4U4z8WMko=";
   };
 
-  nativeBuildInputs = [ autoreconfHook doxygen ];
+  nativeBuildInputs = [ autoreconfHook doxygen pkg-config ];
 
-  buildInputs = [ numactl rdma-core libbfd libiberty perl zlib ];
+  buildInputs = [
+    libbfd
+    libiberty
+    numactl
+    perl
+    rdma-core
+    zlib
+  ] ++ lib.optional enableCuda cudatoolkit
+  ++ lib.optionals enableRocm [ rocm-core rocm-runtime rocm-device-libs hip ];
 
   configureFlags = [
     "--with-rdmacm=${rdma-core}"
@@ -23,13 +48,14 @@ stdenv.mkDerivation rec {
     "--with-rc"
     "--with-dm"
     "--with-verbs=${rdma-core}"
-  ];
+  ] ++ lib.optional enableCuda "--with-cuda=${cudatoolkit'}"
+  ++ lib.optional enableRocm "--with-rocm=${rocm}";
 
   enableParallelBuilding = true;
 
   meta = with lib; {
     description = "Unified Communication X library";
-    homepage = "http://www.openucx.org";
+    homepage = "https://www.openucx.org";
     license = licenses.bsd3;
     platforms = platforms.linux;
     maintainers = [ maintainers.markuskowa ];

@@ -1,24 +1,33 @@
-{ lib, stdenv, fetchurl }:
+{ lib
+, stdenv
+, fetchurl
+}:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "debianutils";
-  version = "4.11.2";
+  version = "5.8";
 
   src = fetchurl {
-    url = "mirror://debian/pool/main/d/${pname}/${pname}_${version}.tar.xz";
-    sha256 = "1pjh2s5f8qp8jaky2x08yvf125np0s48zb2z6f3h6x4vf20hws1v";
+    url = "mirror://debian/pool/main/d/debianutils/debianutils_${finalAttrs.version}.orig.tar.gz";
+    hash = "sha256-WwhtJ+uQY95NdGdg0PrrQNlGT7hV/IqOf7k7A+/OxiI=";
   };
 
-  meta = with lib; {
+  outputs = [ "out" "man" ];
+
+  meta = {
+    homepage = "https://packages.debian.org/sid/debianutils";
     description = "Miscellaneous utilities specific to Debian";
     longDescription = ''
-       This package provides a number of small utilities which are used primarily by the installation scripts of Debian packages, although you may use them directly.
+       This package provides a number of small utilities which are used
+       primarily by the installation scripts of Debian packages, although you
+       may use them directly.
 
-       The specific utilities included are: add-shell installkernel ischroot remove-shell run-parts savelog tempfile which
+       The specific utilities included are: add-shell installkernel ischroot
+       remove-shell run-parts savelog tempfile which
     '';
-    downloadPage = "https://packages.debian.org/sid/debianutils";
-    license = with licenses; [ gpl2Plus publicDomain smail ];
-    maintainers = [];
-    platforms = platforms.all;
+    license = with lib.licenses; [ gpl2Plus publicDomain smail ];
+    mainProgram = "ischroot";
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    platforms = lib.platforms.all;
   };
-}
+})

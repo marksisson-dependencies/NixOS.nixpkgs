@@ -1,33 +1,34 @@
-{ lib, stdenv, fetchurl, fetchpatch
+{ lib
+, stdenv
+, fetchurl
+, libxcrypt
 , ncurses
+, buildPackages
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "tcsh";
-  version = "6.22.04";
+  version = "6.24.10";
 
   src = fetchurl {
-    urls = [
-      "http://ftp.funet.fi/pub/mirrors/ftp.astron.com/pub/tcsh/${pname}-${version}.tar.gz"
-      "http://ftp.funet.fi/pub/mirrors/ftp.astron.com/pub/tcsh/old/${pname}-${version}.tar.gz"
-      "ftp://ftp.astron.com/pub/tcsh/${pname}-${version}.tar.gz"
-      "ftp://ftp.astron.com/pub/tcsh/old/${pname}-${version}.tar.gz"
-      "ftp://ftp.funet.fi/pub/unix/shells/tcsh/${pname}-${version}.tar.gz"
-      "ftp://ftp.funet.fi/pub/unix/shells/tcsh/old/${pname}-${version}.tar.gz"
-    ];
-    hash = "sha256-6xY1YkMhjDLzngcljXK/iyHmLOlLsOipXjGLFROX4jE=";
+    url = "mirror://tcsh/tcsh-${finalAttrs.version}.tar.gz";
+    hash = "sha256-E0dcD763QTnTPteTvwD/u7KsLcn7HURGekEHYKujZmQ=";
   };
 
-  buildInputs = [ ncurses ];
+  strictDeps = true;
 
-  patches = lib.optional stdenv.hostPlatform.isMusl
-    (fetchpatch {
-      name = "sysmalloc.patch";
-      url = "https://git.alpinelinux.org/aports/plain/community/tcsh/001-sysmalloc.patch?id=184585c046cdd56512f1a76e426dd799b368f8cf";
-      sha256 = "1qc6ydxhdfizsbkaxhpn3wib8sfphrw10xnnsxx2prvzg9g2zp67";
-    });
+  depsBuildBuild = [
+    buildPackages.stdenv.cc
+  ];
 
-  meta = with lib; {
+  buildInputs = [
+    libxcrypt
+    ncurses
+  ];
+
+  passthru.shellPath = "/bin/tcsh";
+
+  meta = {
     homepage = "https://www.tcsh.org/";
     description = "An enhanced version of the Berkeley UNIX C shell (csh)";
     longDescription = ''
@@ -42,12 +43,8 @@ stdenv.mkDerivation rec {
       - history mechanism
       - job control
     '';
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ AndersonTorres ];
-    platforms = platforms.unix;
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ AndersonTorres ];
+    platforms = lib.platforms.unix;
   };
-
-  passthru = {
-    shellPath = "/bin/tcsh";
-  };
-}
+})

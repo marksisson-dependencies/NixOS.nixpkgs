@@ -12,26 +12,27 @@ let
 in
 rustPlatform.buildRustPackage rec {
   pname = "electrs";
-  version = "0.9.2";
+  version = "0.9.13";
 
   src = fetchFromGitHub {
     owner = "romanz";
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-dYKSc5fU66fu+GdTeWQBrIOJAiBGdYAOS7MCto98Xss=";
+    hash = "sha256-GV/cwFdYpXJXRTgdVfuzJpmwNhe0kVJnYAJe+DPmRV8=";
   };
 
-  cargoHash = "sha256-M4H5tUbo1f18kk8S53saebSnZhZFr8udw41BUNJbQVI==";
+  cargoHash = "sha256-eQAizO26oQRosbMGJLwMmepBN3pocmnbc0qsHsAJysg=";
 
   # needed for librocksdb-sys
-  nativeBuildInputs = [ llvmPackages.clang ];
-  LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
+  nativeBuildInputs = [ rustPlatform.bindgenHook ];
 
   # link rocksdb dynamically
   ROCKSDB_INCLUDE_DIR = "${rocksdb}/include";
   ROCKSDB_LIB_DIR = "${rocksdb}/lib";
 
   buildInputs = lib.optionals stdenv.isDarwin [ Security ];
+
+  passthru.updateScript = ./update.sh;
 
   meta = with lib; {
     description = "An efficient re-implementation of Electrum Server in Rust";

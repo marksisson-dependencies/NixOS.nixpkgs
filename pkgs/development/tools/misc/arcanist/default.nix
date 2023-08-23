@@ -5,6 +5,8 @@
 , php
 , lib, stdenv
 , installShellFiles
+, which
+, python3
 }:
 
 # Make a custom wrapper. If `wrapProgram` is used, arcanist thinks .arc-wrapped is being
@@ -14,7 +16,7 @@
 let makeArcWrapper = toolset: ''
   cat << WRAPPER > $out/bin/${toolset}
   #!$shell -e
-  export PATH='${php}/bin/'\''${PATH:+':'}\$PATH
+  export PATH='${php}/bin:${which}/bin'\''${PATH:+':'}\$PATH
   exec ${php}/bin/php $out/libexec/arcanist/bin/${toolset} "\$@"
   WRAPPER
   chmod +x $out/bin/${toolset}
@@ -23,16 +25,21 @@ let makeArcWrapper = toolset: ''
 in
 stdenv.mkDerivation {
   pname = "arcanist";
-  version = "20200711";
+  version = "20230530";
 
   src = fetchFromGitHub {
     owner = "phacility";
     repo = "arcanist";
-    rev = "2565cc7b4d1dbce6bc7a5b3c4e72ae94be4712fe";
-    sha256 = "0jiv4aj4m5750dqw9r8hizjkwiyxk4cg4grkr63sllsa2dpiibxw";
+    rev = "e50d1bc4eabac9c37e3220e9f3fb8e37ae20b957";
+    hash = "sha256-u+HRsaCuAAyLrEihrZtLrdZ6NTVjPshieJATK3t5Fo4=";
   };
 
-  buildInputs = [ php ];
+  patches = [
+    ./dont-require-python3-in-path.patch
+    ./shellcomplete-strlen-null.patch
+  ];
+
+  buildInputs = [ php python3 ];
 
   nativeBuildInputs = [ bison flex installShellFiles ];
 
@@ -73,7 +80,7 @@ stdenv.mkDerivation {
 
   meta = {
     description = "Command line interface to Phabricator";
-    homepage = "http://phabricator.org";
+    homepage = "https://www.phacility.com/";
     license = lib.licenses.asl20;
     platforms = lib.platforms.unix;
     maintainers = [ lib.maintainers.thoughtpolice ];

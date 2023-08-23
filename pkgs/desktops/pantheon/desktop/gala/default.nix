@@ -1,9 +1,7 @@
 { lib
 , stdenv
 , fetchFromGitHub
-, fetchpatch
 , nix-update-script
-, pantheon
 , pkg-config
 , meson
 , python3
@@ -16,39 +14,31 @@
 , granite
 , libgee
 , bamf
-, libcanberra
 , libcanberra-gtk3
 , gnome-desktop
+, mesa
 , mutter
-, clutter
-, elementary-dock
-, elementary-icon-theme
-, elementary-settings-daemon
 , gnome-settings-daemon
 , wrapGAppsHook
 , gexiv2
+, systemd
 }:
 
 stdenv.mkDerivation rec {
   pname = "gala";
-  version = "6.2.1";
+  version = "7.1.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "1phnhj731kvk8ykmm33ypcxk8fkfny9k6kdapl582qh4d47wcy6f";
+    sha256 = "sha256-g+Zcdl6SJ4uO6I1x3Ru6efZkf+O3UaW790n/zxmGkHU=";
   };
 
   patches = [
+    # We look for plugins in `/run/current-system/sw/lib/` because
+    # there are multiple plugin providers (e.g. gala and wingpanel).
     ./plugins-dir.patch
-    # Multitasking view: Don't use smooth scroll events to handle mouse wheel
-    # Avoid breaking the multitasking view scroll once xf86-input-libinput 1.2.0 lands
-    # https://github.com/elementary/gala/pull/1266
-    (fetchpatch {
-      url = "https://github.com/elementary/gala/commit/d2dcfdefdf97c1b49654179a7acd01ebfe017308.patch";
-      sha256 = "sha256-2lKrCz3fSjrfKfysuUHzeUjhmMm84K47n882CLpfAyg=";
-    })
   ];
 
   nativeBuildInputs = [
@@ -65,19 +55,16 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     bamf
-    clutter
-    elementary-dock
-    elementary-icon-theme
-    elementary-settings-daemon
     gnome-settings-daemon
     gexiv2
     gnome-desktop
     granite
     gtk3
-    libcanberra
     libcanberra-gtk3
     libgee
+    mesa # for libEGL
     mutter
+    systemd
   ];
 
   postPatch = ''
@@ -86,12 +73,10 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
-  meta =  with lib; {
+  meta = with lib; {
     description = "A window & compositing manager based on mutter and designed by elementary for use with Pantheon";
     homepage = "https://github.com/elementary/gala";
     license = licenses.gpl3Plus;

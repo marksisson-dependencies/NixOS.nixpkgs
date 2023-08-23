@@ -1,71 +1,99 @@
 { lib
+, aiohttp
+, asgiref
 , buildPythonPackage
-, fetchFromGitHub
-, isodate
-, dictpath
-, openapi-spec-validator
-, openapi-schema-validator
-, six
-, lazy-object-proxy
-, attrs
-, werkzeug
-, parse
-, more-itertools
-, pytestCheckHook
-, falcon
-, flask
 , django
 , djangorestframework
+, falcon
+, fetchFromGitHub
+, flask
+, httpx
+, isodate
+, jsonschema
+, jsonschema-spec
+, more-itertools
+, openapi-schema-validator
+, openapi-spec-validator
+, parse
+, poetry-core
+, pytest-aiohttp
+, pytestCheckHook
+, pythonOlder
 , responses
-, mock
+, requests
+, starlette
+, webob
+, werkzeug
 }:
 
 buildPythonPackage rec {
   pname = "openapi-core";
-  version = "0.14.2";
+  version = "0.18.0";
+  format = "pyproject";
+
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "p1c2u";
     repo = "openapi-core";
-    rev = version;
-    sha256 = "1npsibyf8zx6z230yl19kyap8g25kqvgm7z1w6rm6jxv58yqsp7r";
+    rev = "refs/tags/${version}";
+    hash = "sha256-2OcGaZQwzgxcwrXinmJjFc91620Ri0O79c8WZWfDdlQ=";
   };
 
   postPatch = ''
-    sed -i "/^addopts/d" setup.cfg
+    sed -i "/--cov/d" pyproject.toml
   '';
+
+  nativeBuildInputs = [
+    poetry-core
+  ];
 
   propagatedBuildInputs = [
     isodate
-    dictpath
-    openapi-spec-validator
-    openapi-schema-validator
-    six
-    lazy-object-proxy
-    attrs
-    werkzeug
-    parse
     more-itertools
+    parse
+    openapi-schema-validator
+    openapi-spec-validator
+    werkzeug
+    jsonschema-spec
+    asgiref
+    jsonschema
   ];
 
-  checkInputs = [
+  passthru.optional-dependencies = {
+    aiohttp = [
+      aiohttp
+    ];
+    django = [
+      django
+    ];
+    falcon = [
+      falcon
+    ];
+    flask = [
+      flask
+    ];
+    requests = [
+      requests
+    ];
+    starlette = [
+      httpx
+      starlette
+    ];
+  };
+
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
+    pytest-aiohttp
     pytestCheckHook
-    falcon
-    flask
-    django
-    djangorestframework
     responses
-    mock
-  ];
+    webob
+  ] ++ lib.flatten (lib.attrValues passthru.optional-dependencies);
 
   disabledTestPaths = [
-    # AttributeError: 'str' object has no attribute '__name__'
-    "tests/integration/validation"
-  ];
-
-  disabledTests = [
-    # TypeError: Unexpected keyword arguments passed to pytest.raises: message
-    "test_string_format_invalid_value"
+    # Requires secrets and additional configuration
+    "tests/integration/contrib/django/"
   ];
 
   pythonImportsCheck = [

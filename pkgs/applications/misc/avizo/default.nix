@@ -1,19 +1,32 @@
-{ lib, stdenv, fetchFromGitHub
-, meson, ninja, pkg-config, vala
-, gtk3, glib, gtk-layer-shell
-, dbus, dbus-glib, librsvg
-, gobject-introspection, gdk-pixbuf, wrapGAppsHook
+{ lib
+, stdenv
+, fetchFromGitHub
+, meson
+, ninja
+, pkg-config
+, vala
+, gtk3
+, glib
+, gtk-layer-shell
+, dbus
+, dbus-glib
+, librsvg
+, gobject-introspection
+, gdk-pixbuf
+, wrapGAppsHook
+, pamixer
+, brightnessctl
 }:
 
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   pname = "avizo";
-  version = "unstable-2021-07-21";
+  version = "1.2.1";
 
   src = fetchFromGitHub {
     owner = "misterdanb";
     repo = "avizo";
-    rev = "7b3874e5ee25c80800b3c61c8ea30612aaa6e8d1";
-    sha256 = "sha256-ixAdiAH22Nh19uK5GoAXtAZJeAfCGSWTcGbrvCczWYc=";
+    rev = version;
+    sha256 = "sha256-ainU4nXWFp1udVujPHZUeWIfJE4RrjU1hn9J17UuuzU=";
   };
 
   nativeBuildInputs = [ meson ninja pkg-config vala gobject-introspection wrapGAppsHook ];
@@ -21,10 +34,8 @@ stdenv.mkDerivation {
   buildInputs = [ dbus dbus-glib gdk-pixbuf glib gtk-layer-shell gtk3 librsvg ];
 
   postInstall = ''
-    substituteInPlace "$out"/bin/volumectl \
-      --replace 'avizo-client' "$out/bin/avizo-client"
-    substituteInPlace "$out"/bin/lightctl \
-      --replace 'avizo-client' "$out/bin/avizo-client"
+    wrapProgram $out/bin/volumectl --suffix PATH : $out/bin:${lib.makeBinPath ([ pamixer ])}
+    wrapProgram $out/bin/lightctl --suffix PATH : $out/bin:${lib.makeBinPath ([ brightnessctl ])}
   '';
 
   meta = with lib; {

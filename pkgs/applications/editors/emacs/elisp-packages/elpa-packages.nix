@@ -2,10 +2,11 @@
 
 # Updating
 
-To update the list of packages from MELPA,
+To update the list of packages from ELPA,
 
 1. Run `./update-elpa`.
 2. Check for evaluation errors:
+     # "../../../../../" points to the default.nix from root of Nixpkgs tree
      env NIXPKGS_ALLOW_BROKEN=1 nix-instantiate ../../../../../ -A emacs.pkgs.elpaPackages
 3. Run `git commit -m "elpa-packages $(date -Idate)" -- elpa-generated.nix`
 
@@ -52,18 +53,21 @@ self: let
     super = removeAttrs imported [ "dash" ];
 
     overrides = {
+      # upstream issue: Wrong type argument: arrayp, nil
+      org-transclusion =
+        if super.org-transclusion.version == "1.2.0"
+        then markBroken super.org-transclusion
+        else super.org-transclusion;
       rcirc-menu = markBroken super.rcirc-menu; # Missing file header
       cl-lib = null; # builtin
+      cl-print = null; # builtin
       tle = null; # builtin
       advice = null; # builtin
       seq = if lib.versionAtLeast self.emacs.version "27"
             then null
             else super.seq;
-      project = if lib.versionAtLeast self.emacs.version "28"
-                then null
-                else super.project;
       # Compilation instructions for the Ada executables:
-      # https://www.nongnu.org/ada-mode/ada-mode.html#Ada-executables
+      # https://www.nongnu.org/ada-mode/
       ada-mode = super.ada-mode.overrideAttrs (old: {
         # actually unpack source of ada-mode and wisi
         # which are both needed to compile the tools
@@ -79,18 +83,21 @@ self: let
         nativeBuildInputs = [
           buildPackages.gnat
           buildPackages.gprbuild
-          buildPackages.lzip
+          buildPackages.dos2unix
+          buildPackages.re2c
         ];
 
         buildInputs = [
           pkgs.gnatcoll-xref
         ];
 
-        preInstall = ''
+        buildPhase = ''
+          runHook preBuild
           ./build.sh -j$NIX_BUILD_CORES
+          runHook postBuild
         '';
 
-        postInstall = ''
+        postInstall = (old.postInstall or "") + "\n" + ''
           ./install.sh --prefix=$out
         '';
 
@@ -98,6 +105,59 @@ self: let
           maintainers = [ lib.maintainers.sternenseemann ];
         };
       });
+
+      eglot = super.eglot.overrideAttrs (old: {
+        postInstall = (old.postInstall or "") + ''
+          local info_file=eglot.info
+          pushd $out/share/emacs/site-lisp/elpa/eglot-*
+          # specify output info file to override the one defined in eglot.texi
+          makeinfo --output=$info_file eglot.texi
+          install-info $info_file dir
+          popd
+        '';
+      });
+
+      jinx = super.jinx.overrideAttrs (old: let
+        libExt = pkgs.stdenv.targetPlatform.extensions.sharedLibrary;
+      in {
+        dontUnpack = false;
+
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+            pkgs.pkg-config
+        ];
+
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.enchant2 ];
+
+        postBuild = ''
+          NIX_CFLAGS_COMPILE="$($PKG_CONFIG --cflags enchant-2) $NIX_CFLAGS_COMPILE"
+          $CC -shared -o jinx-mod${libExt} jinx-mod.c -lenchant-2
+        '';
+
+        postInstall = (old.postInstall or "") + "\n" + ''
+          outd=$out/share/emacs/site-lisp/elpa/jinx-*
+          install -m444 -t $outd jinx-mod${libExt}
+          rm $outd/jinx-mod.c $outd/emacs-module.h
+        '';
+
+        meta = old.meta // {
+          maintainers = [ lib.maintainers.DamienCassou ];
+        };
+      });
+
+      plz = super.plz.overrideAttrs (
+        old: {
+          dontUnpack = false;
+          postPatch = old.postPatch or "" + ''
+            substituteInPlace ./plz.el \
+              --replace 'plz-curl-program "curl"' 'plz-curl-program "${pkgs.curl}/bin/curl"'
+          '';
+          preInstall = ''
+            tar -cf "$pname-$version.tar" --transform "s,^,$pname-$version/," * .[!.]*
+            src="$pname-$version.tar"
+          '';
+        }
+      );
+
     };
 
     elpaPackages = super // overrides;

@@ -25,7 +25,6 @@
 , SDL
 , gsl
 , cppzmq
-, zeromq
 # Needed only if qt-gui is disabled, from some reason
 , icu
 # GUI related
@@ -43,13 +42,13 @@
 , pname ? "gnuradio"
 , versionAttr ? {
   major = "3.8";
-  minor = "4";
+  minor = "5";
   patch = "0";
 }
 }:
 
 let
-  sourceSha256 = "sha256-C8S3iF7vj9A8SpxriW9y7idrhXzonvenoQtVAMex+Iw=";
+  sourceSha256 = "sha256-p4VFjTE0GXmdA7QGhWSUzO/WxJ+8Dq3JEnOABtQtJUU=";
   featuresInfo = {
     # Needed always
     basic = {
@@ -67,7 +66,7 @@ let
         # building with boost 1.7x fails
         ++ lib.optionals (!(hasFeature "gr-qtgui")) [ icu ];
       pythonNative = with python.pkgs; [
-        Mako
+        mako
         six
       ];
     };
@@ -118,7 +117,7 @@ let
     gnuradio-companion = {
       pythonRuntime = with python.pkgs; [
         pyyaml
-        Mako
+        mako
         numpy
         pygobject3
       ];
@@ -203,7 +202,7 @@ let
       runtime = [ gsl ];
     };
     gr-zeromq = {
-      runtime = [ cppzmq zeromq ];
+      runtime = [ cppzmq ];
       cmakeEnableFlag = "GR_ZEROMQ";
     };
   };
@@ -226,7 +225,7 @@ let
   inherit (shared) hasFeature; # function
 in
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   inherit pname;
   inherit (shared)
     version
@@ -243,15 +242,21 @@ stdenv.mkDerivation rec {
   patches = [
     # Not accepted upstream, see https://github.com/gnuradio/gnuradio/pull/5227
     ./modtool-newmod-permissions.3_8.patch
+    # Fix compilation with boost 177
     (fetchpatch {
-      # https://github.com/gnuradio/gnuradio/pull/5226
-      url = "https://github.com/gnuradio/gnuradio/commit/9d7343526dd793120b6425cd9a6969416ed32503.patch";
-      sha256 = "sha256-usSoRDDuClUfdX4yFbQNu8wDzve6UEhZYTFj1oZbFic=";
+      url = "https://github.com/gnuradio/gnuradio/commit/2c767bb260a25b415e8c9c4b3ea37280b2127cec.patch";
+      sha256 = "sha256-l4dSzkXb5s3vcCeuKMMwiKfv83hFI9Yg+EMEX+sl+Uo=";
     })
   ];
   passthru = shared.passthru // {
-    # Deps that are potentially overriden and are used inside GR plugins - the same version must
-    inherit boost volk;
+    # Deps that are potentially overridden and are used inside GR plugins - the same version must
+    inherit
+      boost
+      volk
+    ;
+    # Used by many gnuradio modules, the same attribute is present in
+    # gnuradio3.10 where there it's spdlog.
+    logLib = log4cpp;
   } // lib.optionalAttrs (hasFeature "gr-uhd") {
     inherit uhd;
   } // lib.optionalAttrs (hasFeature "gr-qtgui") {
@@ -267,11 +272,11 @@ stdenv.mkDerivation rec {
     # order to build, see https://github.com/qradiolink/qradiolink/issues/67
     ++ lib.optionals (hasFeature "gr-vocoder") [
       "-DLIBCODEC2_FOUND=TRUE"
-      "-DLIBCODEC2_LIBRARIES=${codec2}/lib/libcodec2.so"
+      "-DLIBCODEC2_LIBRARIES=${codec2}/lib/libcodec2${stdenv.hostPlatform.extensions.sharedLibrary}"
       "-DLIBCODEC2_INCLUDE_DIRS=${codec2}/include"
       "-DLIBCODEC2_HAS_FREEDV_API=ON"
       "-DLIBGSM_FOUND=TRUE"
-      "-DLIBGSM_LIBRARIES=${gsm}/lib/libgsm.so"
+      "-DLIBGSM_LIBRARIES=${gsm}/lib/libgsm${stdenv.hostPlatform.extensions.sharedLibrary}"
       "-DLIBGSM_INCLUDE_DIRS=${gsm}/include/gsm"
     ]
     ++ lib.optionals (hasFeature "volk" && volk != null) [

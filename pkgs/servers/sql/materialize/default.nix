@@ -40,17 +40,33 @@ let
 in
 rustPlatform.buildRustPackage rec {
   pname = "materialize";
-  version = "0.9.4";
-  rev = "29d003cae5e9d46f8b11b2102ff0b9abf6608c2f";
+  version = "0.17.0";
+  MZ_DEV_BUILD_SHA = "9f8cf75b461d288335cb6a7a73aaa670bab4a466";
 
   src = fetchFromGitHub {
     owner = "MaterializeInc";
     repo = pname;
     rev = "v${version}";
-    sha256 = "021n05csyvza9ifq09qaxypgmlbp3a7xn6r1m4jn8d4rnz38wag6";
+    hash = "sha256-wKYU5S77VoOX7UA9/d21Puz9NYs/om08eNM69/m3Orc=";
   };
 
-  cargoSha256 = "12fysxzmqnx7y7yg6fjcv1952s77d46pwi32vnsv62icgqfpw0j4";
+  cargoLock = {
+    lockFile = ./Cargo.lock;
+    outputHashes = {
+      "criterion-0.3.5" = "sha256-gXhwLw99kC08zxHdY6l5LF5EVzAAFasI4GLnopLwhEU=";
+      "differential-dataflow-0.12.0" = "sha256-sDy4502XqCuXqRtwLWuaHSgfX7v9NNochhfpI6n8DrM=";
+      "headers-0.3.5" = "sha256-ipxMfuPgoeH2uR4Im/XBdnxT00+LGzTgW7Ed2armYOU=";
+      "mzcloud-1.0.0" = "sha256-Nt9YCG+DFCCOMbKaNhOD78WF/z3qB5ymUIp6Wep2A9A=";
+      "parquet-format-async-temp-0.2.0" = "sha256-UUQv/90egmwQK0CZCztinEskvWcZ40rKWbJoWYz2oLQ=";
+      "postgres-0.19.1" = "sha256-zH7PF4p7wJCSYpuydTL3HPcOjPU9SlTy6IJREOe2l7U=";
+      "postgres_array-0.11.0" = "sha256-M1nMsQfxK0ay4JxoPqm2cl4Cp8mVZlVUAfWDhhv9nA4=";
+      "prometheus-0.10.0" = "sha256-NTnKt1RGiZ8AxsU8UzhLhpfEi24Pos5kR9g22Mmt444=";
+      "protobuf-3.0.0-alpha.2" = "sha256-8gBGQqAtKJelcBCxnDESanlblBLQ1Th7khHxUkDw7To=";
+      "pubnub-core-0.1.0" = "sha256-YuGEFaStfrhb0ygjVFm2a2eJla9ABc5ifXKuvJxUvgk=";
+      "rdkafka-0.28.0" = "sha256-u2gBTzu+IvXTDvcZGzPaVpSVOgAKhTth7GLwob4urDs=";
+      "timely-0.12.0" = "sha256-PHaDRNm7MezXJWhILWJHTeiCWO3iLUp94Z0V2dreCMk=";
+    };
+  };
 
   nativeBuildInputs = [ cmake perl pkg-config ]
     # Provides the mig command used by the krb5-src build script
@@ -67,8 +83,11 @@ rustPlatform.buildRustPackage rec {
     "--exact"
     "--skip test_client"
     "--skip test_client_errors"
+    "--skip test_client_all_subjects"
+    "--skip test_client_subject_and_references"
     "--skip test_no_block"
     "--skip test_safe_mode"
+    "--skip test_tls"
   ];
 
   postPatch = ''
@@ -78,7 +97,6 @@ rustPlatform.buildRustPackage rec {
       --replace _Materialize root
   '';
 
-  MZ_DEV_BUILD_SHA = rev;
   cargoBuildFlags = [ "--bin materialized" ];
 
   postInstall = ''

@@ -6,7 +6,7 @@ import ./make-test-python.nix ({ pkgs, ...} :
     maintainers = [ oxalica ];
   };
 
-  machine = { ... }:
+  nodes.machine = { ... }:
 
   {
     imports = [ ./common/user-account.nix ];
@@ -21,16 +21,13 @@ import ./make-test-python.nix ({ pkgs, ...} :
         user = "alice";
       };
     };
-    virtualisation.memorySize = 1024;
   };
 
-  testScript = { nodes, ... }: let
-    user = nodes.machine.config.users.users.alice;
-  in ''
+  testScript = { nodes, ... }: ''
     with subtest("Wait for login"):
         start_all()
-        machine.wait_for_file("${user.home}/.Xauthority")
-        machine.succeed("xauth merge ${user.home}/.Xauthority")
+        machine.wait_for_file("/tmp/xauth_*")
+        machine.succeed("xauth merge /tmp/xauth_*")
 
     with subtest("Check plasmashell started"):
         machine.wait_until_succeeds("pgrep plasmashell")

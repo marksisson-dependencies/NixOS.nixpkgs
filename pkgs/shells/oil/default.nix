@@ -1,12 +1,17 @@
-{ stdenv, lib, fetchurl, withReadline ? true, readline }:
+{ stdenv, lib, fetchurl, symlinkJoin, withReadline ? true, readline }:
 
+let
+  readline-all = symlinkJoin {
+    name = "readline-all"; paths = [ readline readline.dev ];
+  };
+in
 stdenv.mkDerivation rec {
   pname = "oil";
-  version = "0.9.3";
+  version = "0.17.0";
 
   src = fetchurl {
     url = "https://www.oilshell.org/download/oil-${version}.tar.xz";
-    sha256 = "sha256-YvNgcvafM3jgO3nY1SVcHRNglOwRQQ208W7oLxZg79o=";
+    hash = "sha256-H7oWI3+660MhMdDTTPX11/YalnItzhxfdBrtwKR8xrM=";
   };
 
   postPatch = ''
@@ -17,8 +22,14 @@ stdenv.mkDerivation rec {
     mkdir -p $out/bin
   '';
 
+  strictDeps = true;
   buildInputs = lib.optional withReadline readline;
-  configureFlags = lib.optional withReadline "--with-readline";
+  configureFlags = [
+    "--datarootdir=${placeholder "out"}"
+  ] ++ lib.optionals withReadline [
+    "--with-readline"
+    "--readline=${readline-all}"
+  ];
 
   # Stripping breaks the bundles by removing the zip file from the end.
   dontStrip = true;
@@ -32,6 +43,7 @@ stdenv.mkDerivation rec {
       asl20 # Licence for Oil itself
     ];
 
+    platforms = lib.platforms.all;
     maintainers = with lib.maintainers; [ lheckemann alva ];
     changelog = "https://www.oilshell.org/release/${version}/changelog.html";
   };

@@ -1,29 +1,30 @@
 { lib
 , buildPythonPackage
-, fetchFromGitHub
 , click
 , click-log
-, dataclasses
+, fetchFromGitHub
 , pure-pcapy3
 , pyserial-asyncio
-, voluptuous
-, zigpy
-, asynctest
-, pythonOlder
-, pytestCheckHook
 , pytest-asyncio
 , pytest-timeout
+, pytestCheckHook
+, pythonOlder
+, voluptuous
+, zigpy
 }:
 
 buildPythonPackage rec {
   pname = "bellows";
-  version = "0.28.0";
+  version = "0.35.9";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "zigpy";
     repo = "bellows";
-    rev = version;
-    sha256 = "sha256-j1vS6PDvvuJapECn0lKGuBkYwWsyzJaTZDRQPjMsuLk=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-68t6l7/30euGo0dX5HTnGMl65j6UVF2f9fYZH6EhlzI=";
   };
 
   propagatedBuildInputs = [
@@ -33,22 +34,12 @@ buildPythonPackage rec {
     pyserial-asyncio
     voluptuous
     zigpy
-  ] ++ lib.optionals (pythonOlder "3.7") [
-    dataclasses
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-asyncio
     pytest-timeout
-  ]  ++ lib.optionals (pythonOlder "3.8") [
-    asynctest
-  ];
-
-  disabledTests = [
-    # AssertionError: assert 65534 is None
-    # https://github.com/zigpy/bellows/issues/436
-    "test_startup_nwk_params"
   ];
 
   pythonImportsCheck = [
@@ -58,7 +49,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python module to implement EZSP for EmberZNet devices";
     homepage = "https://github.com/zigpy/bellows";
+    changelog = "https://github.com/zigpy/bellows/releases/tag/${version}";
     license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ etu mvnetbiz ];
+    maintainers = with maintainers; [ mvnetbiz ];
   };
 }

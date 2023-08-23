@@ -4,51 +4,71 @@
 , fetchpatch
 , cmake
 , pkg-config
+, buildPackages
+, callPackage
 , sqlite
 , libtiff
 , curl
 , gtest
+, nlohmann_json
+, python3
+, cacert
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: rec {
   pname = "proj";
-  version = "8.1.1";
+  version = "9.2.1";
 
   src = fetchFromGitHub {
     owner = "OSGeo";
     repo = "PROJ";
     rev = version;
-    sha256 = "sha256-Z2nruyowC3NG4Wb8AFBL0PME/zp9D7SwQdMSl6VjH/w=";
+    hash = "sha256-cUnnJ9gOh65xBbfamfDkN7ajRdRLO5nUXRLeaBBMchg=";
   };
 
   patches = [
-    (fetchpatch {
-      name = "Make-CApi-test-cross-platform.patch";
-      url = "https://github.com/OSGeo/PROJ/commit/ac113a8898cded7f5359f1edd3abc17a78eee9b4.patch";
-      sha256 = "0gz2xa5nxzck5c0yr7cspv3kw4cz3fxb2yic76w7qfvxidi7z1s1";
-    })
+    # https://github.com/OSGeo/PROJ/pull/3252
+    ./only-add-curl-for-static-builds.patch
   ];
 
-  outputs = [ "out" "dev"];
+  outputs = [ "out" "dev" ];
 
   nativeBuildInputs = [ cmake pkg-config ];
 
-  buildInputs = [ sqlite libtiff curl ];
+  buildInputs = [ sqlite libtiff curl nlohmann_json ];
 
-  checkInputs = [ gtest ];
+  nativeCheckInputs = [ cacert gtest ];
 
   cmakeFlags = [
     "-DUSE_EXTERNAL_GTEST=ON"
     "-DRUN_NETWORK_DEPENDENT_TESTS=OFF"
+    "-DNLOHMANN_JSON_ORIGIN=external"
+    "-DEXE_SQLITE3=${buildPackages.sqlite}/bin/sqlite3"
   ];
+
+  preCheck =
+    let
+      libPathEnvVar = if stdenv.isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
+    in
+      ''
+        export HOME=$TMPDIR
+        export TMP=$TMPDIR
+        export ${libPathEnvVar}=$PWD/lib
+      '';
 
   doCheck = true;
 
+  passthru.tests = {
+    python = python3.pkgs.pyproj;
+    proj = callPackage ./tests.nix { proj = finalAttrs.finalPackage; };
+  };
+
   meta = with lib; {
+    changelog = "https://github.com/OSGeo/PROJ/blob/${src.rev}/NEWS";
     description = "Cartographic Projections Library";
     homepage = "https://proj.org/";
     license = licenses.mit;
+    maintainers = with maintainers; teams.geospatial.members ++ [ dotlambda ];
     platforms = platforms.unix;
-    maintainers = with maintainers; [ vbgl dotlambda ];
   };
-}
+})

@@ -40,15 +40,15 @@ let
 in
 buildPythonPackage rec {
   pname = "qiskit-ibmq-provider";
-  version = "0.18.0";
+  version = "0.20.1";
 
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "Qiskit";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-mVgR9vq9UpM/3VED4hpEev8YAoZY1URAxu7pVv+cjU8=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-BFiGMPiO9Xcl8EiTZYiwHCpo7z+tRaBkIb8GTo01rBA=";
   };
 
   propagatedBuildInputs = [
@@ -58,6 +58,7 @@ buildPythonPackage rec {
     requests
     requests_ntlm
     websocket-client
+    websockets
   ] ++ lib.optionals withVisualization visualizationPackages;
 
   postPatch = ''
@@ -65,19 +66,19 @@ buildPythonPackage rec {
   '';
 
   # Most tests require credentials to run on IBMQ
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     nbconvert
     nbformat
     pproxy
     qiskit-aer
     vcrpy
-    websockets
   ] ++ lib.optionals (!withVisualization) visualizationPackages;
 
   pythonImportsCheck = [ "qiskit.providers.ibmq" ];
-  # These disabled tests require internet connection, aren't skipped elsewhere
   disabledTests = [
+    "test_coder_operators"  # fails for some reason on nixos-21.05+
+    # These disabled tests require internet connection, aren't skipped elsewhere
     "test_old_api_url"
     "test_non_auth_url"
     "test_non_auth_url_with_hub"

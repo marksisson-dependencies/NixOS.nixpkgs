@@ -1,61 +1,73 @@
-{ lib, stdenv, fetchFromGitHub
+{ lib, stdenv, fetchFromGitHub, fetchpatch
+, llvmPackages, elfutils, bcc
+, libbpf, libbfd, libopcodes
+, cereal, asciidoctor
 , cmake, pkg-config, flex, bison
-, llvmPackages, kernel, elfutils
-, libelf, libbfd, libbpf, libopcodes, bcc
+, util-linux
+, nixosTests
 }:
 
 stdenv.mkDerivation rec {
   pname = "bpftrace";
-  version = "0.13.0";
+  version = "0.18.0";
 
   src = fetchFromGitHub {
-    owner  = "iovisor";
-    repo   = "bpftrace";
-    rev    = "v${version}";
-    sha256 = "sha256-BKWBdFzj0j7rAfG30A0fwyYCpOG/5NFRPODW46EP1u0=";
+    owner = "iovisor";
+    repo  = "bpftrace";
+    rev   = "v${version}";
+    hash  = "sha256-+SBLcMyOf1gZN8dG5xkNLsqIcK1eVlswjY1GRXepFVg=";
   };
 
-  buildInputs = with llvmPackages;
-    [ llvm libclang
-      kernel elfutils libelf bcc
-      libbpf libbfd libopcodes
-    ];
+  patches = [
+    # fails to build - https://github.com/iovisor/bpftrace/issues/2598
+    (fetchpatch {
+      name = "link-binaries-against-zlib";
+      url = "https://github.com/iovisor/bpftrace/commit/a60b171eb288250c3f1d6f065b05d8a87aff3cdd.patch";
+      hash = "sha256-b/0pKDjolo2RQ/UGjEfmWdG0tnIiFX8PJHhRCXvzyxA=";
+    })
+  ];
 
-  nativeBuildInputs = [ cmake pkg-config flex bison llvmPackages.llvm.dev ]
-    # libelf is incompatible with elfutils-libelf
-    ++ lib.filter (x: x != libelf) kernel.moduleBuildDependencies;
+  buildInputs = with llvmPackages; [
+    llvm libclang
+    elfutils bcc
+    libbpf libbfd libopcodes
+    cereal asciidoctor
+  ];
 
-  # patch the source, *then* substitute on @NIX_KERNEL_SRC@ in the result. we could
-  # also in theory make this an environment variable around bpftrace, but this works
-  # nicely without wrappers.
-  patchPhase = ''
-    patch -p1 < ${./fix-kernel-include-dir.patch}
-    substituteInPlace ./src/utils.cpp \
-      --subst-var-by NIX_KERNEL_SRC '${kernel.dev}/lib/modules/${kernel.modDirVersion}'
-  '';
+  nativeBuildInputs = [
+    cmake pkg-config flex bison
+    llvmPackages.llvm.dev
+    util-linux
+  ];
 
   # tests aren't built, due to gtest shenanigans. see:
   #
   #     https://github.com/iovisor/bpftrace/issues/161#issuecomment-453606728
   #     https://github.com/iovisor/bpftrace/pull/363
   #
-  cmakeFlags =
-    [ "-DBUILD_TESTING=FALSE"
-      "-DLIBBCC_INCLUDE_DIRS=${bcc}/include"
-    ];
+  cmakeFlags = [
+    "-DBUILD_TESTING=FALSE"
+    "-DLIBBCC_INCLUDE_DIRS=${bcc}/include"
+    "-DINSTALL_TOOL_DOCS=OFF"
+    "-DUSE_SYSTEM_BPF_BCC=ON"
+  ];
 
-  # nuke the example/reference output .txt files, for the included tools,
-  # stuffed inside $out. we don't need them at all.
+  # Pull BPF scripts into $PATH (next to their bcc program equivalents), but do
+  # not move them to keep `${pkgs.bpftrace}/share/bpftrace/tools/...` working.
   postInstall = ''
-    rm -rf $out/share/bpftrace/tools/doc
+    ln -s $out/share/bpftrace/tools/*.bt $out/bin/
   '';
 
   outputs = [ "out" "man" ];
+
+  passthru.tests = {
+    bpf = nixosTests.bpf;
+  };
 
   meta = with lib; {
     description = "High-level tracing language for Linux eBPF";
     homepage    = "https://github.com/iovisor/bpftrace";
     license     = licenses.asl20;
-    maintainers = with maintainers; [ rvl thoughtpolice ];
+    maintainers = with maintainers; [ rvl thoughtpolice martinetd ];
   };
 }

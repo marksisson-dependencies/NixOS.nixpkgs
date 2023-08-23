@@ -7,27 +7,29 @@
 , thrift
 # Not gnuradioPackages'
 , codec2
-, log4cpp
 , gmp
 , gsm
 , libopus
 , libjpeg
 , libsndfile
 , libftdi
+, limesuite
+, soapysdr-with-plugins
 , protobuf
 , speex
 , speexdsp
+, cppzmq
 }:
 
 gnuradio3_8.pkgs.mkDerivation rec {
   pname = "qradiolink";
-  version = "0.8.5-2";
+  version = "0.8.10-1";
 
   src = fetchFromGitHub {
     owner = "qradiolink";
     repo = "qradiolink";
     rev = version;
-    sha256 = "MgHfKR3AJW3pIN9oCBr4BWxk1fGSCpLmMzjxvuTmuFA=";
+    sha256 = "sha256-DOf5Ct8a9EGpO3YLef+Hw87m5tCVqD30weVOeis9agI=";
   };
 
   preBuild = ''
@@ -47,7 +49,7 @@ gnuradio3_8.pkgs.mkDerivation rec {
   buildInputs = [
     gnuradio3_8.unwrapped.boost
     codec2
-    log4cpp
+    gnuradio3_8.unwrapped.logLib
     gmp
     libpulseaudio
     libconfig
@@ -55,12 +57,15 @@ gnuradio3_8.pkgs.mkDerivation rec {
     gnuradio3_8.pkgs.osmosdr
     libopus
     libjpeg
+    limesuite
+    soapysdr-with-plugins
     speex
     speexdsp
     gnuradio3_8.qt.qtbase
     gnuradio3_8.qt.qtmultimedia
     libftdi
     libsndfile
+    cppzmq
     gnuradio3_8.qwt
   ] ++ lib.optionals (gnuradio3_8.hasFeature "gr-ctrlport") [
     thrift
