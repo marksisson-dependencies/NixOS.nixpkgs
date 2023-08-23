@@ -17,7 +17,7 @@
 
 buildPythonPackage rec {
   pname = "cssutils";
-  version = "2.4.2";
+  version = "2.7.1";
 
   disabled = pythonOlder "3.7";
 
@@ -25,7 +25,7 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "877818bfa9668cc535773f46e6b6a46de28436191211741b3f7b4aaa64d9afbb";
+    hash = "sha256-NA7P2YNdId+PmFAPDfzqCu5By04Z7Lws+U8KbTbXy2w=";
   };
 
   nativeBuildInputs = [
@@ -37,7 +37,7 @@ buildPythonPackage rec {
     importlib-metadata
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     cssselect
     jaraco-test
     lxml

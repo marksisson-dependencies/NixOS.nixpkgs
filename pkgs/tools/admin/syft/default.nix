@@ -1,14 +1,14 @@
-{ lib, stdenv, buildGoModule, fetchFromGitHub, installShellFiles }:
+{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
 
 buildGoModule rec {
   pname = "syft";
-  version = "0.46.3";
+  version = "0.87.0";
 
   src = fetchFromGitHub {
     owner = "anchore";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-4Yo9CIAVEOtAvsvGzSXerTwCbvylo7MjwJwWU6uJAX8=";
+    hash = "sha256-qDeUo/xAGCy/Ih5B8AyiJ7q9aCd5iWNkW7T+0OqAfTY=";
     # populate values that require us to use git. By doing this in postFetch we
     # can delete .git afterwards and maintain better reproducibility of the src.
     leaveDotGit = true;
@@ -20,7 +20,9 @@ buildGoModule rec {
       find "$out" -name .git -print0 | xargs -0 rm -rf
     '';
   };
-  vendorSha256 = "sha256-K4bPldGOQVkmAavEbVxMjOhiHgfSrNpQ2ljFLqyceCw=";
+  # hash mismatch with darwin
+  proxyVendor = true;
+  vendorHash = "sha256-7lrim4N3hT2qkpTIVF1A/GUu5BfJ3Z8A6H1nd8yHwaw=";
 
   nativeBuildInputs = [ installShellFiles ];
 
@@ -73,9 +75,6 @@ buildGoModule rec {
       vulnerability detection when used with a scanner tool like Grype.
     '';
     license = with licenses; [ asl20 ];
-    maintainers = with maintainers; [ jk ];
-    # Need updated macOS SDK
-    # https://github.com/NixOS/nixpkgs/issues/101229
-    broken = (stdenv.isDarwin && stdenv.isx86_64);
+    maintainers = with maintainers; [ jk developer-guy kashw2 ];
   };
 }

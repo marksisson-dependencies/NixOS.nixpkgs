@@ -1,5 +1,6 @@
 { stdenv
 , lib
+, backports-zoneinfo
 , billiard
 , boto3
 , buildPythonPackage
@@ -14,25 +15,27 @@
 , moto
 , pymongo
 , pytest-celery
+, pytest-click
 , pytest-subtests
 , pytest-timeout
 , pytestCheckHook
+, python-dateutil
 , pythonOlder
-, pytz
+, tzdata
 , vine
 , nixosTests
 }:
 
 buildPythonPackage rec {
   pname = "celery";
-  version = "5.2.7";
+  version = "5.3.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-+vvYKTTTD4oAT4Ho96Bi4xQToj1ES+juMyZVORWVjG0=";
+    hash = "sha256-+E0cIaFSDBFsK30mWTkmWBGRQ1oDqnS3fJQbk8ocYhA=";
   };
 
   propagatedBuildInputs = [
@@ -42,17 +45,22 @@ buildPythonPackage rec {
     click-plugins
     click-repl
     kombu
-    pytz
+    python-dateutil
+    tzdata
     vine
+  ]
+  ++ lib.optionals (pythonOlder "3.9") [
+    backports-zoneinfo
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     boto3
     case
     dnspython
     moto
     pymongo
     pytest-celery
+    pytest-click
     pytest-subtests
     pytest-timeout
     pytestCheckHook

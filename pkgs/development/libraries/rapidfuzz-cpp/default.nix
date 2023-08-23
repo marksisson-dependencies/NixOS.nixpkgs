@@ -5,45 +5,40 @@
 , catch2_3
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "rapidfuzz-cpp";
-  version = "1.0.2";
+  version = "2.0.0";
 
   src = fetchFromGitHub {
     owner = "maxbachmann";
     repo = "rapidfuzz-cpp";
-    rev = "v${version}";
-    hash = "sha256-Tf7nEMXiem21cvQHPnYnCvOOLg0KBBnNQDaYIcHcm2g=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-gLiITRCxX3nkzrlvU1/ZPxEo2v7q79/MwrnURUjrY28=";
   };
-
-  patches = lib.optionals doCheck [
-    ./dont-fetch-project-options.patch
-  ];
-
-  postPatch = ''
-    substituteInPlace test/CMakeLists.txt \
-      --replace WARNINGS_AS_ERRORS ""
-  '';
 
   nativeBuildInputs = [
     cmake
   ];
 
-  cmakeFlags = lib.optionals doCheck [
+  cmakeFlags = lib.optionals finalAttrs.finalPackage.doCheck [
     "-DRAPIDFUZZ_BUILD_TESTING=ON"
   ];
 
-  checkInputs = [
-    catch2_3
+  CXXFLAGS = lib.optionals stdenv.cc.isClang [
+    # error: no member named 'fill' in namespace 'std'
+    "-include algorithm"
   ];
 
-  doCheck = true;
+  nativeCheckInputs = [
+    catch2_3
+  ];
 
   meta = {
     description = "Rapid fuzzy string matching in C++ using the Levenshtein Distance";
     homepage = "https://github.com/maxbachmann/rapidfuzz-cpp";
+    changelog = "https://github.com/maxbachmann/rapidfuzz-cpp/blob/${finalAttrs.src.rev}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ dotlambda ];
     platforms = lib.platforms.unix;
   };
-}
+})

@@ -8,7 +8,6 @@
 , which
 , python3
 , rsync
-, makeWrapper
 , qtbase
 , qtsvg
 , libGLU
@@ -16,17 +15,19 @@
 , zlib
 , icu
 , freetype
+, pugixml
+, nix-update-script
 }:
 
 mkDerivation rec {
   pname = "organicmaps";
-  version = "2022.05.31-10";
+  version = "2023.06.04-13";
 
   src = fetchFromGitHub {
     owner = "organicmaps";
     repo = "organicmaps";
     rev = "${version}-android";
-    sha256 = "sha256-2GeWa4CQoY7hi24q0/cZBbq1Ofl2Jane9BiZ0N+IsSc=";
+    hash = "sha256-HoEOKN99ClR1sa8YFZcS9XomtXnTRdAXS0iQEdDrhvc=";
     fetchSubmodules = true;
   };
 
@@ -36,6 +37,9 @@ mkDerivation rec {
 
     # crude fix for https://github.com/organicmaps/organicmaps/issues/1862
     echo "echo ${lib.replaceStrings ["." "-"] ["" ""] version}" > tools/unix/version.sh
+
+    # TODO use system boost instead, see https://github.com/organicmaps/organicmaps/issues/5345
+    patchShebangs 3party/boost/tools/build/src/engine/build.sh
   '';
 
   nativeBuildInputs = [
@@ -45,7 +49,6 @@ mkDerivation rec {
     which
     python3
     rsync
-    makeWrapper
   ];
 
   # Most dependencies are vendored
@@ -57,6 +60,7 @@ mkDerivation rec {
     zlib
     icu
     freetype
+    pugixml
   ];
 
   # Yes, this is PRE configure. The configure phase uses cmake
@@ -64,15 +68,11 @@ mkDerivation rec {
     bash ./configure.sh
   '';
 
-  # Tell the program that the read-only and the read-write data locations
-  # are different, and create the read-write one.
-  # https://github.com/organicmaps/organicmaps/issues/2387
-  postInstall = ''
-    wrapProgram $out/bin/OMaps \
-      --add-flags "-resources_path $out/share/organicmaps/data" \
-      --add-flags '-data_path "''${XDG_DATA_HOME:-''${HOME}/.local/share}/OMaps"' \
-      --run 'mkdir -p "''${XDG_DATA_HOME:-''${HOME}/.local/share}/OMaps"'
-  '';
+  passthru = {
+    updateScript = nix-update-script {
+      extraArgs = [ "-vr" "(.*)-android" ];
+    };
+  };
 
   meta = with lib; {
     # darwin: "invalid application of 'sizeof' to a function type"

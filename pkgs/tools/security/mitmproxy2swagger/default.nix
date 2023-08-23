@@ -5,14 +5,14 @@
 
 python3.pkgs.buildPythonApplication rec {
   pname = "mitmproxy2swagger";
-  version = "0.6.0";
+  version = "0.10.1";
   format = "pyproject";
 
   src = fetchFromGitHub {
     owner = "alufers";
     repo = pname;
-    rev = version;
-    hash = "sha256-NTxRq7lIm3Y5RxOxdXiKVv39Co8GG9YE2kuEryRUw1Y=";
+    rev = "refs/tags/${version}";
+    hash = "sha256-vWeMAtNyxYpuVlxav0ibTMoTKwLCNRFJpFKG3bIatTQ=";
   };
 
   nativeBuildInputs = with python3.pkgs; [
@@ -35,6 +35,7 @@ python3.pkgs.buildPythonApplication rec {
   meta = with lib; {
     description = "Tool to automagically reverse-engineer REST APIs";
     homepage = "https://github.com/alufers/mitmproxy2swagger";
+    changelog = "https://github.com/alufers/mitmproxy2swagger/releases/tag/${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

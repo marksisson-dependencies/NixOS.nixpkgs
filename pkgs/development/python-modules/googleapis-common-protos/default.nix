@@ -7,11 +7,11 @@
 
 buildPythonPackage rec {
   pname = "googleapis-common-protos";
-  version = "1.56.2";
+  version = "1.58.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-sJtW9UYwcMIVN1PvEj8H0uSSNeiRSOmyRZ7I7S9o19M=";
+    hash = "sha256-xyclHsAllH1UUYS6F+NXiED8OiSgUWoCBHntq2YEV98=";
   };
 
   propagatedBuildInputs = [ grpc protobuf ];
@@ -31,6 +31,6 @@ buildPythonPackage rec {
     description = "Common protobufs used in Google APIs";
     homepage = "https://github.com/googleapis/python-api-common-protos";
     license = licenses.asl20;
-    maintainers = with maintainers; [ SuperSandro2000 ];
+    maintainers = with maintainers; [ ];
   };
 }

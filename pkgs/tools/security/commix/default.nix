@@ -5,15 +5,21 @@
 
 python3.pkgs.buildPythonApplication rec {
   pname = "commix";
-  version = "3.4";
+  version = "3.8";
   format = "setuptools";
 
   src = fetchFromGitHub {
     owner = "commixproject";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-JM4NE77LpgsdWhzPe/8K0sQhOSpzDu9usuH7pfQ6dR0=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-S/2KzZb3YUF0VJharWV/+7IG+r1EnB2sOveMpd1ryEI=";
   };
+
+  postInstall = ''
+    # Helper files are not handled by setup.py
+    mkdir -p $out/${python3.sitePackages}/src/txt
+    install -vD src/txt/* $out/${python3.sitePackages}/src/txt/
+  '';
 
   # Project has no tests
   doCheck = false;
@@ -21,6 +27,7 @@ python3.pkgs.buildPythonApplication rec {
   meta = with lib; {
     description = "Automated Command Injection Exploitation Tool";
     homepage = "https://github.com/commixproject/commix";
+    changelog = "https://github.com/commixproject/commix/releases/tag/v${version}";
     license = with licenses; [ gpl3Plus ];
     maintainers = with maintainers; [ fab ];
   };

@@ -7,13 +7,13 @@
 
 stdenv.mkDerivation rec {
   pname = "jarowinkler-cpp";
-  version = "1.0.1";
+  version = "1.0.2";
 
   src = fetchFromGitHub {
     owner = "maxbachmann";
     repo = "jarowinkler-cpp";
     rev = "v${version}";
-    hash = "sha256-3/x0fyaDJTouBKbif0ALgMzht6HMEGHNw8g8zQlUcNk=";
+    hash = "sha256-GuwDSCYTfSwqTnzZSft3ufVSKL7255lVvbJhBxKxjJw=";
   };
 
   nativeBuildInputs = [
@@ -24,7 +24,7 @@ stdenv.mkDerivation rec {
     "-DJARO_WINKLER_BUILD_TESTING=ON"
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     catch2_3
   ];
 
@@ -33,6 +33,7 @@ stdenv.mkDerivation rec {
   meta = {
     description = "Fast Jaro and Jaro-Winkler distance";
     homepage = "https://github.com/maxbachmann/jarowinkler-cpp";
+    changelog = "https://github.com/maxbachmann/jarowinkler-cpp/blob/${src.rev}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ dotlambda ];
     platforms = lib.platforms.unix;

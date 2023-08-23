@@ -12,6 +12,8 @@
 , libiconv
 , makeFontsConf
 , gentium
+, runCommand
+, sile
 }:
 
 let
@@ -33,7 +35,6 @@ let
     luasocket
     luautf8
     penlight
-    stdlib
     vstruct
   ] ++ lib.optionals (lib.versionOlder lua.luaversion "5.2") [
     bit32
@@ -44,11 +45,11 @@ in
 
 stdenv.mkDerivation rec {
   pname = "sile";
-  version = "0.13.0";
+  version = "0.14.10";
 
   src = fetchurl {
     url = "https://github.com/sile-typesetter/sile/releases/download/v${version}/${pname}-${version}.tar.xz";
-    sha256 = "0ff4gcfabr6259nl1nkyfrn2r7mww2q8srvi0wakwxgh427faby3";
+    sha256 = "05jqr9lqy33zgi1wb0gn3j9w78sswznwbpaaz8i3jvrs1l1wd2i0";
   };
 
   configureFlags = [
@@ -70,12 +71,20 @@ stdenv.mkDerivation rec {
   ]
   ++ lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.AppKit
   ;
-  checkInputs = [
-    poppler_utils
-  ];
   passthru = {
     # So it will be easier to inspect this environment, in comparison to others
     inherit luaEnv;
+    # Copied from Makefile.am
+    tests.test = lib.optionalAttrs (!(stdenv.isDarwin && stdenv.isAarch64)) (
+      runCommand "${pname}-test"
+        {
+          nativeBuildInputs = [ poppler_utils sile ];
+          inherit FONTCONFIG_FILE;
+        } ''
+        output=$(mktemp -t selfcheck-XXXXXX.pdf)
+        echo "<sile>foo</sile>" | sile -o $output -
+        pdfinfo $output | grep "SILE v${version}" > $out
+      '');
   };
 
   postPatch = ''
@@ -92,8 +101,6 @@ stdenv.mkDerivation rec {
     ];
   };
 
-  doCheck = true;
-
   enableParallelBuilding = true;
 
   preBuild = lib.optionalString stdenv.cc.isClang ''
@@ -101,13 +108,18 @@ stdenv.mkDerivation rec {
       --replace "ASSERT(ht && ht->table && iter);" "ASSERT(ht && iter);"
   '';
 
-  # Hack to avoid TMPDIR in RPATHs.
-  preFixup = ''rm -rf "$(pwd)" && mkdir "$(pwd)" '';
+  # remove forbidden references to $TMPDIR
+  preFixup = lib.optionalString stdenv.isLinux ''
+    for f in "$out"/bin/*; do
+      if isELF "$f"; then
+        patchelf --shrink-rpath --allowed-rpath-prefixes "$NIX_STORE" "$f"
+      fi
+    done
+  '';
 
   outputs = [ "out" "doc" "man" "dev" ];
 
   meta = with lib; {
-    broken = stdenv.isDarwin;
     description = "A typesetting system";
     longDescription = ''
       SILE is a typesetting system; its job is to produce beautiful

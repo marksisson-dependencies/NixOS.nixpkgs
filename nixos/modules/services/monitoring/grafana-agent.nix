@@ -7,21 +7,16 @@ let
 in
 {
   meta = {
-    maintainers = with maintainers; [ zimbatm ];
+    maintainers = with maintainers; [ flokli zimbatm ];
   };
 
   options.services.grafana-agent = {
-    enable = mkEnableOption "grafana-agent";
+    enable = mkEnableOption (lib.mdDoc "grafana-agent");
 
-    package = mkOption {
-      type = types.package;
-      default = pkgs.grafana-agent;
-      defaultText = "pkgs.grafana-agent";
-      description = "The grafana-agent package to use.";
-    };
+    package = mkPackageOptionMD pkgs "grafana-agent" { };
 
     credentials = mkOption {
-      description = ''
+      description = lib.mdDoc ''
         Credentials to load at service startup. Keys that are UPPER_SNAKE will be loaded as env vars. Values are absolute paths to the credentials.
       '';
       type = types.attrsOf types.str;
@@ -37,39 +32,49 @@ in
       };
     };
 
-    settings = mkOption {
-      description = ''
-        Configuration for <package>grafana-agent</package>.
+    extraFlags = mkOption {
+      type = with types; listOf str;
+      default = [ ];
+      example = [ "-enable-features=integrations-next" "-disable-reporting" ];
+      description = lib.mdDoc ''
+        Extra command-line flags passed to {command}`grafana-agent`.
 
-        See https://grafana.com/docs/agent/latest/configuration/
+        See <https://grafana.com/docs/agent/latest/static/configuration/flags/>
+      '';
+    };
+
+    settings = mkOption {
+      description = lib.mdDoc ''
+        Configuration for {command}`grafana-agent`.
+
+        See <https://grafana.com/docs/agent/latest/configuration/>
       '';
 
       type = types.submodule {
         freeformType = settingsFormat.type;
       };
 
-      default = {
-        server = {
-          # Don't bind on 0.0.0.0
-          grpc_listen_address = "127.0.0.1";
-          http_listen_address = "127.0.0.1";
-          # Don't bind on the default port 80
-          http_listen_port = 9090;
-        };
-        prometheus = {
-          wal_directory = "\${STATE_DIRECTORY}";
-          global.scrape_interval = "5s";
-        };
-        integrations = {
-          agent.enabled = true;
-          agent.scrape_integration = true;
-          node_exporter.enabled = true;
-          replace_instance_label = true;
-        };
-      };
-
+      default = { };
+      defaultText = lib.literalExpression ''
+        {
+          metrics = {
+            wal_directory = "\''${STATE_DIRECTORY}";
+            global.scrape_interval = "5s";
+          };
+          integrations = {
+            agent.enabled = true;
+            agent.scrape_integration = true;
+            node_exporter.enabled = true;
+          };
+        }
+      '';
       example = {
-        loki.configs = [{
+        metrics.global.remote_write = [{
+          url = "\${METRICS_REMOTE_WRITE_URL}";
+          basic_auth.username = "\${METRICS_REMOTE_WRITE_USERNAME}";
+          basic_auth.password_file = "\${CREDENTIALS_DIRECTORY}/metrics_remote_write_password";
+        }];
+        logs.configs = [{
           name = "default";
           scrape_configs = [
             {
@@ -101,18 +106,24 @@ in
             basic_auth.password_file = "\${CREDENTIALS_DIRECTORY}/logs_remote_write_password";
           }];
         }];
-        integrations = {
-          prometheus_remote_write = [{
-            url = "\${METRICS_REMOTE_WRITE_URL}";
-            basic_auth.username = "\${METRICS_REMOTE_WRITE_USERNAME}";
-            basic_auth.password_file = "\${CREDENTIALS_DIRECTORY}/metrics_remote_write_password";
-          }];
-        };
       };
     };
   };
 
   config = mkIf cfg.enable {
+    services.grafana-agent.settings = {
+      # keep this in sync with config.services.grafana-agent.settings.defaultText.
+      metrics = {
+        wal_directory = mkDefault "\${STATE_DIRECTORY}";
+        global.scrape_interval = mkDefault "5s";
+      };
+      integrations = {
+        agent.enabled = mkDefault true;
+        agent.scrape_integration = mkDefault true;
+        node_exporter.enabled = mkDefault true;
+      };
+    };
+
     systemd.services.grafana-agent = {
       wantedBy = [ "multi-user.target" ];
       script = ''
@@ -133,7 +144,7 @@ in
         # We can't use Environment=HOSTNAME=%H, as it doesn't include the domain part.
         export HOSTNAME=$(< /proc/sys/kernel/hostname)
 
-        exec ${cfg.package}/bin/agent -config.expand-env -config.file ${configFile}
+        exec ${lib.getExe cfg.package} -config.expand-env -config.file ${configFile} ${escapeShellArgs cfg.extraFlags}
       '';
       serviceConfig = {
         Restart = "always";

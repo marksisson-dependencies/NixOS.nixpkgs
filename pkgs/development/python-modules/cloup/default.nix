@@ -9,13 +9,14 @@
 
 buildPythonPackage rec {
   pname = "cloup";
-  version = "0.14.0";
+  version = "3.0.0";
+  format = "setuptools";
 
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "4dec7e43905b7771884cda4f13ab8b7537bceaee467a92655e7660797ab08c47";
+    hash = "sha256-ur1L3P0nT4Z3nW0845ueoPbMWrPU7+NbpoQebW0DeJM=";
   };
 
   nativeBuildInputs = [
@@ -26,15 +27,18 @@ buildPythonPackage rec {
     click
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [ "cloup" ];
+  pythonImportsCheck = [
+    "cloup"
+  ];
 
   meta = with lib; {
     homepage = "https://github.com/janLuke/cloup";
     description = "Click extended with option groups, constraints, aliases, help themes";
+    changelog = "https://github.com/janluke/cloup/releases/tag/v${version}";
     longDescription = ''
       Enriches Click with option groups, constraints, command aliases, help sections for subcommands, themes for --help and other stuff.
     '';

@@ -3,11 +3,14 @@
 , aiohttp
 , aioshutil
 , buildPythonPackage
+, dateparser
 , fetchFromGitHub
 , ipython
+, orjson
 , packaging
 , pillow
 , poetry-core
+, py
 , pydantic
 , pyjwt
 , pytest-aiohttp
@@ -19,13 +22,16 @@
 , python-dotenv
 , pythonOlder
 , pytz
+, setuptools
+, setuptools-scm
 , termcolor
 , typer
+, ffmpeg
 }:
 
 buildPythonPackage rec {
   pname = "pyunifiprotect";
-  version = "3.9.2";
+  version = "4.10.6";
   format = "pyproject";
 
   disabled = pythonOlder "3.9";
@@ -34,20 +40,34 @@ buildPythonPackage rec {
     owner = "briis";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-IQ+mjiNxfxG0Zq543Rn5rK/BNPzLGVX9jVTtyW7W9cs=";
+    hash = "sha256-vO60QMr+J3tE7ZIU7fZP27jMuPeCJH56Hbhjek5ZfXI=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace "--cov=pyunifiprotect --cov-append" ""
+  '';
+
+  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+
+  nativeBuildInputs = [
+    setuptools
+    setuptools-scm
+  ];
 
   propagatedBuildInputs = [
     aiofiles
     aiohttp
     aioshutil
+    dateparser
+    orjson
     packaging
     pillow
     pydantic
     pyjwt
     pytz
     typer
-  ];
+  ] ++ typer.optional-dependencies.all;
 
   passthru.optional-dependencies = {
     shell = [
@@ -57,7 +77,9 @@ buildPythonPackage rec {
     ];
   };
 
-  checkInputs = [
+  nativeCheckInputs = [
+    ffmpeg # Required for command ffprobe
+    py
     pytest-aiohttp
     pytest-asyncio
     pytest-benchmark
@@ -65,11 +87,6 @@ buildPythonPackage rec {
     pytest-xdist
     pytestCheckHook
   ];
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace "--cov=pyunifiprotect --cov-append" ""
-  '';
 
   pythonImportsCheck = [
     "pyunifiprotect"
@@ -79,14 +96,10 @@ buildPythonPackage rec {
     "--benchmark-disable"
   ];
 
-  disabledTests = [
-    # Tests require ffprobe
-    "test_get_camera_video"
-  ];
-
   meta = with lib; {
     description = "Library for interacting with the Unifi Protect API";
     homepage = "https://github.com/briis/pyunifiprotect";
+    changelog = "https://github.com/AngellusMortis/pyunifiprotect/releases/tag/v${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

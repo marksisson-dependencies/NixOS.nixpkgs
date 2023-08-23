@@ -1,9 +1,9 @@
-{ lib, buildGoModule, fetchFromGitHub, fetchzip, installShellFiles }:
+{ lib, buildGoModule, fetchFromGitHub, fetchzip, installShellFiles, stdenv }:
 
 let
-  version = "0.31.1";
-  sha256 = "1dhs96r9yi37i5q9wqg7198f6kl59jlj3g1q76r0snqyl16g2jwf";
-  manifestsSha256 = "0wwlwai1hhz69kgaccw3w8ad6bwdd46pm4ns8nqm04927b0b2dqb";
+  version = "2.0.1";
+  sha256 = "1smrqb2y99ml45g2n00lz7cz6vkisahl2jy7mncxvhl7s6wx5acz";
+  manifestsSha256 = "0j8hlggndbbiapa4sxv3rvvhj4g8b1brgq3g55v0d9k6dzq3q6b3";
 
   manifests = fetchzip {
     url =
@@ -23,13 +23,14 @@ in buildGoModule rec {
     inherit sha256;
   };
 
-  vendorSha256 = "sha256-sPyz6ISFLe+6CJoAcG17KSfo63vuTj30IWw+S2NCszY=";
+  vendorSha256 = "sha256-n0915f9mHExAEsHtplpLSPDJBWU5cFgBQC2ElToNRmA=";
 
   postUnpack = ''
     cp -r ${manifests} source/cmd/flux/manifests
-  '';
 
-  patches = [ ./patches/disable-tests-ssh_key.patch ];
+    # disable tests that require network access
+    rm source/cmd/flux/create_secret_git_test.go
+  '';
 
   ldflags = [ "-s" "-w" "-X main.VERSION=${version}" ];
 
@@ -46,7 +47,7 @@ in buildGoModule rec {
     $out/bin/flux --version | grep ${version} > /dev/null
   '';
 
-  postInstall = ''
+  postInstall = lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
     for shell in bash fish zsh; do
       $out/bin/flux completion $shell > flux.$shell
       installShellCompletion flux.$shell
@@ -65,7 +66,7 @@ in buildGoModule rec {
     '';
     homepage = "https://fluxcd.io";
     license = licenses.asl20;
-    maintainers = with maintainers; [ bryanasdev000 jlesquembre superherointj ];
+    maintainers = with maintainers; [ bryanasdev000 jlesquembre ];
     mainProgram = "flux";
   };
 }

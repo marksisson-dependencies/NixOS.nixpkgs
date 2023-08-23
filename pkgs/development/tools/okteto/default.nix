@@ -1,17 +1,17 @@
-{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
+{ lib, buildGoModule, fetchFromGitHub, installShellFiles, testers, okteto }:
 
 buildGoModule rec {
   pname = "okteto";
-  version = "2.3.3";
+  version = "2.19.0";
 
   src = fetchFromGitHub {
     owner = "okteto";
     repo = "okteto";
     rev = version;
-    sha256 = "sha256-rKhXzmBV59bj/Dj2ORU1ggOohAs56iB15es924pHXp4=";
+    hash = "sha256-cjdSJNhGP0YCent3r5GG1AhfWGbML46JAremXIwXMDY=";
   };
 
-  vendorSha256 = "sha256-XT/ZLydN1oeuRupD3gjvY6+hOB/Lq5CQwhfr9/iT7JI=";
+  vendorHash = "sha256-u1oMX2ZplmDGx7ePfA5vKHUuDmWYVCJrYh2HQ23dTfU=";
 
   postPatch = ''
     # Disable some tests that need file system & network access.
@@ -39,6 +39,11 @@ buildGoModule rec {
       --fish <($out/bin/okteto completion fish) \
       --zsh <($out/bin/okteto completion zsh)
   '';
+
+  passthru.tests.version = testers.testVersion {
+    package = okteto;
+    command = "HOME=$(mktemp -d) okteto version";
+  };
 
   meta = with lib; {
     description = "Develop your applications directly in your Kubernetes Cluster";

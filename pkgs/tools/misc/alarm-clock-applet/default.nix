@@ -1,77 +1,59 @@
-{ lib, stdenv, fetchFromGitHub, fetchpatch
+{ lib
+, stdenv
+, fetchFromGitHub
+, fetchpatch
+, cmake
 , pkg-config
-, autoconf
-, automake111x
-, libtool
-
-, glib
-, gtk2
-, gst_all_1
-, gnome2
-, gnome-icon-theme
-, libnotify
-, libxml2
-, libunique
-, intltool
-, gst_plugins ? with gst_all_1; [ gst-plugins-base gst-plugins-good gst-plugins-ugly ]
 , wrapGAppsHook
+, gst_all_1
+, libnotify
+, libayatana-appindicator
 }:
 
 stdenv.mkDerivation rec {
-  version = "0.3.4";
   pname = "alarm-clock-applet";
+  version = "0.4.1";
 
   src = fetchFromGitHub {
-    owner = "joh";
+    owner = pname;
     repo = "alarm-clock";
     rev = version;
-    sha256 = "18blvgy8hmw3jidz7xrv9yiiilnzcj65m6wxhw58nrnbcqbpydwn";
+    hash = "sha256-10hkWWEsAUJnGeu35bR5d0RFKd9CKDZI7WGMzmEM3rI=";
   };
 
   patches = [
-    # Pull patch pending upstream inclusion for -fno-common toolchain support:
-    #   https://github.com/joh/alarm-clock/pull/209
     (fetchpatch {
-      name = "fno-common.patch";
-      url = "https://github.com/joh/alarm-clock/commit/969e7ba8225610cce55b14fcb599bc6f7771bd9a.patch";
-      sha256 = "0ajhir22b5ww9pkmzy9mlc9f2lr1q6wgvm9iqzjf4xsg4gm4jy1k";
+      url = "https://github.com/alarm-clock-applet/alarm-clock/commit/6a11003099660dfae0e3d5800f49880d3a26f5ec.patch";
+      hash = "sha256-NP1PlEw5AFWZgywvppIs2e+5EfMSPbU4Pq2tIfwODrQ=";
+    })
+    (fetchpatch {
+      url = "https://github.com/alarm-clock-applet/alarm-clock/commit/cbcf22fac5b45ab251ade2e7e993f422f33f926e.patch";
+      hash = "sha256-xKaaNfXsv9Ckwy73r1n93kOWIZ01fU5GDqYSQCch1Kc=";
     })
   ];
 
   nativeBuildInputs = [
+    cmake
     pkg-config
-    intltool
-    automake111x
-    autoconf
-    libtool
-
-    gnome2.gnome-common
-
     wrapGAppsHook
   ];
 
-  preConfigure = "./autogen.sh";
-
   buildInputs = [
-    glib
-    gtk2
     gst_all_1.gstreamer
-    gnome2.GConf
-    gnome-icon-theme
     libnotify
-    libxml2
-    libunique
-  ] ++ gst_plugins;
+    libayatana-appindicator
+  ];
 
-  propagatedUserEnvPkgs = [ gnome2.GConf.out ];
-
-  enableParallelBuilding = true;
+  cmakeFlags = [
+    # gconf is already deprecated
+    "-DENABLE_GCONF_MIGRATION=OFF"
+  ];
 
   meta = with lib; {
-    homepage = "http://alarm-clock.pseudoberries.com/";
-    description = "A fully-featured alarm clock for your GNOME panel or equivalent";
-    license = licenses.gpl2;
+    description = "A fully-featured alarm clock with an indicator";
+    homepage = "https://alarm-clock-applet.github.io";
+    license = licenses.gpl2Plus;
+    maintainers = with maintainers; [ aleksana ];
     platforms = platforms.linux;
-    maintainers = [ maintainers.rasendubi ];
   };
 }

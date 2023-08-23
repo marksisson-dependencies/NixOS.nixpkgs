@@ -9,16 +9,16 @@ let
 
 in buildGoModule rec {
   pname = "go-ethereum";
-  version = "1.10.18";
+  version = "1.12.2";
 
   src = fetchFromGitHub {
     owner = "ethereum";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1jfyhzklznjrdki6m8wjgqzp63b6n6vy7ws3l0al58zkaybnpikw";
+    sha256 = "sha256-iCLOrf6/f0f7sD0YjmBtlcOcZRDIp9IZkBadTKj1Qjw=";
   };
 
-  vendorSha256 = "10xpxz8ybgwqizqy9d3phza8mlxxpsbk4qsf271r7ls4qr5q1wxz";
+  vendorHash = "sha256-ChmQjhz4dQdwcY/269Hi5XAn8/+0z/AF7Kd9PJ8WqHg=";
 
   doCheck = false;
 
@@ -33,7 +33,6 @@ in buildGoModule rec {
     "cmd/abidump"
     "cmd/abigen"
     "cmd/bootnode"
-    "cmd/checkpoint-admin"
     "cmd/clef"
     "cmd/devp2p"
     "cmd/ethkey"
@@ -41,10 +40,12 @@ in buildGoModule rec {
     "cmd/faucet"
     "cmd/geth"
     "cmd/p2psim"
-    "cmd/puppeth"
     "cmd/rlpdump"
     "cmd/utils"
   ];
+
+  # Following upstream: https://github.com/ethereum/go-ethereum/blob/v1.11.6/build/ci.go#L218
+  tags = [ "urfave_cli_no_docs" ];
 
   # Fix for usb-related segmentation faults on darwin
   propagatedBuildInputs =
@@ -56,6 +57,6 @@ in buildGoModule rec {
     homepage = "https://geth.ethereum.org/";
     description = "Official golang implementation of the Ethereum protocol";
     license = with licenses; [ lgpl3Plus gpl3Plus ];
-    maintainers = with maintainers; [ adisbladis lionello RaghavSood ];
+    maintainers = with maintainers; [ RaghavSood ];
   };
 }

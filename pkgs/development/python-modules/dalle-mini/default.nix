@@ -15,11 +15,11 @@
 
 buildPythonPackage rec {
   pname = "dalle-mini";
-  version = "0.1.0";
+  version = "0.1.4";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-Sbos44uWGnJLYMx/xy0wkyAJHlDhVIeOS7rnYt2W53w=";
+    hash = "sha256-UwCcoKbGxZT5XB+Mtv8kAHFdj0iLw8U1Ayo60y3Tm7U=";
   };
 
   format = "setuptools";

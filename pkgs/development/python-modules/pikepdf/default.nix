@@ -4,8 +4,8 @@
 , fetchFromGitHub
 , hypothesis
 , pythonOlder
-, importlib-metadata
 , jbig2dec
+, deprecation
 , lxml
 , mupdf
 , packaging
@@ -17,16 +17,17 @@
 , python-dateutil
 , python-xmp-toolkit
 , qpdf
-, setuptools-scm
+, setuptools
 , substituteAll
+, wheel
 }:
 
 buildPythonPackage rec {
   pname = "pikepdf";
-  version = "5.1.5";
-  format = "setuptools";
+  version = "8.2.1";
+  format = "pyproject";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "pikepdf";
@@ -38,7 +39,7 @@ buildPythonPackage rec {
     postFetch = ''
       rm "$out/.git_archival.txt"
     '';
-    hash = "sha256-DEgxdMVX5gQOsV9EyJtO/MO7padYMZrekanpp+nNvek=";
+    hash = "sha256-8uPPEoLxoMRq/tkpThatwjPHZIMYQ8lNL6fLcG+nsnw=";
   };
 
   patches = [
@@ -50,24 +51,21 @@ buildPythonPackage rec {
   ];
 
   postPatch = ''
-    sed -i 's|\S*/opt/homebrew.*|pass|' setup.py
-
     substituteInPlace setup.py \
-      --replace setuptools_scm_git_archive ""
+      --replace "shims_enabled = not cflags_defined" "shims_enabled = False"
   '';
 
-  SETUPTOOLS_SCM_PRETEND_VERSION = version;
-
   buildInputs = [
-    pybind11
     qpdf
   ];
 
   nativeBuildInputs = [
-    setuptools-scm
+    pybind11
+    setuptools
+    wheel
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     attrs
     hypothesis
     pytest-xdist
@@ -78,11 +76,10 @@ buildPythonPackage rec {
   ];
 
   propagatedBuildInputs = [
+    deprecation
     lxml
     packaging
     pillow
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    importlib-metadata
   ];
 
   pythonImportsCheck = [ "pikepdf" ];

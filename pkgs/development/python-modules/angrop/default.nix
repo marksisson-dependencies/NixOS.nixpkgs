@@ -4,12 +4,13 @@
 , fetchFromGitHub
 , progressbar
 , pythonOlder
+, setuptools
 , tqdm
 }:
 
 buildPythonPackage rec {
   pname = "angrop";
-  version = "9.2.6";
+  version = "9.2.8";
   format = "pyproject";
 
   disabled = pythonOlder "3.6";
@@ -17,9 +18,13 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "angr";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-qaDAicmYZxLPTl17il61ij01prRv2H4xxe07Xg4KWhI=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-zmWdGbFzwLDP7MUqEprZcIgA7lAdCrafWYohAehJyh0=";
   };
+
+  nativeBuildInputs = [
+    setuptools
+  ];
 
   propagatedBuildInputs = [
     angr

@@ -31,14 +31,15 @@ python3.pkgs.buildPythonApplication rec {
     requests
   ];
 
-  checkInputs = with python3.pkgs; [
+  nativeCheckInputs = with python3.pkgs; [
     pytestCheckHook
   ];
 
   postPatch = ''
     # Use default Python module
     substituteInPlace pyproject.toml \
-      --replace 'uuid = "^1.30"' ""
+      --replace 'uuid = "^1.30"' "" \
+      --replace 'python-whois = "^0.7.3"' 'python-whois = "*"'
   '';
 
   pythonImportsCheck = [

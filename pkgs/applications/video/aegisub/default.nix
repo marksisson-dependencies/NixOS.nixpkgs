@@ -2,13 +2,17 @@
 , config
 , stdenv
 , fetchFromGitHub
-, autoreconfHook
-, boost
+, boost179
+, cmake
+, expat
+, harfbuzz
 , ffmpeg
 , ffms
 , fftw
 , fontconfig
 , freetype
+, fribidi
+, glib
 , icu
 , intltool
 , libGL
@@ -17,16 +21,16 @@
 , libass
 , libiconv
 , libuchardet
+, luajit
+, pcre
 , pkg-config
 , which
+, wrapGAppsHook
 , wxGTK
 , zlib
 
 , spellcheckSupport ? true
 , hunspell ? null
-
-, automationSupport ? true
-, luajit ? null
 
 , openalSupport ? false
 , openal ? null
@@ -40,10 +44,11 @@
 , portaudioSupport ? false
 , portaudio ? null
 
+, useBundledLuaJIT ? false
+, darwin
 }:
 
 assert spellcheckSupport -> (hunspell != null);
-assert automationSupport -> (luajit != null);
 assert openalSupport -> (openal != null);
 assert alsaSupport -> (alsa-lib != null);
 assert pulseaudioSupport -> (libpulseaudio != null);
@@ -52,34 +57,39 @@ assert portaudioSupport -> (portaudio != null);
 let
   luajit52 = luajit.override { enable52Compat = true; };
   inherit (lib) optional;
+  inherit (darwin.apple_sdk.frameworks) CoreText CoreFoundation AppKit Carbon IOKit Cocoa;
 in
 stdenv.mkDerivation rec {
   pname = "aegisub";
-  version = "3.3.2";
+  version = "3.3.3";
 
   src = fetchFromGitHub {
     owner = "wangqr";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-Er0g8fJyx7zjNVpKw7zUHE40hU10BdYlZohlqJq2LE0=";
+    sha256 = "sha256-oKhLv81EFudrJaaJ2ga3pVh4W5Hd2YchpjsoYoqRm78=";
   };
 
-  patches = [ ./no-git.patch ];
-
   nativeBuildInputs = [
-    autoreconfHook
     intltool
     luajit52
     pkg-config
     which
+    cmake
+    wrapGAppsHook
   ];
+
   buildInputs = [
-    boost
+    boost179
+    expat
     ffmpeg
     ffms
     fftw
     fontconfig
     freetype
+    fribidi
+    glib
+    harfbuzz
     icu
     libGL
     libGLU
@@ -87,22 +97,24 @@ stdenv.mkDerivation rec {
     libass
     libiconv
     libuchardet
+    pcre
     wxGTK
     zlib
   ]
+  ++ lib.optionals stdenv.isDarwin [
+    CoreText
+    CoreFoundation
+    AppKit
+    Carbon
+    IOKit
+    Cocoa
+  ]
   ++ optional alsaSupport alsa-lib
-  ++ optional automationSupport luajit52
   ++ optional openalSupport openal
   ++ optional portaudioSupport portaudio
   ++ optional pulseaudioSupport libpulseaudio
   ++ optional spellcheckSupport hunspell
   ;
-
-  configureFlags = [
-    "--with-boost-libdir=${boost.out}/lib"
-    "--with-system-luajit"
-    "FORCE_GIT_VERSION=${version}"
-  ];
 
   enableParallelBuilding = true;
 
@@ -111,7 +123,26 @@ stdenv.mkDerivation rec {
     "relro"
   ];
 
-  postInstall = "ln -s $out/bin/aegisub-* $out/bin/aegisub";
+  patches = lib.optionals (!useBundledLuaJIT) [
+    ./remove-bundled-luajit.patch
+  ];
+
+  # error: unknown type name 'NSUInteger'
+  postPatch = ''
+    substituteInPlace src/dialog_colorpicker.cpp \
+      --replace "NSUInteger" "size_t"
+  '';
+
+  env.NIX_CFLAGS_COMPILE = "-I${luajit52}/include";
+  NIX_CFLAGS_LINK = "-L${luajit52}/lib";
+
+  configurePhase = ''
+    export FORCE_GIT_VERSION=${version}
+    # Workaround for a Nixpkgs bug; remove when the fix arrives
+    mkdir build-dir
+    cd build-dir
+    cmake -DCMAKE_INSTALL_PREFIX=$out ..
+  '';
 
   meta = with lib; {
     homepage = "https://github.com/wangqr/Aegisub";
@@ -125,7 +156,7 @@ stdenv.mkDerivation rec {
     # The Aegisub sources are itself BSD/ISC, but they are linked against GPL'd
     # softwares - so the resulting program will be GPL
     license = licenses.bsd3;
-    maintainers = [ maintainers.AndersonTorres ];
-    platforms = [ "i686-linux" "x86_64-linux" ];
+    maintainers = with maintainers; [ AndersonTorres wegank ];
+    platforms = platforms.unix;
   };
 }

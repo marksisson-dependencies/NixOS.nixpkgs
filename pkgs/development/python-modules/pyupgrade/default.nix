@@ -8,24 +8,24 @@
 
 buildPythonPackage rec {
   pname = "pyupgrade";
-  version = "2.34.0";
+  version = "3.3.1";
   format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "asottile";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-3Go0w/7jcv1XzZ7ypSdPzMZgzEj2+sMlrIm4X1r34MA=";
+    hash = "sha256-vg1eNxIkdHM1MMTkCof/ED6nqFhwSgEiKjYmqAyHMp0=";
   };
-
-  checkInputs = [
-    pytestCheckHook
-  ];
 
   propagatedBuildInputs = [
     tokenize-rt
+  ];
+
+  nativeCheckInputs = [
+    pytestCheckHook
   ];
 
   pythonImportsCheck = [

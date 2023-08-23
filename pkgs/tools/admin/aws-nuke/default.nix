@@ -5,23 +5,22 @@
 
 buildGoModule rec {
   pname = "aws-nuke";
-  version = "2.17.0";
+  version = "2.24.1";
 
   src = fetchFromGitHub {
     owner = "rebuy-de";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-e5EtIRIM0Gz2BXGaZx3jiO+MNdD1Eh9h7U+aZSBVFGc=";
+    hash = "sha256-AftmWmZFi9NIXNxbMEO1eIzRl3UwS3rxXZ4htJClEfo=";
   };
 
-  vendorSha256 = "sha256-tRFYZ0GBJDumvfOYMJDcYqTlTn5do3trZ1gXafuDVi4=";
+  vendorHash = "sha256-cYQlHl0fmLH5f+QNdJ+V6L9Ts8sa9y8l0oOIqdpJlL0=";
 
-  preBuild = ''
-    if [ "x$outputHashAlgo" != "x" ]; then
-      # Only `go generate` when fetching the go mod vendor code
+  overrideModAttrs = _: {
+    preBuild = ''
       go generate ./...
-    fi
-  '';
+    '';
+  };
 
   doCheck = false;
 

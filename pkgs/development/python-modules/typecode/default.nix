@@ -15,14 +15,14 @@
 
 buildPythonPackage rec {
   pname = "typecode";
-  version = "30.0.0";
+  version = "30.0.1";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-pRGLU/xzQQqDZMIsrq1Fy7VgGIpFjnHtpmO+yL7t4g8=";
+    hash = "sha256-Glc5QiTVr//euymeNTxGN+FVaOEa6cUxHGyGo9bQrJc=";
   };
 
   dontConfigure = true;
@@ -40,7 +40,7 @@ buildPythonPackage rec {
     typecode-libmagic
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pytest-xdist
   ];
@@ -49,6 +49,7 @@ buildPythonPackage rec {
     "TestFileTypesDataDriven"
     # AssertionError: assert 'application/x-bytecode.python'...
     "test_compiled_python_1"
+    "test_package_json"
   ];
 
   pythonImportsCheck = [
@@ -58,7 +59,8 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Comprehensive filetype and mimetype detection using libmagic and Pygments";
     homepage = "https://github.com/nexB/typecode";
+    changelog = "https://github.com/nexB/typecode/releases/tag/v${version}";
     license = licenses.asl20;
-    maintainers = teams.determinatesystems.members;
+    maintainers = with maintainers; [ ];
   };
 }

@@ -42,20 +42,13 @@ buildPythonPackage rec {
     ];
   };
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     pycryptodome
     pytestCheckHook
   ]
   ++ passthru.optional-dependencies.async
   ++ passthru.optional-dependencies.usb;
-
-  disabledTests = lib.optionals (pythonAtLeast "3.10") [
-    # Tests are failing with Python 3.10
-    # https://github.com/JeffLIrion/adb_shell/issues/198
-    "TestAdbDeviceAsync"
-    "TestTcpTransportAsync"
-  ];
 
   pythonImportsCheck = [
     "adb_shell"

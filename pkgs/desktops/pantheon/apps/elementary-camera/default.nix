@@ -19,13 +19,13 @@
 
 stdenv.mkDerivation rec {
   pname = "elementary-camera";
-  version = "6.1.0";
+  version = "6.2.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "camera";
     rev = version;
-    sha256 = "sha256-uccH9rCZaifIlLDx+zat3Zx8ecgKo2M6x+mg7AnuFBs=";
+    sha256 = "sha256-Sj89TBat2RY2Ms02M0P7gmE9tXYk1yrnPLzDwGyAFZA=";
   };
 
   nativeBuildInputs = [
@@ -60,9 +60,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {
