@@ -20,11 +20,12 @@ let
     mkDefault
     literalExpression
     isAttrs
-    literalDocBook
+    literalMD
     maintainers
     catAttrs
     collect
     splitString
+    hasPrefix
     ;
 
   inherit (builtins)
@@ -165,7 +166,7 @@ in
           mkOption {
             type = port;
             default = dbPorts.${cfg.database.type};
-            defaultText = literalDocBook "default port of selected database";
+            defaultText = literalMD "default port of selected database";
             description = lib.mdDoc ''
               Port of the database to connect to.
             '';
@@ -210,14 +211,13 @@ in
         name = mkOption {
           type = str;
           default = "keycloak";
-          description = ''
+          description = lib.mdDoc ''
             Database name to use when connecting to an external or
             manually provisioned database; has no effect when a local
             database is automatically provisioned.
 
-            To use this with a local database, set <xref
-            linkend="opt-services.keycloak.database.createLocally" /> to
-            <literal>false</literal> and create the database and user
+            To use this with a local database, set [](#opt-services.keycloak.database.createLocally) to
+            `false` and create the database and user
             manually.
           '';
         };
@@ -225,14 +225,13 @@ in
         username = mkOption {
           type = str;
           default = "keycloak";
-          description = ''
+          description = lib.mdDoc ''
             Username to use when connecting to an external or manually
             provisioned database; has no effect when a local database is
             automatically provisioned.
 
-            To use this with a local database, set <xref
-            linkend="opt-services.keycloak.database.createLocally" /> to
-            <literal>false</literal> and create the database and user
+            To use this with a local database, set [](#opt-services.keycloak.database.createLocally) to
+            `false` and create the database and user
             manually.
           '';
         };
@@ -314,27 +313,24 @@ in
 
             http-relative-path = mkOption {
               type = str;
-              default = "";
+              default = "/";
               example = "/auth";
-              description = ''
-                The path relative to <literal>/</literal> for serving
+              apply = x: if !(hasPrefix "/") x then "/" + x else x;
+              description = lib.mdDoc ''
+                The path relative to `/` for serving
                 resources.
 
-                <note>
-                  <para>
-                    In versions of Keycloak using Wildfly (&lt;17),
-                    this defaulted to <literal>/auth</literal>. If
-                    upgrading from the Wildfly version of Keycloak,
-                    i.e. a NixOS version before 22.05, you'll likely
-                    want to set this to <literal>/auth</literal> to
-                    keep compatibility with your clients.
+                ::: {.note}
+                In versions of Keycloak using Wildfly (&lt;17),
+                this defaulted to `/auth`. If
+                upgrading from the Wildfly version of Keycloak,
+                i.e. a NixOS version before 22.05, you'll likely
+                want to set this to `/auth` to
+                keep compatibility with your clients.
 
-                    See <link
-                    xlink:href="https://www.keycloak.org/migration/migrating-to-quarkus"
-                    /> for more information on migrating from Wildfly
-                    to Quarkus.
-                  </para>
-                </note>
+                See <https://www.keycloak.org/migration/migrating-to-quarkus>
+                for more information on migrating from Wildfly to Quarkus.
+                :::
               '';
             };
 
@@ -370,43 +366,21 @@ in
               type = enum [ "edge" "reencrypt" "passthrough" "none" ];
               default = "none";
               example = "edge";
-              description = ''
+              description = lib.mdDoc ''
                 The proxy address forwarding mode if the server is
                 behind a reverse proxy.
 
-                <variablelist>
-                  <varlistentry>
-                    <term>edge</term>
-                    <listitem>
-                      <para>
-                        Enables communication through HTTP between the
-                        proxy and Keycloak.
-                      </para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term>reencrypt</term>
-                    <listitem>
-                      <para>
-                        Requires communication through HTTPS between the
-                        proxy and Keycloak.
-                      </para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
-                    <term>passthrough</term>
-                    <listitem>
-                      <para>
-                        Enables communication through HTTP or HTTPS between
-                        the proxy and Keycloak.
-                      </para>
-                    </listitem>
-                  </varlistentry>
-                </variablelist>
+                - `edge`:
+                  Enables communication through HTTP between the
+                  proxy and Keycloak.
+                - `reencrypt`:
+                  Requires communication through HTTPS between the
+                  proxy and Keycloak.
+                - `passthrough`:
+                  Enables communication through HTTP or HTTPS between
+                  the proxy and Keycloak.
 
-                See <link
-                xlink:href="https://www.keycloak.org/server/reverseproxy"
-                /> for more information.
+                See <https://www.keycloak.org/server/reverseproxy> for more information.
               '';
             };
           };
@@ -421,22 +395,21 @@ in
           }
         '';
 
-        description = ''
+        description = lib.mdDoc ''
           Configuration options corresponding to parameters set in
-          <filename>conf/keycloak.conf</filename>.
+          {file}`conf/keycloak.conf`.
 
-          Most available options are documented at <link
-          xlink:href="https://www.keycloak.org/server/all-config" />.
+          Most available options are documented at <https://www.keycloak.org/server/all-config>.
 
           Options containing secret data should be set to an attribute
-          set containing the attribute <literal>_secret</literal> - a
+          set containing the attribute `_secret` - a
           string pointing to a file containing the value the option
           should be set to. See the example to get a better picture of
           this: in the resulting
-          <filename>conf/keycloak.conf</filename> file, the
-          <literal>https-key-store-password</literal> key will be set
+          {file}`conf/keycloak.conf` file, the
+          `https-key-store-password` key will be set
           to the contents of the
-          <filename>/run/keys/store_password</filename> file.
+          {file}`/run/keys/store_password` file.
         '';
       };
     };
@@ -509,6 +482,10 @@ in
             assertion = (cfg.database.useSSL && cfg.database.type == "postgresql") -> (cfg.database.caCert != null);
             message = "A CA certificate must be specified (in 'services.keycloak.database.caCert') when PostgreSQL is used with SSL";
           }
+          {
+            assertion = createLocalPostgreSQL -> config.services.postgresql.settings.standard_conforming_strings or true;
+            message = "Setting up a local PostgreSQL db for Keycloak requires `standard_conforming_strings` turned on to work reliably";
+          }
         ];
 
         environment.systemPackages = [ keycloakBuild ];
@@ -569,9 +546,15 @@ in
             shopt -s inherit_errexit
 
             create_role="$(mktemp)"
-            trap 'rm -f "$create_role"' ERR EXIT
+            trap 'rm -f "$create_role"' EXIT
 
+            # Read the password from the credentials directory and
+            # escape any single quotes by adding additional single
+            # quotes after them, following the rules laid out here:
+            # https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-CONSTANTS
             db_password="$(<"$CREDENTIALS_DIRECTORY/db_password")"
+            db_password="''${db_password//\'/\'\'}"
+
             echo "CREATE ROLE keycloak WITH LOGIN PASSWORD '$db_password' CREATEDB" > "$create_role"
             psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='keycloak'" | grep -q 1 || psql -tA --file="$create_role"
             psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -q 1 || psql -tAc 'CREATE DATABASE "keycloak" OWNER "keycloak"'
@@ -593,8 +576,16 @@ in
           script = ''
             set -o errexit -o pipefail -o nounset -o errtrace
             shopt -s inherit_errexit
+
+            # Read the password from the credentials directory and
+            # escape any single quotes by adding additional single
+            # quotes after them, following the rules laid out here:
+            # https://dev.mysql.com/doc/refman/8.0/en/string-literals.html
             db_password="$(<"$CREDENTIALS_DIRECTORY/db_password")"
-            ( echo "CREATE USER IF NOT EXISTS 'keycloak'@'localhost' IDENTIFIED BY '$db_password';"
+            db_password="''${db_password//\'/\'\'}"
+
+            ( echo "SET sql_mode = 'NO_BACKSLASH_ESCAPES';"
+              echo "CREATE USER IF NOT EXISTS 'keycloak'@'localhost' IDENTIFIED BY '$db_password';"
               echo "CREATE DATABASE IF NOT EXISTS keycloak CHARACTER SET utf8 COLLATE utf8_unicode_ci;"
               echo "GRANT ALL PRIVILEGES ON keycloak.* TO 'keycloak'@'localhost';"
             ) | mysql -N
@@ -643,7 +634,7 @@ in
               Group = "keycloak";
               DynamicUser = true;
               RuntimeDirectory = "keycloak";
-              RuntimeDirectoryMode = 0700;
+              RuntimeDirectoryMode = "0700";
               AmbientCapabilities = "CAP_NET_BIND_SERVICE";
             };
             script = ''
@@ -659,13 +650,18 @@ in
 
               ${secretReplacements}
 
+              # Escape any backslashes in the db parameters, since
+              # they're otherwise unexpectedly read as escape
+              # sequences.
+              sed -i '/db-/ s|\\|\\\\|g' /run/keycloak/conf/keycloak.conf
+
             '' + optionalString (cfg.sslCertificate != null && cfg.sslCertificateKey != null) ''
               mkdir -p /run/keycloak/ssl
               cp $CREDENTIALS_DIRECTORY/ssl_{cert,key} /run/keycloak/ssl/
             '' + ''
               export KEYCLOAK_ADMIN=admin
-              export KEYCLOAK_ADMIN_PASSWORD=${cfg.initialAdminPassword}
-              kc.sh start
+              export KEYCLOAK_ADMIN_PASSWORD=${escapeShellArg cfg.initialAdminPassword}
+              kc.sh start --optimized
             '';
           };
 
@@ -678,6 +674,6 @@ in
           mkIf createLocalMySQL (mkDefault dbPkg);
       };
 
-  meta.doc = ./keycloak.xml;
+  meta.doc = ./keycloak.md;
   meta.maintainers = [ maintainers.talyz ];
 }

@@ -1,15 +1,15 @@
-{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
+{ lib, stdenv, buildGoModule, fetchFromGitHub, installShellFiles }:
 
 buildGoModule rec {
   pname = "velero";
-  version = "1.9.0";
+  version = "1.11.1";
 
 
   src = fetchFromGitHub {
     owner = "vmware-tanzu";
     repo = "velero";
     rev = "v${version}";
-    sha256 = "sha256-zoHMyOhHEunJ8LirUxOT1qNY3jB28BEiQ+3GdqriTtQ=";
+    sha256 = "sha256-G1+zdzHj8fDKVEVQpBEH3o/em+gxCyQmrpSXj8bE/P4=";
   };
 
   ldflags = [
@@ -20,7 +20,7 @@ buildGoModule rec {
     "-X github.com/vmware-tanzu/velero/pkg/buildinfo.GitSHA=none"
   ];
 
-  vendorSha256 = "sha256-PDXufnddHEA0qCfzJ0O+h3u50gWNkQAnWMZjSVQ0oHc=";
+  vendorHash = "sha256-WkJk+46+9U4TegDnGtQ+EoqqV/D7githz2pJvxCbV4c=";
 
   excludedPackages = [ "issue-template-gen" "release-tools" "v1" "velero-restic-restore-helper" ];
 
@@ -31,7 +31,7 @@ buildGoModule rec {
   '';
 
   nativeBuildInputs = [ installShellFiles ];
-  postInstall = ''
+  postInstall = lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
     $out/bin/velero completion bash > velero.bash
     $out/bin/velero completion zsh > velero.zsh
     installShellCompletion velero.{bash,zsh}

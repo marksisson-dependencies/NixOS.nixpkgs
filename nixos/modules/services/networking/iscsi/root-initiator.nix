@@ -77,7 +77,7 @@ in
     };
 
     extraConfigFile = mkOption {
-      description = ''
+      description = lib.mdDoc ''
         Append an additional file's contents to `/etc/iscsid.conf`. Use a non-store path
         and store passwords in this file. Note: the file specified here must be available
         in the initrd, see: `boot.initrd.secrets`.
@@ -184,6 +184,10 @@ in
       {
         assertion = cfg.loginAll -> cfg.target == null;
         message = "iSCSI target name is set while login on all portals is enabled.";
+      }
+      {
+        assertion = !config.boot.initrd.systemd.enable;
+        message = "systemd stage 1 does not support iscsi yet.";
       }
     ];
   };

@@ -34,24 +34,25 @@
 , pango
 , pipewire
 , systemd
+, wayland
 , xdg-utils
 , xorg
 }:
 
 let
   inherit (stdenv.hostPlatform) system;
-  throwSystem = throw "Unsupported system: ${system}";
+  throwSystem = throw "slack does not support system: ${system}";
 
   pname = "slack";
 
-  x86_64-darwin-version = "4.27.154";
-  x86_64-darwin-sha256 = "0a3cc9kkiq18vr4hk532vc59cza1hq8qh9x9hlhli4n72n3h7y3n";
+  x86_64-darwin-version = "4.33.84";
+  x86_64-darwin-sha256 = "1qkcj0w5rqfdj8l7p7gv2ck0rgkm5sc8490f8mnbflgvjj9y0gsb";
 
-  x86_64-linux-version = "4.27.156";
-  x86_64-linux-sha256 = "sha256-/xtD+/+KGtPr4vQJm8ZczvpyPxfMBw0OE7hzTzFhSs0=";
+  x86_64-linux-version = "4.33.84";
+  x86_64-linux-sha256 = "0cjl3m9gprxkm57889l1avkl21pyc7bzhcgm4j5yf938dp699zhd";
 
-  aarch64-darwin-version = "4.27.154";
-  aarch64-darwin-sha256 = "1n3vgcsbi1w49w4xqc5hyadb9qwvsqdiirfw9v4s65wsnark1iz6";
+  aarch64-darwin-version = "4.33.84";
+  aarch64-darwin-sha256 = "0aw4wn4xx304dyzz7v9lmdgwg1345lhizil8yq9cjqy5kas3zj34";
 
   version = {
     x86_64-darwin = x86_64-darwin-version;
@@ -84,6 +85,7 @@ let
     license = licenses.unfree;
     maintainers = with maintainers; [ mmahut maxeaubrey ];
     platforms = [ "x86_64-darwin" "x86_64-linux" "aarch64-darwin" ];
+    mainProgram = "slack";
   };
 
   linux = stdenv.mkDerivation rec {
@@ -121,6 +123,7 @@ let
       pipewire
       stdenv.cc.cc
       systemd
+      wayland
       xorg.libX11
       xorg.libXScrnSaver
       xorg.libXcomposite
@@ -164,17 +167,19 @@ let
         patchelf --set-rpath ${rpath}:$out/lib/slack $file || true
       done
 
-      # Replace the broken bin/slack symlink with a startup wrapper
+      # Replace the broken bin/slack symlink with a startup wrapper.
+      # Make xdg-open overrideable at runtime.
       rm $out/bin/slack
       makeWrapper $out/lib/slack/slack $out/bin/slack \
         --prefix XDG_DATA_DIRS : $GSETTINGS_SCHEMAS_PATH \
-        --prefix PATH : ${lib.makeBinPath [xdg-utils]} \
-        --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--enable-features=UseOzonePlatform --ozone-platform=wayland}}"
+        --suffix PATH : ${lib.makeBinPath [xdg-utils]} \
+        --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations,WebRTCPipeWireCapturer}}"
 
       # Fix the desktop link
       substituteInPlace $out/share/applications/slack.desktop \
         --replace /usr/bin/ $out/bin/ \
-        --replace /usr/share/ $out/share/
+        --replace /usr/share/pixmaps/slack.png slack \
+        --replace bin/slack "bin/slack -s"
 
       runHook postInstall
     '';
@@ -193,10 +198,6 @@ let
       runHook preInstall
       mkdir -p $out/Applications/Slack.app
       cp -R . $out/Applications/Slack.app
-    '' + lib.optionalString (!stdenv.isAarch64) ''
-      # on aarch64-darwin we get: Could not write domain com.tinyspeck.slackmacgap; exiting
-      /usr/bin/defaults write com.tinyspeck.slackmacgap SlackNoAutoUpdates -Bool YES
-    '' + ''
       runHook postInstall
     '';
   };

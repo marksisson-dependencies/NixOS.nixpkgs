@@ -5,16 +5,16 @@
 
 buildGoModule rec {
   pname = "subfinder";
-  version = "2.5.2";
+  version = "2.6.2";
 
   src = fetchFromGitHub {
     owner = "projectdiscovery";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-upqNrr4w/j9e1T5Y1wNeZSm/g05c3rby8slLwE27RKU=";
+    sha256 = "sha256-KyceWyVIgIPx4zw7pUCY2IC9PfbSYzwoDEbw80VhI+s=";
   };
 
-  vendorSha256 = "sha256-QBydwf2ED43r13d0tZeO+c6aafrJqnYb8SxXzp0pddA=";
+  vendorHash = "sha256-vvgXlVPQPH6hO4yA3HYB0C6mva9eI2zMIlBhjtZXOTI=";
 
   modRoot = "./v2";
 
@@ -31,6 +31,6 @@ buildGoModule rec {
     '';
     homepage = "https://github.com/projectdiscovery/subfinder";
     license = licenses.mit;
-    maintainers = with maintainers; [ fpletz Br1ght0ne ];
+    maintainers = with maintainers; [ fpletz Br1ght0ne Misaka13514 ];
   };
 }

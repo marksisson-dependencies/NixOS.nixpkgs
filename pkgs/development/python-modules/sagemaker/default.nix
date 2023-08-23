@@ -1,61 +1,83 @@
 { lib
 , buildPythonPackage
-, fetchPypi
+, pythonOlder
+, fetchFromGitHub
+, pythonRelaxDepsHook
 , attrs
 , boto3
+, cloudpickle
 , google-pasta
-, importlib-metadata
 , numpy
 , protobuf
-, protobuf3-to-dict
 , smdebug-rulesconfig
+, importlib-metadata
+, packaging
 , pandas
 , pathos
-, packaging
-, pythonOlder
+, schema
+, pyyaml
+, jsonschema
+, platformdirs
+, tblib
+, urllib3
+, docker
+, scipy
 }:
 
 buildPythonPackage rec {
   pname = "sagemaker";
-  version = "2.101.1";
+  version = "2.177.1";
   format = "setuptools";
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.6";
 
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-f3bmx8iJkTJ6WSl3RkQ19cbOKB4UrhoAP8pEYEtyr74=";
+  src = fetchFromGitHub {
+    owner = "aws";
+    repo = "sagemaker-python-sdk";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-Jqbk3DiV5K+TRXXSgCdoqjvddh6V2qc7mf7LotJdqys=";
   };
+
+  nativeBuildInputs = [
+    pythonRelaxDepsHook
+  ];
+
+  pythonRelaxDeps = [
+    "attrs"
+    "boto3"
+  ];
 
   propagatedBuildInputs = [
     attrs
     boto3
+    cloudpickle
     google-pasta
-    importlib-metadata
     numpy
-    packaging
-    pathos
     protobuf
-    protobuf3-to-dict
     smdebug-rulesconfig
+    importlib-metadata
+    packaging
     pandas
+    pathos
+    schema
+    pyyaml
+    jsonschema
+    platformdirs
+    tblib
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "attrs==20.3.0" "attrs>=20.3.0"
-  '';
-
-  postFixup = ''
-    [ "$($out/bin/sagemaker-upgrade-v2 --help 2>&1 | grep -cim1 'pandas failed to import')" -eq "0" ]
-  '';
-
-  doCheck = false;
+  doCheck = false; # many test dependencies are not available in nixpkgs
 
   pythonImportsCheck = [
     "sagemaker"
     "sagemaker.lineage.visualizer"
   ];
+
+  passthru.optional-dependencies = {
+    local = [ urllib3 docker pyyaml ];
+    scipy = [ scipy ];
+    # feature-processor = [ pyspark sagemaker-feature-store-pyspark ]; # not available in nixpkgs
+  };
 
   meta = with lib; {
     description = "Library for training and deploying machine learning models on Amazon SageMaker";

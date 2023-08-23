@@ -41,7 +41,7 @@ in {
     stateDir = mkOption {
       type = types.str;
       default = "/var/lib/deliantra";
-      description = ''
+      description = lib.mdDoc ''
         Where to store runtime data (save files, persistent items, etc).
 
         If left at the default, this will be automatically created on server
@@ -73,7 +73,7 @@ in {
         {
           dm_file = '''
             admin:secret_password:localhost
-            jane:xyzzy:*
+            alice:xyzzy:*
           ''';
           motd = "Welcome to Deliantra!";
           settings = '''

@@ -2,16 +2,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "swayr";
-  version = "0.19.0";
+  version = "0.26.1";
 
   src = fetchFromSourcehut {
     owner = "~tsdh";
     repo = "swayr";
     rev = "swayr-${version}";
-    sha256 = "sha256-ubindhU3G1iHqf/yiXIJk87uI3o5y2lfs22tbIfiqv4=";
+    sha256 = "sha256-8Z83VW45Sb29PUE5oyJdELD25tAKkcr0zXfZDgkNikk=";
   };
 
-  cargoSha256 = "sha256-X6BYLD7YmlHCO+3b3Ubai222tvsZUmZrwm3vS2PeqDY=";
+  cargoHash = "sha256-QgzKmbYEmUr3qwSp58/dYwwz2tJeoJlMZfrp1vB0zjo=";
 
   patches = [
     ./icon-paths.patch
@@ -29,5 +29,6 @@ rustPlatform.buildRustPackage rec {
     homepage = "https://git.sr.ht/~tsdh/swayr";
     license = with licenses; [ gpl3Plus ];
     maintainers = with maintainers; [ artturin ];
+    platforms = platforms.linux;
   };
 }

@@ -6,22 +6,26 @@
 }:
 buildGoModule rec {
   pname = "aws-sso-cli";
-  version = "1.9.2";
+  version = "1.12.0";
 
   src = fetchFromGitHub {
     owner = "synfinatic";
     repo = pname;
     rev = "v${version}";
-    sha256 = "9/dZfRmFAyE5NEMmuiVsRvwgqQrTNhXkTR9N0d3zgfk=";
+    hash = "sha256-RshR1GA3BvvPwwkVxrM98FfgW3kNaMM0Vqr7iEuoFek=";
   };
-  vendorSha256 = "BlSCLvlrKiubMtfFSZ5ppMmL2ZhJcBXxJfeRgMADYB4=";
+  vendorHash = "sha256-skFENAr5XjdKoAyVwXYJVZH+IviqfyZmMIdgHq+7IPs=";
 
   nativeBuildInputs = [ makeWrapper ];
 
+  ldflags = [
+    "-X main.Version=${version}"
+    "-X main.Tag=nixpkgs"
+  ];
+
   postInstall = ''
-    mv $out/bin/cmd $out/bin/aws-sso
     wrapProgram $out/bin/aws-sso \
-      --prefix PATH : ${lib.makeBinPath [ xdg-utils ]}
+      --suffix PATH : ${lib.makeBinPath [ xdg-utils ]}
   '';
 
   meta = with lib; {

@@ -1,17 +1,22 @@
-{ stdenv, buildGoModule, fetchFromGitHub, lib }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, testers
+, kics
+}:
 
 buildGoModule rec {
   pname = "kics";
-  version = "1.5.12";
+  version = "1.7.5";
 
   src = fetchFromGitHub {
     owner = "Checkmarx";
     repo = "kics";
     rev = "v${version}";
-    sha256 = "sha256-jHspStyjq5T9jzYDRYaf2gOI4F/X+h4nDn0PFUOHoBY=";
+    hash = "sha256-+/wqwWRJQKfmh4JuWppcE2444lD1PQ9rDGOsFh57AKs=";
   };
 
-  vendorSha256 = "sha256-q5NuuP04kOoLVj210s17fIW2cxrsC/tAyET8YYGai0M=";
+  vendorHash = "sha256-ipXfxqHdushJ2P//oyGGjZsq5EypDEpHKlW32VHaMXw=";
 
   subPackages = [ "cmd/console" ];
 
@@ -24,6 +29,11 @@ buildGoModule rec {
     "-X github.com/Checkmarx/kics/internal/constant.SCMCommits=${version}"
     "-X github.com/Checkmarx/kics/internal/constants.Version=${version}"
   ];
+
+  passthru.tests.version = testers.testVersion {
+    package = kics;
+    command = "kics version";
+  };
 
   meta = with lib; {
     description = ''

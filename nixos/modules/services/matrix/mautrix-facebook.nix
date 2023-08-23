@@ -17,7 +17,7 @@ let
 in {
   options = {
     services.mautrix-facebook = {
-      enable = mkEnableOption "Mautrix-Facebook, a Matrix-Facebook hybrid puppeting/relaybot bridge";
+      enable = mkEnableOption (lib.mdDoc "Mautrix-Facebook, a Matrix-Facebook hybrid puppeting/relaybot bridge");
 
       settings = mkOption rec {
         apply = recursiveUpdate default;
@@ -25,9 +25,11 @@ in {
         default = {
           homeserver = {
             address = "http://localhost:8008";
+            software = "standard";
           };
 
           appservice = rec {
+            id = "facebook";
             address = "http://${hostname}:${toString port}";
             hostname = "localhost";
             port = 29319;
@@ -44,6 +46,12 @@ in {
             encryption = {
               allow = true;
               default = true;
+
+              verification_levels = {
+                receive = "cross-signed-tofu";
+                send = "cross-signed-tofu";
+                share = "cross-signed-tofu";
+              };
             };
             username_template = "facebook_{userid}";
           };
@@ -75,15 +83,12 @@ in {
             };
           }
         '';
-        description = ''
-          <filename>config.yaml</filename> configuration as a Nix attribute set.
+        description = lib.mdDoc ''
+          {file}`config.yaml` configuration as a Nix attribute set.
           Configuration options should match those described in
-          <link xlink:href="https://github.com/mautrix/facebook/blob/master/mautrix_facebook/example-config.yaml">
-          example-config.yaml</link>.
-          </para>
+          [example-config.yaml](https://github.com/mautrix/facebook/blob/master/mautrix_facebook/example-config.yaml).
 
-          <para>
-          Secret tokens should be specified using <option>environmentFile</option>
+          Secret tokens should be specified using {option}`environmentFile`
           instead of this world-readable attribute set.
         '';
       };
@@ -92,7 +97,7 @@ in {
         type = types.nullOr types.path;
         default = null;
         description = lib.mdDoc ''
-          File containing environment variables to be passed to the mautrix-telegram service.
+          File containing environment variables to be passed to the mautrix-facebook service.
 
           Any config variable can be overridden by setting `MAUTRIX_FACEBOOK_SOME_KEY` to override the `some.key` variable.
         '';
@@ -119,6 +124,8 @@ in {
   };
 
   config = mkIf cfg.enable {
+    users.groups.mautrix-facebook = {};
+
     users.users.mautrix-facebook = {
       group = "mautrix-facebook";
       isSystemUser = true;
@@ -165,7 +172,7 @@ in {
 
     services.mautrix-facebook = {
       registrationData = {
-        id = "mautrix-facebook";
+        id = cfg.settings.appservice.id;
 
         namespaces = {
           users = [

@@ -6,8 +6,6 @@ let
   cfg = config.services.public-inbox;
   stateDir = "/var/lib/public-inbox";
 
-  manref = name: vol: "<citerefentry><refentrytitle>${name}</refentrytitle><manvolnum>${toString vol}</manvolnum></citerefentry>";
-
   gitIni = pkgs.formats.gitIni { listsAsDuplicateKeys = true; };
   iniAtom = elemAt gitIni.type/*attrsOf*/.functor.wrapped/*attrsOf*/.functor.wrapped/*either*/.functor.wrapped 0;
 
@@ -18,15 +16,15 @@ let
     args = mkOption {
       type = with types; listOf str;
       default = [];
-      description = "Command-line arguments to pass to ${manref "public-inbox-${proto}d" 1}.";
+      description = lib.mdDoc "Command-line arguments to pass to {manpage}`public-inbox-${proto}d(1)`.";
     };
     port = mkOption {
       type = with types; nullOr (either str port);
       default = defaultPort;
-      description = ''
+      description = lib.mdDoc ''
         Listening port.
         Beware that public-inbox uses well-known ports number to decide whether to enable TLS or not.
-        Set to null and use <code>systemd.sockets.public-inbox-${proto}d.listenStreams</code>
+        Set to null and use `systemd.sockets.public-inbox-${proto}d.listenStreams`
         if you need a more advanced listening.
       '';
     };
@@ -34,13 +32,13 @@ let
       type = with types; nullOr str;
       default = null;
       example = "/path/to/fullchain.pem";
-      description = "Path to TLS certificate to use for connections to ${manref "public-inbox-${proto}d" 1}.";
+      description = lib.mdDoc "Path to TLS certificate to use for connections to {manpage}`public-inbox-${proto}d(1)`.";
     };
     key = mkOption {
       type = with types; nullOr str;
       default = null;
       example = "/path/to/key.pem";
-      description = "Path to TLS key to use for connections to ${manref "public-inbox-${proto}d" 1}.";
+      description = lib.mdDoc "Path to TLS key to use for connections to {manpage}`public-inbox-${proto}d(1)`.";
     };
   };
 
@@ -91,7 +89,7 @@ let
       PrivateNetwork = mkDefault (!needNetwork);
       ProcSubset = "pid";
       ProtectClock = true;
-      ProtectHome = mkDefault true;
+      ProtectHome = "tmpfs";
       ProtectHostname = true;
       ProtectKernelLogs = true;
       ProtectProc = "invisible";
@@ -145,7 +143,7 @@ in
 
 {
   options.services.public-inbox = {
-    enable = mkEnableOption "the public-inbox mail archiver";
+    enable = mkEnableOption (lib.mdDoc "the public-inbox mail archiver");
     package = mkOption {
       type = types.package;
       default = pkgs.public-inbox;
@@ -179,8 +177,7 @@ in
           description = lib.mdDoc "The email addresses of the public-inbox.";
         };
         options.url = mkOption {
-          type = with types; nullOr str;
-          default = null;
+          type = types.nonEmptyStr;
           example = "https://example.org/lists/example-discuss";
           description = lib.mdDoc "URL where this inbox can be accessed over HTTP.";
         };
@@ -198,15 +195,15 @@ in
         options.watch = mkOption {
           type = with types; listOf str;
           default = [];
-          description = "Paths for ${manref "public-inbox-watch" 1} to monitor for new mail.";
+          description = lib.mdDoc "Paths for {manpage}`public-inbox-watch(1)` to monitor for new mail.";
           example = [ "maildir:/path/to/test.example.com.git" ];
         };
         options.watchheader = mkOption {
           type = with types; nullOr str;
           default = null;
           example = "List-Id:<test@example.com>";
-          description = ''
-            If specified, ${manref "public-inbox-watch" 1} will only process
+          description = lib.mdDoc ''
+            If specified, {manpage}`public-inbox-watch(1)` will only process
             mail containing a matching header.
           '';
         };
@@ -220,10 +217,10 @@ in
       }));
     };
     imap = {
-      enable = mkEnableOption "the public-inbox IMAP server";
+      enable = mkEnableOption (lib.mdDoc "the public-inbox IMAP server");
     } // publicInboxDaemonOptions "imap" 993;
     http = {
-      enable = mkEnableOption "the public-inbox HTTP server";
+      enable = mkEnableOption (lib.mdDoc "the public-inbox HTTP server");
       mounts = mkOption {
         type = with types; listOf str;
         default = [ "/" ];
@@ -239,26 +236,26 @@ in
         type = with types; nullOr (either str port);
         default = 80;
         example = "/run/public-inbox-httpd.sock";
-        description = ''
+        description = lib.mdDoc ''
           Listening port or systemd's ListenStream= entry
           to be used as a reverse proxy, eg. in nginx:
-          <code>locations."/inbox".proxyPass = "http://unix:''${config.services.public-inbox.http.port}:/inbox";</code>
-          Set to null and use <code>systemd.sockets.public-inbox-httpd.listenStreams</code>
+          `locations."/inbox".proxyPass = "http://unix:''${config.services.public-inbox.http.port}:/inbox";`
+          Set to null and use `systemd.sockets.public-inbox-httpd.listenStreams`
           if you need a more advanced listening.
         '';
       };
     };
     mda = {
-      enable = mkEnableOption "the public-inbox Mail Delivery Agent";
+      enable = mkEnableOption (lib.mdDoc "the public-inbox Mail Delivery Agent");
       args = mkOption {
         type = with types; listOf str;
         default = [];
-        description = "Command-line arguments to pass to ${manref "public-inbox-mda" 1}.";
+        description = lib.mdDoc "Command-line arguments to pass to {manpage}`public-inbox-mda(1)`.";
       };
     };
-    postfix.enable = mkEnableOption "the integration into Postfix";
+    postfix.enable = mkEnableOption (lib.mdDoc "the integration into Postfix");
     nntp = {
-      enable = mkEnableOption "the public-inbox NNTP server";
+      enable = mkEnableOption (lib.mdDoc "the public-inbox NNTP server");
     } // publicInboxDaemonOptions "nntp" 563;
     spamAssassinRules = mkOption {
       type = with types; nullOr path;
@@ -277,17 +274,32 @@ in
           default = {};
           description = lib.mdDoc "public inboxes";
           type = types.submodule {
-            freeformType = with types; /*inbox name*/attrsOf (/*inbox option name*/attrsOf /*inbox option value*/iniAtom);
+            # Support both global options like `services.public-inbox.settings.publicinbox.imapserver`
+            # and inbox specific options like `services.public-inbox.settings.publicinbox.foo.address`.
+            freeformType = with types; attrsOf (oneOf [ iniAtom (attrsOf iniAtom) ]);
+
             options.css = mkOption {
               type = with types; listOf str;
               default = [];
               description = lib.mdDoc "The local path name of a CSS file for the PSGI web interface.";
+            };
+            options.imapserver = mkOption {
+              type = with types; listOf str;
+              default = [];
+              example = [ "imap.public-inbox.org" ];
+              description = lib.mdDoc "IMAP URLs to this public-inbox instance";
             };
             options.nntpserver = mkOption {
               type = with types; listOf str;
               default = [];
               example = [ "nntp://news.public-inbox.org" "nntps://news.public-inbox.org" ];
               description = lib.mdDoc "NNTP URLs to this public-inbox instance";
+            };
+            options.pop3server = mkOption {
+              type = with types; listOf str;
+              default = [];
+              example = [ "pop.public-inbox.org" ];
+              description = lib.mdDoc "POP3 URLs to this public-inbox instance";
             };
             options.wwwlisting = mkOption {
               type = with types; enum [ "all" "404" "match=domain" ];
@@ -302,16 +314,16 @@ in
         options.publicinboxmda.spamcheck = mkOption {
           type = with types; enum [ "spamc" "none" ];
           default = "none";
-          description = ''
-            If set to spamc, ${manref "public-inbox-watch" 1} will filter spam
+          description = lib.mdDoc ''
+            If set to spamc, {manpage}`public-inbox-watch(1)` will filter spam
             using SpamAssassin.
           '';
         };
         options.publicinboxwatch.spamcheck = mkOption {
           type = with types; enum [ "spamc" "none" ];
           default = "none";
-          description = ''
-            If set to spamc, ${manref "public-inbox-watch" 1} will filter spam
+          description = lib.mdDoc ''
+            If set to spamc, {manpage}`public-inbox-watch(1)` will filter spam
             using SpamAssassin.
           '';
         };
@@ -341,7 +353,7 @@ in
         };
       };
     };
-    openFirewall = mkEnableOption "opening the firewall when using a port option";
+    openFirewall = mkEnableOption (lib.mdDoc "opening the firewall when using a port option");
   };
   config = mkIf cfg.enable {
     assertions = [
@@ -448,6 +460,8 @@ in
           after = [ "public-inbox-init.service" "public-inbox-watch.service" ];
           requires = [ "public-inbox-init.service" ];
           serviceConfig = {
+            BindPathsReadOnly =
+              map (c: c.dir) (lib.attrValues cfg.settings.coderepo);
             ExecStart = escapeShellArgs (
               [ "${cfg.package}/bin/public-inbox-httpd" ] ++
               cfg.http.args ++
@@ -551,16 +565,7 @@ in
                 ${pkgs.git}/bin/git config core.sharedRepository 0640
               fi
             '') cfg.inboxes
-            ) + ''
-            shopt -s nullglob
-            for inbox in ${stateDir}/inboxes/*/; do
-              # This should be idempotent, but only do it for new
-              # inboxes anyway because it's only needed once, and could
-              # be slow for large pre-existing inboxes.
-              ls -1 "$inbox" | grep -q '^xap' ||
-              ${cfg.package}/bin/public-inbox-index "$inbox"
-            done
-          '';
+            );
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;

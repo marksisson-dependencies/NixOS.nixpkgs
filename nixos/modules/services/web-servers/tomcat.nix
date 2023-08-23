@@ -19,7 +19,7 @@ in
   options = {
 
     services.tomcat = {
-      enable = mkEnableOption "Apache Tomcat";
+      enable = mkEnableOption (lib.mdDoc "Apache Tomcat");
 
       package = mkOption {
         type = types.package;
@@ -34,7 +34,7 @@ in
       purifyOnStart = mkOption {
         type = types.bool;
         default = false;
-        description = ''
+        description = lib.mdDoc ''
           On startup, the `baseDir` directory is populated with various files,
           subdirectories and symlinks. If this option is enabled, these items
           (except for the `logs` and `work` subdirectories) are first removed.
@@ -46,7 +46,7 @@ in
       baseDir = mkOption {
         type = lib.types.path;
         default = "/var/tomcat";
-        description = ''
+        description = lib.mdDoc ''
           Location where Tomcat stores configuration files, web applications
           and logfiles. Note that it is partially cleared on each service startup
           if `purifyOnStart` is enabled.
@@ -112,10 +112,10 @@ in
       serverXml = mkOption {
         type = types.lines;
         default = "";
-        description = "
+        description = lib.mdDoc ''
           Verbatim server.xml configuration.
           This is mutually exclusive with the virtualHosts options.
-        ";
+        '';
       };
 
       commonLibs = mkOption {
@@ -234,11 +234,11 @@ in
           ln -sfn ${tomcat}/conf/$i ${cfg.baseDir}/conf/`basename $i`
         done
 
-        ${if cfg.extraConfigFiles != [] then ''
+        ${optionalString (cfg.extraConfigFiles != []) ''
           for i in ${toString cfg.extraConfigFiles}; do
             ln -sfn $i ${cfg.baseDir}/conf/`basename $i`
           done
-        '' else ""}
+        ''}
 
         # Create a modified catalina.properties file
         # Change all references from CATALINA_HOME to CATALINA_BASE and add support for shared libraries
@@ -345,7 +345,7 @@ in
 
           # Symlink all the given web applications files or paths into the webapps/ directory
           # of this virtual host
-          for i in "${if virtualHost ? webapps then toString virtualHost.webapps else ""}"; do
+          for i in "${optionalString (virtualHost ? webapps) (toString virtualHost.webapps)}"; do
             if [ -f $i ]; then
               # If the given web application is a file, symlink it into the webapps/ directory
               ln -sfn $i ${cfg.baseDir}/virtualhosts/${virtualHost.name}/webapps/`basename $i`

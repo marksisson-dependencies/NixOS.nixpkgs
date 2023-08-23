@@ -29,25 +29,25 @@
 
 stdenv.mkDerivation rec {
   pname = "elementary-files";
-  version = "6.1.4";
+  version = "6.4.1";
 
   outputs = [ "out" "dev" ];
-
-  patches = [
-    # Fix terminal critical warnings and possible crash when removing bookmark
-    # https://github.com/elementary/files/pull/2062
-    (fetchpatch {
-      url = "https://github.com/elementary/files/commit/daa5ab244b45aafdd7be49eb0bd6f052ded5b5a7.patch";
-      sha256 = "sha256-crGvbo9Ye9656cOy6YqNreMLE2pEMO0Rg8oz81OfJkw=";
-    })
-  ];
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "files";
     rev = version;
-    sha256 = "sha256-3j0b+hExUe6OBmEHQVmd2uBkbOGxMdpgDmymuCiph80=";
+    sha256 = "sha256-s4Df2eLnr+RnbTwPzjt9bVA+xZ9xca2hiFdGlRUZRfU=";
   };
+
+  patches = [
+    # Fix log spam with new GLib
+    # https://github.com/elementary/files/pull/2257
+    (fetchpatch {
+      url = "https://github.com/elementary/files/commit/7bd542fa0a646b5cb0972f5575c56a9ee4d9dce7.patch";
+      hash = "sha256-C+oSx0xn3YPuwEC0K+3ZmKeQrroKreJo1tfcpLGQ1S4=";
+    })
+  ];
 
   nativeBuildInputs = [
     desktop-file-utils
@@ -83,9 +83,7 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

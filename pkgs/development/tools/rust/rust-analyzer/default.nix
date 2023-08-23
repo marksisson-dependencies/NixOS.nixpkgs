@@ -8,27 +8,27 @@
 , libiconv
 , useMimalloc ? false
 , doCheck ? true
+, nix-update-script
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "rust-analyzer-unwrapped";
-  version = "2022-08-01";
-  cargoSha256 = "sha256-7ZYrIFSIOlL1JojtaQBIvvlfvjZGlR40PKVjmEtMBMo=";
+  version = "2023-08-14";
+  cargoSha256 = "sha256-sau5lno9jqC4NVDY62aNlyRMW/T/xEHUtzyL5wIE6yQ=";
 
   src = fetchFromGitHub {
     owner = "rust-lang";
     repo = "rust-analyzer";
     rev = version;
-    sha256 = "sha256-OUezy1BkIoqpkTE5wOtsjJ/Gy48Ql8EL1/t6MZzRkWw=";
+    sha256 = "sha256-KxbpMaIH7GkLecWCQsoDtpql1N869RIIfZcLDRcuB5k=";
   };
 
-  patches = [
-    # Code format check requires more dependencies but don't really matter for packaging.
-    # So just ignore it.
-    ./ignore-rustfmt-test.patch
-  ];
+  cargoBuildFlags = [ "--bin" "rust-analyzer" "--bin" "rust-analyzer-proc-macro-srv" ];
+  cargoTestFlags = [ "--package" "rust-analyzer" "--package" "proc-macro-srv-cli" ];
 
-  buildAndTestSubdir = "crates/rust-analyzer";
+  # Code format check requires more dependencies but don't really matter for packaging.
+  # So just ignore it.
+  checkFlags = [ "--skip=tidy::check_code_formatting" ];
 
   nativeBuildInputs = lib.optional useMimalloc cmake;
 
@@ -56,7 +56,7 @@ rustPlatform.buildRustPackage rec {
   '';
 
   passthru = {
-    updateScript = ./update.sh;
+    updateScript = nix-update-script { };
     # FIXME: Pass overrided `rust-analyzer` once `buildRustPackage` also implements #119942
     tests.neovim-lsp = callPackage ./test-neovim-lsp.nix { };
   };

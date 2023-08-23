@@ -142,6 +142,16 @@ let
         '';
       };
 
+      mysqlAuth = mkOption {
+        default = config.users.mysql.enable;
+        defaultText = literalExpression "config.users.mysql.enable";
+        type = types.bool;
+        description = lib.mdDoc ''
+          If set, the `pam_mysql` module will be used to
+          authenticate users against a MySQL/MariaDB database.
+        '';
+      };
+
       fprintAuth = mkOption {
         default = config.services.fprintd.enable;
         defaultText = literalExpression "config.services.fprintd.enable";
@@ -272,7 +282,7 @@ let
         defaultText = literalExpression "config.security.pam.mount.enable";
         type = types.bool;
         description = lib.mdDoc ''
-          Enable PAM mount (pam_mount) system to mount fileystems on user login.
+          Enable PAM mount (pam_mount) system to mount filesystems on user login.
         '';
       };
 
@@ -295,7 +305,7 @@ let
         default = false;
         type = types.bool;
         description = lib.mdDoc ''
-          Wheather the delay after typing a wrong password should be disabled.
+          Whether the delay after typing a wrong password should be disabled.
         '';
       };
 
@@ -310,12 +320,10 @@ let
       limits = mkOption {
         default = [];
         type = limitsType;
-        description = ''
+        description = lib.mdDoc ''
           Attribute set describing resource limits.  Defaults to the
-          value of <option>security.pam.loginLimits</option>.
-          The meaning of the values is explained in <citerefentry>
-          <refentrytitle>limits.conf</refentrytitle><manvolnum>5</manvolnum>
-          </citerefentry>.
+          value of {option}`security.pam.loginLimits`.
+          The meaning of the values is explained in {manpage}`limits.conf(5)`.
         '';
       };
 
@@ -384,6 +392,24 @@ let
         '';
       };
 
+      failDelay = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = lib.mdDoc ''
+            If enabled, this will replace the `FAIL_DELAY` setting from `login.defs`.
+            Change the delay on failure per-application.
+            '';
+        };
+
+        delay = mkOption {
+          default = 3000000;
+          type = types.int;
+          example = 1000000;
+          description = lib.mdDoc "The delay time (in microseconds) on failure.";
+        };
+      };
+
       gnupg = {
         enable = mkOption {
           type = types.bool;
@@ -420,6 +446,15 @@ let
         };
       };
 
+      zfs = mkOption {
+        default = config.security.pam.zfs.enable;
+        defaultText = literalExpression "config.security.pam.zfs.enable";
+        type = types.bool;
+        description = lib.mdDoc ''
+          Enable unlocking and mounting of encrypted ZFS home dataset at login.
+        '';
+      };
+
       text = mkOption {
         type = types.nullOr types.lines;
         description = lib.mdDoc "Contents of the PAM service file.";
@@ -442,10 +477,15 @@ let
         (
           ''
             # Account management.
-            account required pam_unix.so
           '' +
           optionalString use_ldap ''
             account sufficient ${pam_ldap}/lib/security/pam_ldap.so
+          '' +
+          optionalString cfg.mysqlAuth ''
+            account sufficient ${pkgs.pam_mysql}/lib/security/pam_mysql.so config_file=/etc/security/pam_mysql.conf
+          '' +
+          optionalString (config.services.kanidm.enablePam) ''
+            account sufficient ${pkgs.kanidm}/lib/pam_kanidm.so ignore_unknown_user
           '' +
           optionalString (config.services.sssd.enable && cfg.sssdStrictAccess==false) ''
             account sufficient ${pkgs.sssd}/lib/security/pam_sss.so
@@ -460,7 +500,14 @@ let
             account [success=ok ignore=ignore default=die] ${pkgs.google-guest-oslogin}/lib/security/pam_oslogin_login.so
             account [success=ok default=ignore] ${pkgs.google-guest-oslogin}/lib/security/pam_oslogin_admin.so
           '' +
+          optionalString config.services.homed.enable ''
+            account sufficient ${config.systemd.package}/lib/security/pam_systemd_home.so
+          '' +
+          # The required pam_unix.so module has to come after all the sufficient modules
+          # because otherwise, the account lookup will fail if the user does not exist
+          # locally, for example with MySQL- or LDAP-auth.
           ''
+            account required pam_unix.so
 
             # Authentication management.
           '' +
@@ -475,6 +522,9 @@ let
           '' +
           optionalString cfg.logFailures ''
             auth required pam_faillock.so
+          '' +
+          optionalString cfg.mysqlAuth ''
+            auth sufficient ${pkgs.pam_mysql}/lib/security/pam_mysql.so config_file=/etc/security/pam_mysql.conf
           '' +
           optionalString (config.security.pam.enableSSHAgentAuth && cfg.sshAgentAuth) ''
             auth sufficient ${pkgs.pam_ssh_agent_auth}/libexec/pam_ssh_agent_auth.so file=${lib.concatStringsSep ":" config.services.openssh.authorizedKeysFiles}
@@ -498,29 +548,46 @@ let
           (let yubi = config.security.pam.yubico; in optionalString cfg.yubicoAuth ''
             auth ${yubi.control} ${pkgs.yubico-pam}/lib/security/pam_yubico.so mode=${toString yubi.mode} ${optionalString (yubi.challengeResponsePath != null) "chalresp_path=${yubi.challengeResponsePath}"} ${optionalString (yubi.mode == "client") "id=${toString yubi.id}"} ${optionalString yubi.debug "debug"}
           '') +
+          (let dp9ik = config.security.pam.dp9ik; in optionalString dp9ik.enable ''
+            auth ${dp9ik.control} ${pkgs.pam_dp9ik}/lib/security/pam_p9.so ${dp9ik.authserver}
+          '') +
           optionalString cfg.fprintAuth ''
             auth sufficient ${pkgs.fprintd}/lib/security/pam_fprintd.so
           '' +
           # Modules in this block require having the password set in PAM_AUTHTOK.
           # pam_unix is marked as 'sufficient' on NixOS which means nothing will run
           # after it succeeds. Certain modules need to run after pam_unix
-          # prompts the user for password so we run it once with 'required' at an
+          # prompts the user for password so we run it once with 'optional' at an
           # earlier point and it will run again with 'sufficient' further down.
-          # We use try_first_pass the second time to avoid prompting password twice
-          (optionalString (cfg.unixAuth &&
+          # We use try_first_pass the second time to avoid prompting password twice.
+          #
+          # The same principle applies to systemd-homed
+          (optionalString ((cfg.unixAuth || config.services.homed.enable) &&
             (config.security.pam.enableEcryptfs
+              || config.security.pam.enableFscrypt
               || cfg.pamMount
               || cfg.enableKwallet
               || cfg.enableGnomeKeyring
               || cfg.googleAuthenticator.enable
               || cfg.gnupg.enable
-              || cfg.duoSecurity.enable))
+              || cfg.failDelay.enable
+              || cfg.duoSecurity.enable
+              || cfg.zfs))
             (
-              ''
-                auth required pam_unix.so ${optionalString cfg.allowNullPassword "nullok"} ${optionalString cfg.nodelay "nodelay"} likeauth
+              optionalString config.services.homed.enable ''
+                auth optional ${config.systemd.package}/lib/security/pam_systemd_home.so
+              '' +
+              optionalString cfg.unixAuth ''
+                auth optional pam_unix.so ${optionalString cfg.allowNullPassword "nullok"} ${optionalString cfg.nodelay "nodelay"} likeauth
               '' +
               optionalString config.security.pam.enableEcryptfs ''
                 auth optional ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so unwrap
+              '' +
+              optionalString config.security.pam.enableFscrypt ''
+                auth optional ${pkgs.fscrypt-experimental}/lib/security/pam_fscrypt.so
+              '' +
+              optionalString cfg.zfs ''
+                auth optional ${config.boot.zfs.package}/lib/security/pam_zfs_key.so homes=${config.security.pam.zfs.homes}
               '' +
               optionalString cfg.pamMount ''
                 auth optional ${pkgs.pam_mount}/lib/security/pam_mount.so disable_interactive
@@ -534,6 +601,9 @@ let
               optionalString cfg.gnupg.enable ''
                 auth optional ${pkgs.pam_gnupg}/lib/security/pam_gnupg.so ${optionalString cfg.gnupg.storeOnly " store-only"}
               '' +
+              optionalString cfg.failDelay.enable ''
+                auth optional ${pkgs.pam}/lib/security/pam_faildelay.so delay=${toString cfg.failDelay.delay}
+              '' +
               optionalString cfg.googleAuthenticator.enable ''
                 auth required ${pkgs.google-authenticator}/lib/security/pam_google_authenticator.so no_increment_hotp
               '' +
@@ -541,6 +611,9 @@ let
                 auth required ${pkgs.duo-unix}/lib/security/pam_duo.so
               ''
             )) +
+          optionalString config.services.homed.enable ''
+            auth sufficient ${config.systemd.package}/lib/security/pam_systemd_home.so
+          '' +
           optionalString cfg.unixAuth ''
             auth sufficient pam_unix.so ${optionalString cfg.allowNullPassword "nullok"} ${optionalString cfg.nodelay "nodelay"} likeauth try_first_pass
           '' +
@@ -549,6 +622,9 @@ let
           '' +
           optionalString use_ldap ''
             auth sufficient ${pam_ldap}/lib/security/pam_ldap.so use_first_pass
+          '' +
+          optionalString config.services.kanidm.enablePam ''
+            auth sufficient ${pkgs.kanidm}/lib/pam_kanidm.so ignore_unknown_user use_first_pass
           '' +
           optionalString config.services.sssd.enable ''
             auth sufficient ${pkgs.sssd}/lib/security/pam_sss.so use_first_pass
@@ -562,10 +638,20 @@ let
             auth required pam_deny.so
 
             # Password management.
-            password sufficient pam_unix.so nullok sha512
+          '' +
+          optionalString config.services.homed.enable ''
+            password sufficient ${config.systemd.package}/lib/security/pam_systemd_home.so
+          '' + ''
+            password sufficient pam_unix.so nullok yescrypt
           '' +
           optionalString config.security.pam.enableEcryptfs ''
             password optional ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so
+          '' +
+          optionalString config.security.pam.enableFscrypt ''
+            password optional ${pkgs.fscrypt-experimental}/lib/security/pam_fscrypt.so
+          '' +
+          optionalString cfg.zfs ''
+            password optional ${config.boot.zfs.package}/lib/security/pam_zfs_key.so homes=${config.security.pam.zfs.homes}
           '' +
           optionalString cfg.pamMount ''
             password optional ${pkgs.pam_mount}/lib/security/pam_mount.so
@@ -573,8 +659,14 @@ let
           optionalString use_ldap ''
             password sufficient ${pam_ldap}/lib/security/pam_ldap.so
           '' +
+          optionalString cfg.mysqlAuth ''
+            password sufficient ${pkgs.pam_mysql}/lib/security/pam_mysql.so config_file=/etc/security/pam_mysql.conf
+          '' +
+          optionalString config.services.kanidm.enablePam ''
+            password sufficient ${pkgs.kanidm}/lib/pam_kanidm.so
+          '' +
           optionalString config.services.sssd.enable ''
-            password sufficient ${pkgs.sssd}/lib/security/pam_sss.so use_authtok
+            password sufficient ${pkgs.sssd}/lib/security/pam_sss.so
           '' +
           optionalString config.security.pam.krb5.enable ''
             password sufficient ${pam_krb5}/lib/security/pam_krb5.so use_first_pass
@@ -595,14 +687,17 @@ let
           optionalString cfg.setLoginUid ''
             session ${if config.boot.isContainer then "optional" else "required"} pam_loginuid.so
           '' +
-          optionalString cfg.ttyAudit.enable ''
-            session required ${pkgs.pam}/lib/security/pam_tty_audit.so
-                open_only=${toString cfg.ttyAudit.openOnly}
-                ${optionalString (cfg.ttyAudit.enablePattern != null) "enable=${cfg.ttyAudit.enablePattern}"}
-                ${optionalString (cfg.ttyAudit.disablePattern != null) "disable=${cfg.ttyAudit.disablePattern}"}
+          optionalString cfg.ttyAudit.enable (concatStringsSep " \\\n  " ([
+            "session required ${pkgs.pam}/lib/security/pam_tty_audit.so"
+          ] ++ optional cfg.ttyAudit.openOnly "open_only"
+          ++ optional (cfg.ttyAudit.enablePattern != null) "enable=${cfg.ttyAudit.enablePattern}"
+          ++ optional (cfg.ttyAudit.disablePattern != null) "disable=${cfg.ttyAudit.disablePattern}"
+          )) +
+          optionalString config.services.homed.enable ''
+            session required ${config.systemd.package}/lib/security/pam_systemd_home.so
           '' +
           optionalString cfg.makeHomeDir ''
-            session required ${pkgs.pam}/lib/security/pam_mkhomedir.so silent skel=${config.security.pam.makeHomeDir.skelDirectory} umask=0077
+            session required ${pkgs.pam}/lib/security/pam_mkhomedir.so silent skel=${config.security.pam.makeHomeDir.skelDirectory} umask=${config.security.pam.makeHomeDir.umask}
           '' +
           optionalString cfg.updateWtmp ''
             session required ${pkgs.pam}/lib/security/pam_lastlog.so silent
@@ -610,11 +705,29 @@ let
           optionalString config.security.pam.enableEcryptfs ''
             session optional ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so
           '' +
+          optionalString config.security.pam.enableFscrypt ''
+            # Work around https://github.com/systemd/systemd/issues/8598
+            # Skips the pam_fscrypt module for systemd-user sessions which do not have a password
+            # anyways.
+            # See also https://github.com/google/fscrypt/issues/95
+            session [success=1 default=ignore] pam_succeed_if.so service = systemd-user
+            session optional ${pkgs.fscrypt-experimental}/lib/security/pam_fscrypt.so
+          '' +
+          optionalString cfg.zfs ''
+            session [success=1 default=ignore] pam_succeed_if.so service = systemd-user
+            session optional ${config.boot.zfs.package}/lib/security/pam_zfs_key.so homes=${config.security.pam.zfs.homes} ${optionalString config.security.pam.zfs.noUnmount "nounmount"}
+          '' +
           optionalString cfg.pamMount ''
             session optional ${pkgs.pam_mount}/lib/security/pam_mount.so disable_interactive
           '' +
           optionalString use_ldap ''
             session optional ${pam_ldap}/lib/security/pam_ldap.so
+          '' +
+          optionalString cfg.mysqlAuth ''
+            session optional ${pkgs.pam_mysql}/lib/security/pam_mysql.so config_file=/etc/security/pam_mysql.conf
+          '' +
+          optionalString config.services.kanidm.enablePam ''
+            session optional ${pkgs.kanidm}/lib/pam_kanidm.so
           '' +
           optionalString config.services.sssd.enable ''
             session optional ${pkgs.sssd}/lib/security/pam_sss.so
@@ -634,7 +747,7 @@ let
           optionalString (cfg.limits != []) ''
             session required ${pkgs.pam}/lib/security/pam_limits.so conf=${makeLimitsConf cfg.limits}
           '' +
-          optionalString (cfg.showMotd && config.users.motd != null) ''
+          optionalString (cfg.showMotd && (config.users.motd != null || config.users.motdFile != null)) ''
             session optional ${pkgs.pam}/lib/security/pam_motd.so motd=${motd}
           '' +
           optionalString (cfg.enableAppArmor && config.security.apparmor.enable) ''
@@ -715,7 +828,9 @@ let
     };
   }));
 
-  motd = pkgs.writeText "motd" config.users.motd;
+  motd = if config.users.motdFile == null
+         then pkgs.writeText "motd" config.users.motd
+         else config.users.motdFile;
 
   makePAMService = name: service:
     { name = "pam.d/${name}";
@@ -750,19 +865,18 @@ in
           }
        ];
 
-     description =
-       '' Define resource limits that should apply to users or groups.
-          Each item in the list should be an attribute set with a
-          <varname>domain</varname>, <varname>type</varname>,
-          <varname>item</varname>, and <varname>value</varname>
-          attribute.  The syntax and semantics of these attributes
-          must be that described in <citerefentry><refentrytitle>limits.conf</refentrytitle>
-          <manvolnum>5</manvolnum></citerefentry>.
+     description = lib.mdDoc ''
+       Define resource limits that should apply to users or groups.
+       Each item in the list should be an attribute set with a
+       {var}`domain`, {var}`type`,
+       {var}`item`, and {var}`value`
+       attribute.  The syntax and semantics of these attributes
+       must be that described in {manpage}`limits.conf(5)`.
 
-          Note that these limits do not apply to systemd services,
-          whose limits can be changed via <option>systemd.extraConfig</option>
-          instead.
-       '';
+       Note that these limits do not apply to systemd services,
+       whose limits can be changed via {option}`systemd.extraConfig`
+       instead.
+     '';
     };
 
     security.pam.services = mkOption {
@@ -788,6 +902,16 @@ in
       '';
     };
 
+    security.pam.makeHomeDir.umask = mkOption {
+      type = types.str;
+      default = "0077";
+      example = "0022";
+      description = lib.mdDoc ''
+        The user file mode creation mask to use on home directories
+        newly created by `pam_mkhomedir`.
+      '';
+    };
+
     security.pam.enableSSHAgentAuth = mkOption {
       type = types.bool;
       default = false;
@@ -800,21 +924,47 @@ in
         '';
     };
 
-    security.pam.enableOTPW = mkEnableOption "the OTPW (one-time password) PAM module";
+    security.pam.enableOTPW = mkEnableOption (lib.mdDoc "the OTPW (one-time password) PAM module");
+
+    security.pam.dp9ik = {
+      enable = mkEnableOption (
+        lib.mdDoc ''
+          the dp9ik pam module provided by tlsclient.
+
+          If set, users can be authenticated against the 9front
+          authentication server given in {option}`security.pam.dp9ik.authserver`.
+        ''
+      );
+      control = mkOption {
+        default = "sufficient";
+        type = types.str;
+        description = lib.mdDoc ''
+          This option sets the pam "control" used for this module.
+        '';
+      };
+      authserver = mkOption {
+        default = null;
+        type = with types; nullOr str;
+        description = lib.mdDoc ''
+          This controls the hostname for the 9front authentication server
+          that users will be authenticated against.
+        '';
+      };
+    };
 
     security.pam.krb5 = {
       enable = mkOption {
         default = config.krb5.enable;
         defaultText = literalExpression "config.krb5.enable";
         type = types.bool;
-        description = ''
-          Enables Kerberos PAM modules (<literal>pam-krb5</literal>,
-          <literal>pam-ccreds</literal>).
+        description = lib.mdDoc ''
+          Enables Kerberos PAM modules (`pam-krb5`,
+          `pam-ccreds`).
 
           If set, users can authenticate with their Kerberos password.
           This requires a valid Kerberos configuration
-          (<literal>config.krb5.enable</literal> should be set to
-          <literal>true</literal>).
+          (`config.krb5.enable` should be set to
+          `true`).
 
           Note that the Kerberos PAM modules are not necessary when using SSS
           to handle Kerberos authentication.
@@ -826,30 +976,26 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
-          Enables P11 PAM (<literal>pam_p11</literal>) module.
+        description = lib.mdDoc ''
+          Enables P11 PAM (`pam_p11`) module.
 
           If set, users can log in with SSH keys and PKCS#11 tokens.
 
-          More information can be found <link
-          xlink:href="https://github.com/OpenSC/pam_p11">here</link>.
+          More information can be found [here](https://github.com/OpenSC/pam_p11).
         '';
       };
 
       control = mkOption {
         default = "sufficient";
         type = types.enum [ "required" "requisite" "sufficient" "optional" ];
-        description = ''
+        description = lib.mdDoc ''
           This option sets pam "control".
           If you want to have multi factor authentication, use "required".
           If you want to use the PKCS#11 device instead of the regular password,
           use "sufficient".
 
           Read
-          <citerefentry>
-            <refentrytitle>pam.conf</refentrytitle>
-            <manvolnum>5</manvolnum>
-          </citerefentry>
+          {manpage}`pam.conf(5)`
           for better understanding of this option.
         '';
       };
@@ -859,93 +1005,84 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
-          Enables U2F PAM (<literal>pam-u2f</literal>) module.
+        description = lib.mdDoc ''
+          Enables U2F PAM (`pam-u2f`) module.
 
           If set, users listed in
-          <filename>$XDG_CONFIG_HOME/Yubico/u2f_keys</filename> (or
-          <filename>$HOME/.config/Yubico/u2f_keys</filename> if XDG variable is
+          {file}`$XDG_CONFIG_HOME/Yubico/u2f_keys` (or
+          {file}`$HOME/.config/Yubico/u2f_keys` if XDG variable is
           not set) are able to log in with the associated U2F key. The path can
-          be changed using <option>security.pam.u2f.authFile</option> option.
+          be changed using {option}`security.pam.u2f.authFile` option.
 
           File format is:
-          <literal>username:first_keyHandle,first_public_key: second_keyHandle,second_public_key</literal>
-          This file can be generated using <command>pamu2fcfg</command> command.
+          `username:first_keyHandle,first_public_key: second_keyHandle,second_public_key`
+          This file can be generated using {command}`pamu2fcfg` command.
 
-          More information can be found <link
-          xlink:href="https://developers.yubico.com/pam-u2f/">here</link>.
+          More information can be found [here](https://developers.yubico.com/pam-u2f/).
         '';
       };
 
       authFile = mkOption {
         default = null;
         type = with types; nullOr path;
-        description = ''
-          By default <literal>pam-u2f</literal> module reads the keys from
-          <filename>$XDG_CONFIG_HOME/Yubico/u2f_keys</filename> (or
-          <filename>$HOME/.config/Yubico/u2f_keys</filename> if XDG variable is
+        description = lib.mdDoc ''
+          By default `pam-u2f` module reads the keys from
+          {file}`$XDG_CONFIG_HOME/Yubico/u2f_keys` (or
+          {file}`$HOME/.config/Yubico/u2f_keys` if XDG variable is
           not set).
 
           If you want to change auth file locations or centralize database (for
-          example use <filename>/etc/u2f-mappings</filename>) you can set this
+          example use {file}`/etc/u2f-mappings`) you can set this
           option.
 
           File format is:
-          <literal>username:first_keyHandle,first_public_key: second_keyHandle,second_public_key</literal>
-          This file can be generated using <command>pamu2fcfg</command> command.
+          `username:first_keyHandle,first_public_key: second_keyHandle,second_public_key`
+          This file can be generated using {command}`pamu2fcfg` command.
 
-          More information can be found <link
-          xlink:href="https://developers.yubico.com/pam-u2f/">here</link>.
+          More information can be found [here](https://developers.yubico.com/pam-u2f/).
         '';
       };
 
       appId = mkOption {
         default = null;
         type = with types; nullOr str;
-        description = ''
-            By default <literal>pam-u2f</literal> module sets the application
-            ID to <literal>pam://$HOSTNAME</literal>.
+        description = lib.mdDoc ''
+            By default `pam-u2f` module sets the application
+            ID to `pam://$HOSTNAME`.
 
-            When using <command>pamu2fcfg</command>, you can specify your
-            application ID with the <literal>-i</literal> flag.
+            When using {command}`pamu2fcfg`, you can specify your
+            application ID with the `-i` flag.
 
-            More information can be found <link
-            xlink:href="https://developers.yubico.com/pam-u2f/Manuals/pam_u2f.8.html">
-            here</link>
+            More information can be found [here](https://developers.yubico.com/pam-u2f/Manuals/pam_u2f.8.html)
         '';
       };
 
       origin = mkOption {
         default = null;
         type = with types; nullOr str;
-        description = ''
-            By default <literal>pam-u2f</literal> module sets the origin
-            to <literal>pam://$HOSTNAME</literal>.
+        description = lib.mdDoc ''
+            By default `pam-u2f` module sets the origin
+            to `pam://$HOSTNAME`.
             Setting origin to an host independent value will allow you to
             reuse credentials across machines
 
-            When using <command>pamu2fcfg</command>, you can specify your
-            application ID with the <literal>-o</literal> flag.
+            When using {command}`pamu2fcfg`, you can specify your
+            application ID with the `-o` flag.
 
-            More information can be found <link
-            xlink:href="https://developers.yubico.com/pam-u2f/Manuals/pam_u2f.8.html">
-            here</link>
+            More information can be found [here](https://developers.yubico.com/pam-u2f/Manuals/pam_u2f.8.html)
         '';
       };
 
       control = mkOption {
         default = "sufficient";
         type = types.enum [ "required" "requisite" "sufficient" "optional" ];
-        description = ''
+        description = lib.mdDoc ''
           This option sets pam "control".
           If you want to have multi factor authentication, use "required".
           If you want to use U2F device instead of regular password, use "sufficient".
 
           Read
-          <citerefentry>
-            <refentrytitle>pam.conf</refentrytitle>
-            <manvolnum>5</manvolnum>
-          </citerefentry>
+          {manpage}`pam.conf(5)`
           for better understanding of this option.
         '';
       };
@@ -985,18 +1122,17 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
-          Enables Uber's USSH PAM (<literal>pam-ussh</literal>) module.
+        description = lib.mdDoc ''
+          Enables Uber's USSH PAM (`pam-ussh`) module.
 
-          This is similar to <literal>pam-ssh-agent</literal>, except that
+          This is similar to `pam-ssh-agent`, except that
           the presence of a CA-signed SSH key with a valid principal is checked
           instead.
 
           Note that this module must both be enabled using this option and on a
-          per-PAM-service level as well (using <literal>usshAuth</literal>).
+          per-PAM-service level as well (using `usshAuth`).
 
-          More information can be found <link
-          xlink:href="https://github.com/uber/pam-ussh">here</link>.
+          More information can be found [here](https://github.com/uber/pam-ussh).
         '';
       };
 
@@ -1055,17 +1191,14 @@ in
       control = mkOption {
         default = "sufficient";
         type = types.enum [ "required" "requisite" "sufficient" "optional" ];
-        description = ''
+        description = lib.mdDoc ''
           This option sets pam "control".
           If you want to have multi factor authentication, use "required".
           If you want to use the SSH certificate instead of the regular password,
           use "sufficient".
 
           Read
-          <citerefentry>
-            <refentrytitle>pam.conf</refentrytitle>
-            <manvolnum>5</manvolnum>
-          </citerefentry>
+          {manpage}`pam.conf(5)`
           for better understanding of this option.
         '';
       };
@@ -1075,32 +1208,28 @@ in
       enable = mkOption {
         default = false;
         type = types.bool;
-        description = ''
-          Enables Yubico PAM (<literal>yubico-pam</literal>) module.
+        description = lib.mdDoc ''
+          Enables Yubico PAM (`yubico-pam`) module.
 
           If set, users listed in
-          <filename>~/.yubico/authorized_yubikeys</filename>
+          {file}`~/.yubico/authorized_yubikeys`
           are able to log in with the associated Yubikey tokens.
 
           The file must have only one line:
-          <literal>username:yubikey_token_id1:yubikey_token_id2</literal>
-          More information can be found <link
-          xlink:href="https://developers.yubico.com/yubico-pam/">here</link>.
+          `username:yubikey_token_id1:yubikey_token_id2`
+          More information can be found [here](https://developers.yubico.com/yubico-pam/).
         '';
       };
       control = mkOption {
         default = "sufficient";
         type = types.enum [ "required" "requisite" "sufficient" "optional" ];
-        description = ''
+        description = lib.mdDoc ''
           This option sets pam "control".
           If you want to have multi factor authentication, use "required".
           If you want to use Yubikey instead of regular password, use "sufficient".
 
           Read
-          <citerefentry>
-            <refentrytitle>pam.conf</refentrytitle>
-            <manvolnum>5</manvolnum>
-          </citerefentry>
+          {manpage}`pam.conf(5)`
           for better understanding of this option.
         '';
       };
@@ -1120,7 +1249,7 @@ in
       mode = mkOption {
         default = "client";
         type = types.enum [ "client" "challenge-response" ];
-        description = ''
+        description = lib.mdDoc ''
           Mode of operation.
 
           Use "client" for online validation with a YubiKey validation service such as
@@ -1130,23 +1259,57 @@ in
           Challenge-Response configurations. See the man-page ykpamcfg(1) for further
           details on how to configure offline Challenge-Response validation.
 
-          More information can be found <link
-          xlink:href="https://developers.yubico.com/yubico-pam/Authentication_Using_Challenge-Response.html">here</link>.
+          More information can be found [here](https://developers.yubico.com/yubico-pam/Authentication_Using_Challenge-Response.html).
         '';
       };
       challengeResponsePath = mkOption {
         default = null;
         type = types.nullOr types.path;
-        description = ''
+        description = lib.mdDoc ''
           If not null, set the path used by yubico pam module where the challenge expected response is stored.
 
-          More information can be found <link
-          xlink:href="https://developers.yubico.com/yubico-pam/Authentication_Using_Challenge-Response.html">here</link>.
+          More information can be found [here](https://developers.yubico.com/yubico-pam/Authentication_Using_Challenge-Response.html).
         '';
       };
     };
 
-    security.pam.enableEcryptfs = mkEnableOption "eCryptfs PAM module (mounting ecryptfs home directory on login)";
+    security.pam.zfs = {
+      enable = mkOption {
+        default = false;
+        type = types.bool;
+        description = lib.mdDoc ''
+          Enable unlocking and mounting of encrypted ZFS home dataset at login.
+        '';
+      };
+
+      homes = mkOption {
+        example = "rpool/home";
+        default = "rpool/home";
+        type = types.str;
+        description = lib.mdDoc ''
+          Prefix of home datasets. This value will be concatenated with
+          `"/" + <username>` in order to determine the home dataset to unlock.
+        '';
+      };
+
+      noUnmount = mkOption {
+        default = false;
+        type = types.bool;
+        description = lib.mdDoc ''
+          Do not unmount home dataset on logout.
+        '';
+      };
+    };
+
+    security.pam.enableEcryptfs = mkEnableOption (lib.mdDoc "eCryptfs PAM module (mounting ecryptfs home directory on login)");
+    security.pam.enableFscrypt = mkEnableOption (lib.mdDoc ''
+      Enables fscrypt to automatically unlock directories with the user's login password.
+
+      This also enables a service at security.pam.services.fscrypt which is used by
+      fscrypt to verify the user's password when setting up a new protector. If you
+      use something other than pam_unix to verify user passwords, please remember to
+      adjust this PAM service.
+    '');
 
     users.motd = mkOption {
       default = null;
@@ -1155,22 +1318,44 @@ in
       description = lib.mdDoc "Message of the day shown to users when they log in.";
     };
 
+    users.motdFile = mkOption {
+      default = null;
+      example = "/etc/motd";
+      type = types.nullOr types.path;
+      description = lib.mdDoc "A file containing the message of the day shown to users when they log in.";
+    };
   };
 
 
   ###### implementation
 
   config = {
+    assertions = [
+      {
+        assertion = config.users.motd == null || config.users.motdFile == null;
+        message = ''
+          Only one of users.motd and users.motdFile can be set.
+        '';
+      }
+      {
+        assertion = config.security.pam.zfs.enable -> (config.boot.zfs.enabled || config.boot.zfs.enableUnstable);
+        message = ''
+          `security.pam.zfs.enable` requires enabling ZFS (`boot.zfs.enabled` or `boot.zfs.enableUnstable`).
+        '';
+      }
+    ];
 
     environment.systemPackages =
       # Include the PAM modules in the system path mostly for the manpages.
       [ pkgs.pam ]
       ++ optional config.users.ldap.enable pam_ldap
+      ++ optional config.services.kanidm.enablePam pkgs.kanidm
       ++ optional config.services.sssd.enable pkgs.sssd
       ++ optionals config.security.pam.krb5.enable [pam_krb5 pam_ccreds]
       ++ optionals config.security.pam.enableOTPW [ pkgs.otpw ]
       ++ optionals config.security.pam.oath.enable [ pkgs.oath-toolkit ]
       ++ optionals config.security.pam.p11.enable [ pkgs.pam_p11 ]
+      ++ optionals config.security.pam.enableFscrypt [ pkgs.fscrypt-experimental ]
       ++ optionals config.security.pam.u2f.enable [ pkgs.pam_u2f ];
 
     boot.supportedFilesystems = optionals config.security.pam.enableEcryptfs [ "ecryptfs" ];
@@ -1212,6 +1397,9 @@ in
            it complains "Cannot create session: Already running in a
            session". */
         runuser-l = { rootOK = true; unixAuth = false; };
+      } // optionalAttrs (config.security.pam.enableFscrypt) {
+        # Allow fscrypt to verify login passphrase
+        fscrypt = {};
       };
 
     security.apparmor.includes."abstractions/pam" = let
@@ -1227,6 +1415,9 @@ in
       '' +
       optionalString use_ldap ''
          mr ${pam_ldap}/lib/security/pam_ldap.so,
+      '' +
+      optionalString config.services.kanidm.enablePam ''
+        mr ${pkgs.kanidm}/lib/pam_kanidm.so,
       '' +
       optionalString config.services.sssd.enable ''
         mr ${pkgs.sssd}/lib/security/pam_sss.so,
@@ -1261,6 +1452,9 @@ in
       optionalString (isEnabled (cfg: cfg.oathAuth)) ''
         "mr ${pkgs.oath-toolkit}/lib/security/pam_oath.so,
       '' +
+      optionalString (isEnabled (cfg: cfg.mysqlAuth)) ''
+        mr ${pkgs.pam_mysql}/lib/security/pam_mysql.so,
+      '' +
       optionalString (isEnabled (cfg: cfg.yubicoAuth)) ''
         mr ${pkgs.yubico-pam}/lib/security/pam_yubico.so,
       '' +
@@ -1273,11 +1467,14 @@ in
       optionalString config.security.pam.enableEcryptfs ''
         mr ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so,
       '' +
+      optionalString config.security.pam.enableFscrypt ''
+        mr ${pkgs.fscrypt-experimental}/lib/security/pam_fscrypt.so,
+      '' +
       optionalString (isEnabled (cfg: cfg.pamMount)) ''
         mr ${pkgs.pam_mount}/lib/security/pam_mount.so,
       '' +
       optionalString (isEnabled (cfg: cfg.enableGnomeKeyring)) ''
-        mr ${pkgs.gnome3.gnome-keyring}/lib/security/pam_gnome_keyring.so,
+        mr ${pkgs.gnome.gnome-keyring}/lib/security/pam_gnome_keyring.so,
       '' +
       optionalString (isEnabled (cfg: cfg.startSession)) ''
         mr ${config.systemd.package}/lib/security/pam_systemd.so,
@@ -1290,7 +1487,13 @@ in
         mr ${pkgs.plasma5Packages.kwallet-pam}/lib/security/pam_kwallet5.so,
       '' +
       optionalString config.virtualisation.lxc.lxcfs.enable ''
-        mr ${pkgs.lxc}/lib/security/pam_cgfs.so
+        mr ${pkgs.lxc}/lib/security/pam_cgfs.so,
+      '' +
+      optionalString (isEnabled (cfg: cfg.zfs)) ''
+        mr ${config.boot.zfs.package}/lib/security/pam_zfs_key.so,
+      '' +
+      optionalString config.services.homed.enable ''
+        mr ${config.systemd.package}/lib/security/pam_systemd_home.so
       '';
   };
 

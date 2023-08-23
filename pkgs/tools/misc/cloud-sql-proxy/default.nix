@@ -1,29 +1,32 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{ lib
+, buildGoModule
+, fetchFromGitHub
+}:
 
 buildGoModule rec {
   pname = "cloud-sql-proxy";
-  version = "1.30.0";
+  version = "2.6.1";
 
   src = fetchFromGitHub {
     owner = "GoogleCloudPlatform";
-    repo = "cloudsql-proxy";
+    repo = "cloud-sql-proxy";
     rev = "v${version}";
-    sha256 = "sha256-EbUIzAKMqCLsz8rBMWCvw00j6VX2ZYEMtNsMEx30kBU=";
+    hash = "sha256-YbfN9ZdcxP78/dNaONBhb1UqcZYJcet+lHuKmvXk9MI=";
   };
 
-  subPackages = [ "cmd/cloud_sql_proxy" ];
+  subPackages = [ "." ];
 
-  vendorSha256 = "sha256-yxqLGDqdu9vX3ykHq7Kzf8oBH1ydltZkiWNWWM2l0Aw=";
+  vendorHash = "sha256-2Cu9o26R9y2EBUB9kLf98n2AKFOE7NE1NrcMD+8pvRY=";
 
   preCheck = ''
     buildFlagsArray+="-short"
   '';
 
   meta = with lib; {
-    description = "An authenticating proxy for Second Generation Google Cloud SQL databases";
-    homepage = "https://github.com/GoogleCloudPlatform/cloudsql-proxy";
+    description = "Utility for ensuring secure connections to Google Cloud SQL instances";
+    homepage = "https://github.com/GoogleCloudPlatform/cloud-sql-proxy";
     license = licenses.asl20;
-    maintainers = with maintainers; [ nicknovitski ];
-    mainProgram = "cloud_sql_proxy";
+    maintainers = with maintainers; [ nicknovitski totoroot ];
+    mainProgram = "cloud-sql-proxy";
   };
 }

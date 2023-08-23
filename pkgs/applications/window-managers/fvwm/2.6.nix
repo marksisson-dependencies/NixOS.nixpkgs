@@ -17,22 +17,27 @@
 , libxslt
 , perl
 , pkg-config
+, python3Packages
 , readline
 , enableGestures ? false
 }:
 
 stdenv.mkDerivation rec {
   pname = "fvwm";
-  version = "2.6.9";
+  version = "2.7.0";
 
   src = fetchFromGitHub {
     owner = "fvwmorg";
     repo = pname;
     rev = version;
-    hash = "sha256-sBVOrrl2WrZ2wWN/r1kDUtR+tPwXgDoSJDaxGeFkXJI=";
+    hash = "sha256-KcuX8las1n8UUE/BOHj7WOeZjva5hxgpFHtATMUk3bg=";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkg-config ];
+  nativeBuildInputs = [
+    autoreconfHook
+    pkg-config
+    python3Packages.wrapPython
+  ];
 
   buildInputs = [
     cairo
@@ -48,13 +53,24 @@ stdenv.mkDerivation rec {
     librsvg
     libxslt
     perl
+    python3Packages.python
     readline
   ] ++ lib.optional enableGestures libstroke;
+
+  pythonPath = [
+    python3Packages.pyxdg
+  ];
 
   configureFlags = [
     "--enable-mandoc"
     "--disable-htmldoc"
   ];
+
+  postFixup = ''
+    wrapPythonPrograms
+  '';
+
+  enableParallelBuilding = true;
 
   meta = with lib; {
     homepage = "http://fvwm.org";

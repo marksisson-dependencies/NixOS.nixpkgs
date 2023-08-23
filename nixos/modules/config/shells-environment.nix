@@ -42,8 +42,8 @@ in
         strings.  The latter is concatenated, interspersed with colon
         characters.
       '';
-      type = with types; attrsOf (either str (listOf str));
-      apply = mapAttrs (n: v: if isList v then concatStringsSep ":" v else v);
+      type = with types; attrsOf (oneOf [ (listOf str) str path ]);
+      apply = mapAttrs (n: v: if isList v then concatStringsSep ":" v else "${v}");
     };
 
     environment.profiles = mkOption {
@@ -109,11 +109,11 @@ in
 
     environment.shellAliases = mkOption {
       example = { l = null; ll = "ls -l"; };
-      description = ''
+      description = lib.mdDoc ''
         An attribute set that maps aliases (the top level attribute names in
         this option) to command strings or directly to build outputs. The
         aliases are added to all users' shells.
-        Aliases mapped to <code>null</code> are ignored.
+        Aliases mapped to `null` are ignored.
       '';
       type = with types; attrsOf (nullOr (either str path));
     };
@@ -140,9 +140,9 @@ in
       example = literalExpression ''"''${pkgs.dash}/bin/dash"'';
       type = types.path;
       visible = false;
-      description = ''
+      description = lib.mdDoc ''
         The shell executable that is linked system-wide to
-        <literal>/bin/sh</literal>. Please note that NixOS assumes all
+        `/bin/sh`. Please note that NixOS assumes all
         over the place that shell to be Bash, so override the default
         setting only if you know exactly what you're doing.
       '';

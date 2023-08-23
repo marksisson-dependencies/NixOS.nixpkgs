@@ -1,20 +1,20 @@
 {
-  fetchFromGitea,
+  fetchFromSourcehut,
+  installShellFiles,
   less,
   lib,
-  makeWrapper,
   offpunk,
-  python3,
-  ripgrep,
-  stdenv,
+  python3Packages,
+  testers,
   timg,
   xdg-utils,
   xsel,
 }:
 
 let
-  pythonDependencies = with python3.pkgs; [
+  pythonDependencies = with python3Packages; [
     beautifulsoup4
+    chardet
     cryptography
     feedparser
     pillow
@@ -24,43 +24,39 @@ let
   ];
   otherDependencies = [
     less
-    ripgrep
     timg
     xdg-utils
     xsel
   ];
 in
-stdenv.mkDerivation (finalAttrs: {
+python3Packages.buildPythonPackage rec {
   pname = "offpunk";
-  version = "1.4";
+  version = "1.10";
+  format = "flit";
 
-  src = fetchFromGitea {
-    domain = "notabug.org";
-    owner = "ploum";
+  disabled = python3Packages.pythonOlder "3.7";
+
+  src = fetchFromSourcehut {
+    owner = "~lioploum";
     repo = "offpunk";
-    rev = "v${finalAttrs.version}";
-    sha256 = "04dzkzsan1cnrslsvfgn1whpwald8xy34wqzvq81hd2mvw9a2n69";
+    rev = "v${version}";
+    hash = "sha256-+jGKPPnKZHn+l6VAwuae6kICwR7ymkYJjsM2OHQAEmU=";
   };
 
-  buildInputs = [ makeWrapper ] ++ otherDependencies ++ pythonDependencies;
+  nativeBuildInputs = [ installShellFiles ];
+  propagatedBuildInputs = otherDependencies ++ pythonDependencies;
 
-  installPhase = ''
-    runHook preInstall
-
-    install -D ./offpunk.py $out/bin/offpunk
-
-    wrapProgram $out/bin/offpunk \
-        --set PYTHONPATH "$PYTHONPATH" \
-        --set PATH ${lib.makeBinPath otherDependencies}
-
-   runHook postInstall
+  postInstall = ''
+    installManPage man/*.1
   '';
+
+  passthru.tests.version = testers.testVersion { package = offpunk; };
 
   meta = with lib; {
     description = "An Offline-First browser for the smolnet ";
-    homepage = "https://notabug.org/ploum/offpunk";
+    homepage = src.meta.homepage;
     maintainers = with maintainers; [ DamienCassou ];
     platforms = platforms.linux;
     license = licenses.bsd2;
   };
-})
+}

@@ -72,21 +72,20 @@ let
   } // (getProviderOptions cfg cfg.provider) // cfg.extraConfig;
 
   mapConfig = key: attr:
-  if attr != null && attr != [] then (
+  optionalString (attr != null && attr != []) (
     if isDerivation attr then mapConfig key (toString attr) else
     if (builtins.typeOf attr) == "set" then concatStringsSep " "
       (mapAttrsToList (name: value: mapConfig (key + "-" + name) value) attr) else
     if (builtins.typeOf attr) == "list" then concatMapStringsSep " " (mapConfig key) attr else
     if (builtins.typeOf attr) == "bool" then "--${key}=${boolToString attr}" else
     if (builtins.typeOf attr) == "string" then "--${key}='${attr}'" else
-    "--${key}=${toString attr}")
-    else "";
+    "--${key}=${toString attr}");
 
   configString = concatStringsSep " " (mapAttrsToList mapConfig allConfig);
 in
 {
   options.services.oauth2_proxy = {
-    enable = mkEnableOption "oauth2_proxy";
+    enable = mkEnableOption (lib.mdDoc "oauth2_proxy");
 
     package = mkOption {
       type = types.package;
@@ -160,9 +159,9 @@ in
       domains = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = ''
+        description = lib.mdDoc ''
           Authenticate emails with the specified domains. Use
-          <literal>*</literal> to authenticate any email.
+          `*` to authenticate any email.
         '';
       };
 
@@ -347,7 +346,7 @@ in
       domain = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = ''
+        description = lib.mdDoc ''
           Optional cookie domains to force cookies to (ie: `.yourcompany.com`).
           The longest domain matching the request's host will be used (or the shortest
           cookie domain if there is no match).
@@ -580,7 +579,7 @@ in
       description = "OAuth2 Proxy";
       path = [ cfg.package ];
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [ "network-online.target" ];
 
       serviceConfig = {
         User = "oauth2_proxy";

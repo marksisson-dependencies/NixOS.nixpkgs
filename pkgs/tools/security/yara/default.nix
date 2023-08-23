@@ -15,13 +15,13 @@
 
 stdenv.mkDerivation rec {
   pname = "yara";
-  version = "4.2.2";
+  version = "4.3.1";
 
   src = fetchFromGitHub {
     owner = "VirusTotal";
     repo = pname;
     rev = "v${version}";
-    hash = "sha256-HWLyDhFQHHmXUaAKp7EZ3ZsXlbwCEoJj4Q0qAtxwN1Y=";
+    hash = "sha256-Q+Q52W/MhurG3x0CIr0nv31qc4bdaLDk9AGGpMxKOcI=";
   };
 
   nativeBuildInputs = [

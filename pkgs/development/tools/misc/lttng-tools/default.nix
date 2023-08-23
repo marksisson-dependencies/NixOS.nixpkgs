@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   pname = "lttng-tools";
-  version = "2.13.7";
+  version = "2.13.10";
 
   src = fetchurl {
     url = "https://lttng.org/files/lttng-tools/${pname}-${version}.tar.bz2";
-    sha256 = "sha256-0XoC6PF4p880A+PJ7fuQrToWKOIKoLUTFAiuR/ci8I0=";
+    sha256 = "sha256-5dEJXsEyJWXzjxSTRvcZZ0lsKB6sxR7Fx3mUuFDn0zU=";
   };
 
   nativeBuildInputs = [ pkg-config ];

@@ -1,12 +1,12 @@
-{ lib, stdenv, fetchurl }:
+{ lib, stdenvNoCC, fetchurl }:
 
-stdenv.mkDerivation rec {
+stdenvNoCC.mkDerivation rec {
   pname = "wireless-regdb";
-  version = "2022.06.06";
+  version = "2023.05.03";
 
   src = fetchurl {
     url = "https://www.kernel.org/pub/software/network/${pname}/${pname}-${version}.tar.xz";
-    sha256 = "sha256-rAD5fv7M5QRu0GnR2T8zZf35lMfHhUqPxQgx6VlTcjA=";
+    sha256 = "sha256-8lTQirN2WuriuFYiLhGpXUSu9RmmZjh3xx72j65MjBI=";
   };
 
   dontBuild = true;

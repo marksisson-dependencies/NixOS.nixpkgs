@@ -20,20 +20,20 @@ in
 {
   options.services.parsedmarc = {
 
-    enable = lib.mkEnableOption ''
+    enable = lib.mkEnableOption (lib.mdDoc ''
       parsedmarc, a DMARC report monitoring service
-    '';
+    '');
 
     provision = {
       localMail = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = ''
+          description = lib.mdDoc ''
             Whether Postfix and Dovecot should be set up to receive
             mail locally. parsedmarc will be configured to watch the
             local inbox as the automatically created user specified in
-            <xref linkend="opt-services.parsedmarc.provision.localMail.recipientName" />
+            [](#opt-services.parsedmarc.provision.localMail.recipientName)
           '';
         };
 
@@ -68,15 +68,13 @@ in
       geoIp = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = ''
-          Whether to enable and configure the <link
-          linkend="opt-services.geoipupdate.enable">geoipupdate</link>
+        description = lib.mdDoc ''
+          Whether to enable and configure the [geoipupdate](#opt-services.geoipupdate.enable)
           service to automatically fetch GeoIP databases. Not crucial,
           but recommended for full functionality.
 
-          To finish the setup, you need to manually set the <xref
-          linkend="opt-services.geoipupdate.settings.AccountID" /> and
-          <xref linkend="opt-services.geoipupdate.settings.LicenseKey" />
+          To finish the setup, you need to manually set the [](#opt-services.geoipupdate.settings.AccountID) and
+          [](#opt-services.geoipupdate.settings.LicenseKey)
           options.
         '';
       };
@@ -97,11 +95,11 @@ in
             config.${opt.provision.elasticsearch} && config.${options.services.grafana.enable}
           '';
           apply = x: x && cfg.provision.elasticsearch;
-          description = ''
+          description = lib.mdDoc ''
             Whether the automatically provisioned Elasticsearch
             instance should be added as a grafana datasource. Has no
             effect unless
-            <xref linkend="opt-services.parsedmarc.provision.elasticsearch" />
+            [](#opt-services.parsedmarc.provision.elasticsearch)
             is also enabled.
           '';
         };
@@ -125,7 +123,10 @@ in
             host = "imap.example.com";
             user = "alice@example.com";
             password = { _secret = "/run/keys/imap_password" };
+          };
+          mailbox = {
             watch = true;
+            batch_size = 30;
           };
           splunk_hec = {
             url = "https://splunkhec.example.com";
@@ -172,6 +173,24 @@ in
             };
           };
 
+          mailbox = {
+            watch = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = lib.mdDoc ''
+                Use the IMAP IDLE command to process messages as they arrive.
+              '';
+            };
+
+            delete = lib.mkOption {
+              type = lib.types.bool;
+              default = false;
+              description = lib.mdDoc ''
+                Delete messages after processing them, instead of archiving them.
+              '';
+            };
+          };
+
           imap = {
             host = lib.mkOption {
               type = lib.types.str;
@@ -208,32 +227,15 @@ in
             password = lib.mkOption {
               type = with lib.types; nullOr (either path (attrsOf path));
               default = null;
-              description = ''
+              description = lib.mdDoc ''
                 The IMAP server password.
 
                 Always handled as a secret whether the value is
-                wrapped in a <literal>{ _secret = ...; }</literal>
-                attrset or not (refer to <xref
-                linkend="opt-services.parsedmarc.settings" /> for
+                wrapped in a `{ _secret = ...; }`
+                attrset or not (refer to [](#opt-services.parsedmarc.settings) for
                 details).
               '';
               apply = x: if isAttrs x || x == null then x else { _secret = x; };
-            };
-
-            watch = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
-              description = lib.mdDoc ''
-                Use the IMAP IDLE command to process messages as they arrive.
-              '';
-            };
-
-            delete = lib.mkOption {
-              type = lib.types.bool;
-              default = false;
-              description = lib.mdDoc ''
-                Delete messages after processing them, instead of archiving them.
-              '';
             };
           };
 
@@ -273,13 +275,12 @@ in
             password = lib.mkOption {
               type = with lib.types; nullOr (either path (attrsOf path));
               default = null;
-              description = ''
+              description = lib.mdDoc ''
                 The SMTP server password.
 
                 Always handled as a secret whether the value is
-                wrapped in a <literal>{ _secret = ...; }</literal>
-                attrset or not (refer to <xref
-                linkend="opt-services.parsedmarc.settings" /> for
+                wrapped in a `{ _secret = ...; }`
+                attrset or not (refer to [](#opt-services.parsedmarc.settings) for
                 details).
               '';
               apply = x: if isAttrs x || x == null then x else { _secret = x; };
@@ -326,14 +327,13 @@ in
             password = lib.mkOption {
               type = with lib.types; nullOr (either path (attrsOf path));
               default = null;
-              description = ''
+              description = lib.mdDoc ''
                 The password to use when connecting to Elasticsearch,
                 if required.
 
                 Always handled as a secret whether the value is
-                wrapped in a <literal>{ _secret = ...; }</literal>
-                attrset or not (refer to <xref
-                linkend="opt-services.parsedmarc.settings" /> for
+                wrapped in a `{ _secret = ...; }`
+                attrset or not (refer to [](#opt-services.parsedmarc.settings) for
                 details).
               '';
               apply = x: if isAttrs x || x == null then x else { _secret = x; };
@@ -364,6 +364,13 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+
+    warnings = let
+      deprecationWarning = optname: "Starting in 8.0.0, the `${optname}` option has been moved from the `services.parsedmarc.settings.imap`"
+        + "configuration section to the `services.parsedmarc.settings.mailbox` configuration section.";
+      hasImapOpt = lib.flip builtins.hasAttr cfg.settings.imap;
+      movedOptions = [ "reports_folder" "archive_folder" "watch" "delete" "test" "batch_size" ];
+    in builtins.map deprecationWarning (builtins.filter hasImapOpt movedOptions);
 
     services.elasticsearch.enable = lib.mkDefault cfg.provision.elasticsearch;
 
@@ -402,7 +409,7 @@ in
 
       provision = {
         enable = cfg.provision.grafana.datasource || cfg.provision.grafana.dashboard;
-        datasources =
+        datasources.settings.datasources =
           let
             esVersion = lib.getVersion config.services.elasticsearch.package;
           in
@@ -428,7 +435,7 @@ in
                 };
               }
             ];
-        dashboards = lib.mkIf cfg.provision.grafana.dashboard [{
+        dashboards.settings.providers = lib.mkIf cfg.provision.grafana.dashboard [{
           name = "parsedmarc";
           options.path = "${pkgs.python3Packages.parsedmarc.dashboard}";
         }];
@@ -449,6 +456,8 @@ in
           ssl = false;
           user = cfg.provision.localMail.recipientName;
           password = "${pkgs.writeText "imap-password" "@imap-password@"}";
+        };
+        mailbox = {
           watch = true;
         };
       })
@@ -499,7 +508,7 @@ in
             Group = "parsedmarc";
             DynamicUser = true;
             RuntimeDirectory = "parsedmarc";
-            RuntimeDirectoryMode = 0700;
+            RuntimeDirectoryMode = "0700";
             CapabilityBoundingSet = "";
             PrivateDevices = true;
             PrivateMounts = true;
@@ -530,8 +539,6 @@ in
     };
   };
 
-  # Don't edit the docbook xml directly, edit the md and generate it:
-  # `pandoc parsedmarc.md -t docbook --top-level-division=chapter --extract-media=media -f markdown+smart > parsedmarc.xml`
-  meta.doc = ./parsedmarc.xml;
+  meta.doc = ./parsedmarc.md;
   meta.maintainers = [ lib.maintainers.talyz ];
 }

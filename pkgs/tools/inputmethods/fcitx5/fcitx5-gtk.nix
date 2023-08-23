@@ -26,13 +26,13 @@
 
 stdenv.mkDerivation rec {
   pname = "fcitx5-gtk";
-  version = "5.0.16";
+  version = "5.1.0";
 
   src = fetchFromGitHub {
     owner = "fcitx";
     repo = pname;
     rev = version;
-    sha256 = "sha256-gdYtQyCczJOGkCjl7fVCjcKkhEW3wDO5HDYNfMhnb1g=";
+    sha256 = "sha256-xVBmFFUnlWqviht/KGFTHCd3xCln/6hyBG72tIHqopc=";
   };
 
   cmakeFlags = [
@@ -45,7 +45,6 @@ stdenv.mkDerivation rec {
     gtk3
     gtk4
     fmt
-    gobject-introspection
     fcitx5
     pcre
     libuuid
@@ -64,6 +63,7 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     cmake
     extra-cmake-modules
+    gobject-introspection
   ];
 
   meta = with lib; {

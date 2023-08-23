@@ -3,30 +3,39 @@
 , buildPythonPackage
 , numpy
 , scipy
+, torch
 , autograd
-, nose2
+, matplotlib
+, pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "pymanopt";
-  version = "2.0.0";
+  version = "2.1.1";
+  format = "setuptools";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
     rev = "refs/tags/${version}";
-    sha256 = "sha256-dqyduExNgXIbEFlgkckaPfhLFSVLqPgwAOyBUdowwiQ=";
+    hash = "sha256-nbSxqMmYWi71s74bbB9LAlPKEslTqG/j266cLfNHrwg=";
   };
 
-  propagatedBuildInputs = [ numpy scipy ];
-  checkInputs = [ nose2 autograd ];
+  propagatedBuildInputs = [ numpy scipy torch ];
+  nativeCheckInputs = [ autograd matplotlib pytestCheckHook ];
 
-  checkPhase = ''
-    # nose2 doesn't properly support excludes
-    rm tests/test_{problem,tensorflow,theano}.py
-
-    nose2 tests -v
+  preCheck = ''
+    substituteInPlace "tests/conftest.py" \
+      --replace "import tensorflow as tf" ""
+    substituteInPlace "tests/conftest.py" \
+      --replace "tf.random.set_seed(seed)" ""
   '';
+
+  disabledTestPaths = [
+    "tests/test_examples.py"
+    "tests/backends/test_tensorflow.py"
+    "tests/test_problem.py"
+  ];
 
   pythonImportsCheck = [ "pymanopt" ];
 
@@ -35,5 +44,6 @@ buildPythonPackage rec {
     homepage = "https://www.pymanopt.org/";
     license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [ yl3dy ];
+    broken = lib.versionAtLeast scipy.version "1.10.0";
   };
 }

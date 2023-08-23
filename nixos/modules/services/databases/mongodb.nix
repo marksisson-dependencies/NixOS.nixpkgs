@@ -29,15 +29,15 @@ in
 
     services.mongodb = {
 
-      enable = mkEnableOption "the MongoDB server";
+      enable = mkEnableOption (lib.mdDoc "the MongoDB server");
 
       package = mkOption {
         default = pkgs.mongodb;
         defaultText = literalExpression "pkgs.mongodb";
         type = types.package;
-        description = "
+        description = lib.mdDoc ''
           Which MongoDB derivation to use.
-        ";
+        '';
       };
 
       user = mkOption {
@@ -142,7 +142,7 @@ in
           User = cfg.user;
           PIDFile = cfg.pidFile;
           Type = "forking";
-          TimeoutStartSec=120; # intial creating of journal can take some time
+          TimeoutStartSec=120; # initial creating of journal can take some time
           PermissionsStartOnly = true;
         };
 

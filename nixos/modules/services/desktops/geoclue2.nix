@@ -200,6 +200,7 @@ in
     };
 
     systemd.services.geoclue = {
+      after = lib.optionals cfg.enableWifi [ "network-online.target" ];
       # restart geoclue service when the configuration changes
       restartTriggers = [
         config.environment.etc."geoclue/geoclue.conf".source
@@ -216,6 +217,7 @@ in
         # we can't be part of a system service, and the agent should
         # be okay with the main service coming and going
         wantedBy = [ "default.target" ];
+        after = lib.optionals cfg.enableWifi [ "network-online.target" ];
         unitConfig.ConditionUser = "!@system";
         serviceConfig = {
           Type = "exec";

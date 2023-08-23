@@ -8,15 +8,14 @@ let
   settingsFile = pkgs.writeText "biboumi.cfg" (
     generators.toKeyValue {
       mkKeyValue = k: v:
-        if v == null then ""
-        else generators.mkKeyValueDefault {} "=" k v;
+        lib.optionalString (v != null) (generators.mkKeyValueDefault {} "=" k v);
     } cfg.settings);
   need_CAP_NET_BIND_SERVICE = cfg.settings.identd_port != 0 && cfg.settings.identd_port < 1024;
 in
 {
   options = {
     services.biboumi = {
-      enable = mkEnableOption "the Biboumi XMPP gateway to IRC";
+      enable = mkEnableOption (lib.mdDoc "the Biboumi XMPP gateway to IRC");
 
       settings = mkOption {
         description = lib.mdDoc ''
@@ -45,7 +44,7 @@ in
             default = "/etc/ssl/certs/ca-certificates.crt";
             description = lib.mdDoc ''
               Specifies which file should be used as the list of trusted CA
-              when negociating a TLS session.
+              when negotiating a TLS session.
             '';
           };
           options.db_name = mkOption {
@@ -83,13 +82,13 @@ in
           };
           options.password = mkOption {
             type = with types; nullOr str;
-            description = ''
+            description = lib.mdDoc ''
               The password used to authenticate the XMPP component to your XMPP server.
               This password must be configured in the XMPP server,
               associated with the external component on
-              <link linkend="opt-services.biboumi.settings.hostname">hostname</link>.
+              [hostname](#opt-services.biboumi.settings.hostname).
 
-              Set it to null and use <link linkend="opt-services.biboumi.credentialsFile">credentialsFile</link>
+              Set it to null and use [credentialsFile](#opt-services.biboumi.credentialsFile)
               if you do not want this password to go into the Nix store.
             '';
           };
@@ -111,7 +110,7 @@ in
             description = lib.mdDoc ''
               A directory that should contain the policy files,
               used to customize Botan’s behaviour
-              when negociating the TLS connections with the IRC servers.
+              when negotiating the TLS connections with the IRC servers.
             '';
           };
           options.port = mkOption {
@@ -155,18 +154,18 @@ in
 
       credentialsFile = mkOption {
         type = types.path;
-        description = ''
+        description = lib.mdDoc ''
           Path to a configuration file to be merged with the settings.
           Beware not to surround "=" with spaces when setting biboumi's options in this file.
           Useful to merge a file which is better kept out of the Nix store
           because it contains sensible data like
-          <link linkend="opt-services.biboumi.settings.password">password</link>.
+          [password](#opt-services.biboumi.settings.password).
         '';
         default = "/dev/null";
         example = "/run/keys/biboumi.cfg";
       };
 
-      openFirewall = mkEnableOption "opening of the identd port in the firewall";
+      openFirewall = mkEnableOption (lib.mdDoc "opening of the identd port in the firewall");
     };
   };
 

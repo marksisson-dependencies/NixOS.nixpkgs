@@ -1,10 +1,7 @@
 { lib
 , stdenv
 , fetchFromGitLab
-, docbook-xsl-nons
 , gi-docgen
-, gtk-doc
-, libxml2
 , meson
 , ninja
 , pkg-config
@@ -23,7 +20,7 @@
 
 stdenv.mkDerivation rec {
   pname = "libadwaita";
-  version = "1.1.3";
+  version = "1.3.4";
 
   outputs = [ "out" "dev" "devdoc" ];
   outputBin = "devdoc"; # demo app
@@ -33,19 +30,21 @@ stdenv.mkDerivation rec {
     owner = "GNOME";
     repo = "libadwaita";
     rev = version;
-    hash = "sha256-Mjv4Z9YaIT9atD8ekepBAA1ZV30kWnMnV8+kOuGULnw=";
+    hash = "sha256-NBYIDW0sphmBT2cIB2CPsCJrjRsINxWpumJbQK5RjU8=";
   };
 
+  depsBuildBuild = [
+    pkg-config
+  ];
+
   nativeBuildInputs = [
-    docbook-xsl-nons
     gi-docgen
-    gtk-doc
-    libxml2 # for xmllint
     meson
     ninja
     pkg-config
     sassc
     vala
+    gobject-introspection
   ];
 
   mesonFlags = [
@@ -56,7 +55,6 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     fribidi
-    gobject-introspection
   ] ++ lib.optionals stdenv.isDarwin [
     AppKit
     Foundation
@@ -66,16 +64,16 @@ stdenv.mkDerivation rec {
     gtk4
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     gnome.adwaita-icon-theme
   ] ++ lib.optionals (!stdenv.isDarwin) [
     xvfb-run
   ];
 
-  # Tests had to be disabled on Darwin because they fail with the same error as https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=264947 on Hydra:
+  # Tests had to be disabled on Darwin because test-button-content fails
   #
-  # In file included from ../tests/test-style-manager.c:10:
-  # ../src/adw-settings-private.h:16:10: fatal error: 'adw-enums-private.h' file not found
+  # not ok /Adwaita/ButtonContent/style_class_button - Gdk-FATAL-CRITICAL:
+  # gdk_macos_monitor_get_workarea: assertion 'GDK_IS_MACOS_MONITOR (self)' failed
   doCheck = !stdenv.isDarwin;
 
   checkPhase = ''
@@ -99,8 +97,9 @@ stdenv.mkDerivation rec {
     runHook postCheck
   '';
 
-  postInstall = ''
-    mv $out/share/{doc,gtk-doc}
+  postFixup = ''
+    # Cannot be in postInstall, otherwise _multioutDocs hook in preFixup will move right back.
+    moveToOutput "share/doc" "$devdoc"
   '';
 
   passthru = {
@@ -110,6 +109,7 @@ stdenv.mkDerivation rec {
   };
 
   meta = with lib; {
+    changelog = "https://gitlab.gnome.org/GNOME/libadwaita/-/blob/${src.rev}/NEWS";
     description = "Library to help with developing UI for mobile devices using GTK/GNOME";
     homepage = "https://gitlab.gnome.org/GNOME/libadwaita";
     license = licenses.lgpl21Plus;

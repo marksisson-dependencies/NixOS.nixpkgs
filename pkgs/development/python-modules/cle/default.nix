@@ -10,19 +10,20 @@
 , pythonOlder
 , pyvex
 , pyxbe
+, setuptools
 , sortedcontainers
 }:
 
 let
   # The binaries are following the argr projects release cycle
-  version = "9.2.11";
+  version = "9.2.65";
 
   # Binary files from https://github.com/angr/binaries (only used for testing and only here)
   binaries = fetchFromGitHub {
     owner = "angr";
     repo = "binaries";
-    rev = "v${version}";
-    hash = "sha256-LpYi5Ty6OBcW0zokCliMDhujJ7tPPl1XdPs5ad1tv5s=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-03DyvPht4E4uysKqgyfu8hxu1qh+YzWsTI09E4ftiSs=";
   };
 
 in
@@ -31,14 +32,18 @@ buildPythonPackage rec {
   inherit version;
   format = "pyproject";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "angr";
     repo = pname;
-    rev = "v${version}";
-    hash = "sha256-3brrNU3dPID336SGa2vTMHQOqEcoiCmyr+5ol14yDgc=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-reJRy2KNk4YrkPkVH7eitMVS7V9MPTZNjo9+Wmgx5vQ=";
   };
+
+  nativeBuildInputs = [
+    setuptools
+  ];
 
   propagatedBuildInputs = [
     cffi
@@ -50,7 +55,7 @@ buildPythonPackage rec {
     sortedcontainers
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     nose
     pytestCheckHook
   ];

@@ -1,14 +1,14 @@
-{ lib, stdenvNoCC, fetchFromGitHub, fetchurl, gtk3, pantheon, breeze-icons, gnome-icon-theme, hicolor-icon-theme, papirus-folders, color ? null }:
+{ lib, stdenvNoCC, fetchFromGitHub, gtk3, pantheon, breeze-icons, gnome-icon-theme, hicolor-icon-theme, papirus-folders, color ? null }:
 
 stdenvNoCC.mkDerivation rec {
   pname = "papirus-icon-theme";
-  version = "20220710";
+  version = "20230801";
 
   src = fetchFromGitHub {
     owner = "PapirusDevelopmentTeam";
     repo = pname;
     rev = version;
-    sha256 = "sha256-CInoUlWMmLwc4mMi1krmXr2a2JCWZ7XcPe20wFSNjqk=";
+    hash = "sha256-sEfJKlGdogM0rOqg3Buytgd7vm0zEkmkSR343ZgGI2I=";
   };
 
   nativeBuildInputs = [ gtk3 papirus-folders ];

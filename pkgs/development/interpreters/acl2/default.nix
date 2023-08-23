@@ -1,6 +1,6 @@
 { lib, stdenv, callPackage, fetchFromGitHub, runCommandLocal, makeWrapper, substituteAll
 , sbcl, bash, which, perl, hostname
-, openssl, glucose, minisat, abc-verifier, z3, python2
+, openssl, glucose, minisat, abc-verifier, z3, python3
 , certifyBooks ? true
 } @ args:
 
@@ -10,7 +10,7 @@ let
   # ACL2 system itself; see
   # https://www.cs.utexas.edu/users/moore/acl2/current/HTML/installation/requirements.html#Obtaining-SBCL
   sbcl' = args.sbcl.override { disableImmobileSpace = true; };
-  sbcl = runCommandLocal args.sbcl.name { buildInputs = [ makeWrapper ]; } ''
+  sbcl = runCommandLocal args.sbcl.name { nativeBuildInputs = [ makeWrapper ]; } ''
     makeWrapper ${sbcl'}/bin/sbcl $out/bin/sbcl \
       --add-flags "--dynamic-space-size 2000"
   '';
@@ -40,15 +40,17 @@ in stdenv.mkDerivation rec {
     libcrypto = "${lib.getLib openssl}/lib/libcrypto${stdenv.hostPlatform.extensions.sharedLibrary}";
   })];
 
+  nativeBuildInputs = lib.optional certifyBooks makeWrapper;
+
   buildInputs = [
     # ACL2 itself only needs a Common Lisp compiler/interpreter:
     sbcl
   ] ++ lib.optionals certifyBooks [
     # To build community books, we need Perl and a couple of utilities:
-    which perl hostname makeWrapper
+    which perl hostname
     # Some of the books require one or more of these external tools:
     glucose minisat abc-verifier libipasir
-    z3 (python2.withPackages (ps: [ ps.z3 ]))
+    z3 (python3.withPackages (ps: [ ps.z3 ]))
   ];
 
   # NOTE: Parallel building can be memory-intensive depending on the number of
@@ -75,7 +77,7 @@ in stdenv.mkDerivation rec {
   '';
 
   preBuild = "mkdir -p $HOME";
-  makeFlags = "LISP=${sbcl}/bin/sbcl ACL2_MAKE_LOG=NONE";
+  makeFlags = [ "LISP=${sbcl}/bin/sbcl" "ACL2_MAKE_LOG=NONE" ];
 
   doCheck = true;
   checkTarget = "mini-proveall";

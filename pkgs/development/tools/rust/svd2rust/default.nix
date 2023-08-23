@@ -1,17 +1,20 @@
-{ lib, rustPlatform, fetchCrate, stdenv, libiconv }:
+{ lib, rustPlatform, fetchCrate }:
 
 rustPlatform.buildRustPackage rec {
   pname = "svd2rust";
-  version = "0.24.1";
+  version = "0.30.0";
 
   src = fetchCrate {
     inherit pname version;
-    sha256 = "sha256-BIATH7GsTPtvEFpCb8Kfb0k6s8K7xfhRHni+IgzAQ8k=";
+    hash = "sha256-/fB6Ay9t5WkBtHVYne/dbj+PXurMpzKAb7/OFD4j7U4=";
   };
 
-  cargoSha256 = "sha256-kg+QW84bq+aD3/t0DmtL1W8ESC5Ug4X+I0pFJRalu7Q=";
+  cargoHash = "sha256-PD2UsLVfc6D726BpE6a1MKjspL3/g2D9sweCmVXtH1E=";
 
-  buildInputs = lib.optional stdenv.isDarwin libiconv;
+  # error: linker `aarch64-linux-gnu-gcc` not found
+  postPatch = ''
+    rm .cargo/config.toml
+  '';
 
   meta = with lib; {
     description = "Generate Rust register maps (`struct`s) from SVD files";

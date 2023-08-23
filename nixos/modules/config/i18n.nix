@@ -10,12 +10,12 @@ with lib;
     i18n = {
       glibcLocales = mkOption {
         type = types.path;
-        default = pkgs.buildPackages.glibcLocales.override {
+        default = pkgs.glibcLocales.override {
           allLocales = any (x: x == "all") config.i18n.supportedLocales;
           locales = config.i18n.supportedLocales;
         };
         defaultText = literalExpression ''
-          pkgs.buildPackages.glibcLocales.override {
+          pkgs.glibcLocales.override {
             allLocales = any (x: x == "all") config.i18n.supportedLocales;
             locales = config.i18n.supportedLocales;
           }
@@ -66,17 +66,17 @@ with lib;
             (builtins.map (l: (replaceStrings [ "utf8" "utf-8" "UTF8" ] [ "UTF-8" "UTF-8" "UTF-8" ] l) + "/UTF-8") (
               [
                 "C.UTF-8"
+                "en_US.UTF-8"
                 config.i18n.defaultLocale
               ] ++ (attrValues (filterAttrs (n: v: n != "LANGUAGE") config.i18n.extraLocaleSettings))
             ))
         '';
         example = ["en_US.UTF-8/UTF-8" "nl_NL.UTF-8/UTF-8" "nl_NL/ISO-8859-1"];
-        description = ''
+        description = lib.mdDoc ''
           List of locales that the system should support.  The value
-          <literal>"all"</literal> means that all locales supported by
+          `"all"` means that all locales supported by
           Glibc will be installed.  A full list of supported locales
-          can be found at <link
-          xlink:href="https://sourceware.org/git/?p=glibc.git;a=blob;f=localedata/SUPPORTED"/>.
+          can be found at <https://sourceware.org/git/?p=glibc.git;a=blob;f=localedata/SUPPORTED>.
         '';
       };
 

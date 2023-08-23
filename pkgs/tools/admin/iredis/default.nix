@@ -1,30 +1,35 @@
-{ lib, python3Packages }:
+{ lib, python3Packages, fetchPypi }:
 
 with python3Packages;
 
 buildPythonApplication rec {
   pname = "iredis";
-  version = "1.12.1";
+  version = "1.13.1";
+  format = "pyproject";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-nLwu47wV5QqgtiyiN9bbKzjlZdgd6Qt5KjBlipwRW1Q=";
+    sha256 = "sha256-MWzbmuxUKh0yBgar1gk8QGJQwbHtINsbCsbTM+RLmQo=";
   };
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "click>=7.0,<8.0" "click" \
-      --replace "wcwidth==0.1.9" "wcwidth" \
-      --replace "redis>=3.4.0,<4.0.0" "redis" \
-      --replace "mistune>=2.0,<3.0" "mistune"
-  '';
+  pythonRelaxDeps = [
+    "configobj"
+    "wcwidth"
+    "click"
+    "packaging"
+  ];
+
+  nativeBuildInputs = [
+    poetry-core
+    pythonRelaxDepsHook
+  ];
 
   propagatedBuildInputs = [
     pygments
     click
     configobj
     importlib-resources
-    mistune_2_0
+    mistune
     packaging
     pendulum
     prompt-toolkit
@@ -32,7 +37,7 @@ buildPythonApplication rec {
     wcwidth
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     pexpect
   ];
@@ -42,8 +47,12 @@ buildPythonApplication rec {
     "--ignore=tests/unittests/test_client.py"
     "--deselect=tests/unittests/test_render_functions.py::test_render_unixtime_config_raw"
     "--deselect=tests/unittests/test_render_functions.py::test_render_time"
+    "--deselect=tests/unittests/test_entry.py::test_command_shell_options_higher_priority"
     # Only execute unittests, because cli tests require a running Redis
     "tests/unittests/"
+  ] ++ lib.optionals stdenv.isDarwin [
+    # Flaky test
+    "--deselect=tests/unittests/test_utils.py::test_timer"
   ];
 
   pythonImportsCheck = [ "iredis" ];

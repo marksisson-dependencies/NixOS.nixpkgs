@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "miller";
-  version = "6.3.0";
+  version = "6.8.0";
 
   src = fetchFromGitHub {
     owner = "johnkerl";
     repo = "miller";
     rev = "v${version}";
-    sha256 = "sha256-5lDoJo5v6L4nkaCSyeViOeCN6cn4lBIwHYc0Jx70FFk=";
+    sha256 = "sha256-AgKkB/c7rSgk2jS017vjaLPKdiWJ5y/1K5RM6c9RWQg=";
   };
 
-  vendorSha256 = "sha256-MUffv6dRvtc4pC1vErGgUMh6B8bbVaP0avAKNamRErI=";
+  vendorHash = "sha256-4/BB4RaCXEgtGpBJGtccEAz9diogWTA4BxVLkOOlNMw=";
 
   subPackages = [ "cmd/mlr" ];
 

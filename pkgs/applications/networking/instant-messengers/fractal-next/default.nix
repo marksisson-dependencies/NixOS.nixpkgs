@@ -1,9 +1,11 @@
 { stdenv
 , lib
 , fetchFromGitLab
+, cargo
 , meson
 , ninja
 , rustPlatform
+, rustc
 , pkg-config
 , glib
 , gtk4
@@ -12,30 +14,36 @@
 , gstreamer
 , gst-plugins-base
 , gst-plugins-bad
-, libsecret
 , desktop-file-utils
 , appstream-glib
 , openssl
 , pipewire
 , libshumate
 , wrapGAppsHook4
+, sqlite
+, xdg-desktop-portal
 }:
 
 stdenv.mkDerivation rec {
   pname = "fractal-next";
-  version = "unstable-2022-07-10";
+  version = "5.beta2";
 
   src = fetchFromGitLab {
     domain = "gitlab.gnome.org";
     owner = "GNOME";
     repo = "fractal";
-    rev = "837b56978474fe512469805844b8ee234587499a";
-    hash = "sha256-6op/+eiDra5EFRludpkQOucBXdPl5a/oQWPwwhJEx+M=";
+    rev = version;
+    hash = "sha256-/BO+TlhLhi7BGsHq8aOpYw8AqNrJT0IJZOc1diq2Rys=";
   };
 
-  cargoDeps = rustPlatform.fetchCargoTarball {
-    inherit src;
-    hash = "sha256-2mE26ES+fYSWdfMr8uTsX2VVGTNMDQ9MXEk5E/L95UI=";
+  cargoDeps = rustPlatform.importCargoLock {
+    lockFile = ./Cargo.lock;
+    outputHashes = {
+      "matrix-sdk-0.6.2" = "sha256-A1oKNbEx2A6WwvYcNSW53Fd6QWwr0QFJtrsJXO2KInE=";
+      "ruma-0.8.2" = "sha256-kCGS7ACFGgmtTUElLJQMYfjwJ3glF7bRPZYJIFcuPtc=";
+      "curve25519-dalek-4.0.0" = "sha256-sxEFR6lsX7t4u/fhWd6wFMYETI2egPUbjMeBWkB289E=";
+      "vodozemac-0.4.0" = "sha256-TCbWJ9bj/FV3ILWUTcksazel8ESTNTiDGL7kGlEGvow=";
+    };
   };
 
   nativeBuildInputs = [
@@ -46,8 +54,8 @@ stdenv.mkDerivation rec {
     pkg-config
     rustPlatform.bindgenHook
     rustPlatform.cargoSetupHook
-    rustPlatform.rust.cargo
-    rustPlatform.rust.rustc
+    cargo
+    rustc
     desktop-file-utils
     appstream-glib
     wrapGAppsHook4
@@ -61,10 +69,11 @@ stdenv.mkDerivation rec {
     gtk4
     gtksourceview5
     libadwaita
-    libsecret
     openssl
     pipewire
     libshumate
+    sqlite
+    xdg-desktop-portal
   ];
 
   meta = with lib; {
@@ -72,5 +81,6 @@ stdenv.mkDerivation rec {
     homepage = "https://gitlab.gnome.org/GNOME/fractal";
     license = licenses.gpl3Plus;
     maintainers = teams.gnome.members ++ (with maintainers; [ anselmschueler ]);
+    mainProgram = "fractal";
   };
 }

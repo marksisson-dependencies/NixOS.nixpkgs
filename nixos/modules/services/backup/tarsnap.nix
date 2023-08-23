@@ -30,7 +30,9 @@ in
 
   options = {
     services.tarsnap = {
-      enable = mkEnableOption "periodic tarsnap backups";
+      enable = mkEnableOption (lib.mdDoc "periodic tarsnap backups");
+
+      package = mkPackageOption pkgs "tarsnap" { };
 
       keyfile = mkOption {
         type = types.str;
@@ -140,12 +142,11 @@ in
                 type = types.str;
                 default = "01:15";
                 example = "hourly";
-                description = ''
+                description = lib.mdDoc ''
                   Create archive at this interval.
 
                   The format is described in
-                  <citerefentry><refentrytitle>systemd.time</refentrytitle>
-                  <manvolnum>7</manvolnum></citerefentry>.
+                  {manpage}`systemd.time(7)`.
                 '';
               };
 
@@ -308,7 +309,7 @@ in
         requires    = [ "network-online.target" ];
         after       = [ "network-online.target" ];
 
-        path = with pkgs; [ iputils tarsnap util-linux ];
+        path = with pkgs; [ iputils gcfg.package util-linux ];
 
         # In order for the persistent tarsnap timer to work reliably, we have to
         # make sure that the tarsnap server is reachable after systemd starts up
@@ -319,7 +320,7 @@ in
         '';
 
         script = let
-          tarsnap = ''tarsnap --configfile "/etc/tarsnap/${name}.conf"'';
+          tarsnap = ''${lib.getExe gcfg.package} --configfile "/etc/tarsnap/${name}.conf"'';
           run = ''${tarsnap} -c -f "${name}-$(date +"%Y%m%d%H%M%S")" \
                         ${optionalString cfg.verbose "-v"} \
                         ${optionalString cfg.explicitSymlinks "-H"} \
@@ -356,10 +357,10 @@ in
         description = "Tarsnap restore '${name}'";
         requires    = [ "network-online.target" ];
 
-        path = with pkgs; [ iputils tarsnap util-linux ];
+        path = with pkgs; [ iputils gcfg.package util-linux ];
 
         script = let
-          tarsnap = ''tarsnap --configfile "/etc/tarsnap/${name}.conf"'';
+          tarsnap = ''${lib.getExe gcfg.package} --configfile "/etc/tarsnap/${name}.conf"'';
           lastArchive = "$(${tarsnap} --list-archives | sort | tail -1)";
           run = ''${tarsnap} -x -f "${lastArchive}" ${optionalString cfg.verbose "-v"}'';
           cachedir = escapeShellArg cfg.cachedir;
@@ -403,6 +404,6 @@ in
         { text = configFile name cfg;
         }) gcfg.archives;
 
-    environment.systemPackages = [ pkgs.tarsnap ];
+    environment.systemPackages = [ gcfg.package ];
   };
 }

@@ -7,14 +7,14 @@
 
 buildPythonPackage rec {
   pname = "stripe";
-  version = "3.5.0";
+  version = "5.5.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-CPdMrmYZ1KfXj4Fi/3K8PpyRP1PsluzV3cfYI8Lnnd0=";
+    hash = "sha256-BKlzKzekYijs8OSWFjo+3ZNZaw5iAAKfvEiRFjhifhk=";
   };
 
   propagatedBuildInputs = [
@@ -31,6 +31,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Stripe Python bindings";
     homepage = "https://github.com/stripe/stripe-python";
+    changelog = "https://github.com/stripe/stripe-python/blob/v${version}/CHANGELOG.md";
     license = licenses.mit;
     maintainers = with maintainers; [ ];
   };

@@ -77,11 +77,10 @@ in
 
 
       servers = mkOption {
-        description = ''
-          Define the server configuations.
+        description = lib.mdDoc ''
+          Define the server configurations.
 
-          See "SERVICE-LEVEL OPTIONS" in <citerefentry><refentrytitle>stunnel</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry>.
+          See "SERVICE-LEVEL OPTIONS" in {manpage}`stunnel(8)`.
         '';
         type = with types; attrsOf (attrsOf (nullOr (oneOf [bool int str])));
         example = {
@@ -95,13 +94,12 @@ in
       };
 
       clients = mkOption {
-        description = ''
+        description = lib.mdDoc ''
           Define the client configurations.
 
           By default, verifyChain and OCSPaia are enabled and a CAFile is provided from pkgs.cacert.
 
-          See "SERVICE-LEVEL OPTIONS" in <citerefentry><refentrytitle>stunnel</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry>.
+          See "SERVICE-LEVEL OPTIONS" in {manpage}`stunnel(8)`.
         '';
         type = with types; attrsOf (attrsOf (nullOr (oneOf [bool int str])));
 
@@ -156,8 +154,8 @@ in
     environment.systemPackages = [ pkgs.stunnel ];
 
     environment.etc."stunnel.cfg".text = ''
-      ${ if cfg.user != null then "setuid = ${cfg.user}" else "" }
-      ${ if cfg.group != null then "setgid = ${cfg.group}" else "" }
+      ${ optionalString (cfg.user != null) "setuid = ${cfg.user}" }
+      ${ optionalString (cfg.group != null) "setgid = ${cfg.group}" }
 
       debug = ${cfg.logLevel}
 

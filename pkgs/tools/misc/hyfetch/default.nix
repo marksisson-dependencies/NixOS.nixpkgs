@@ -1,24 +1,30 @@
-{ lib, buildPythonPackage, fetchFromGitHub, typing-extensions, setuptools }:
+{ lib
+, fetchFromGitHub
+, python3
+}:
 
-buildPythonPackage rec {
-  pname = "HyFetch";
-  version = "1.3.0";
+python3.pkgs.buildPythonApplication rec {
+  pname = "hyfetch";
+  version = "1.4.9";
+  format = "setuptools";
 
   src = fetchFromGitHub {
-    repo = "hyfetch";
     owner = "hykilpikonna";
-    rev = version;
-    sha256 = "sha256-8Mp3MV9HVzXzT/W6F/lD34tT0uOgqyydg31PlR3sMUA=";
+    repo = "hyfetch";
+    rev = "refs/tags/${version}";
+    hash = "sha256-n+Aa6HrGB7aKrHLQijKNcUVGMYxuqYVrAAnHFPDYH40=";
   };
 
-  # TODO: Remove with next release bump since it has been fixed upstream (hykilpikonna/hyfetch@d797a8c)
-  postPatch = ''
-    chmod +x neofetch
-  '';
-
-  propagatedBuildInputs = [
+  propagatedBuildInputs = with python3.pkgs; [
     typing-extensions
     setuptools
+  ];
+
+  # No test available
+  doCheck = false;
+
+  pythonImportsCheck = [
+    "hyfetch"
   ];
 
   meta = with lib; {

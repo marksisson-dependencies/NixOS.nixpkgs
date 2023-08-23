@@ -2,16 +2,19 @@
 , buildPythonPackage
 , fetchFromGitHub
 , fetchpatch
+, packaging
 , poetry-core
 , pyparsing
 , pytestCheckHook
 , pythonOlder
+, pythonRelaxDepsHook
 , pyyaml
+, requests
 }:
 
 buildPythonPackage rec {
   pname = "pysigma";
-  version = "0.6.8";
+  version = "0.9.11";
   format = "pyproject";
 
   disabled = pythonOlder "3.8";
@@ -20,20 +23,33 @@ buildPythonPackage rec {
     owner = "SigmaHQ";
     repo = "pySigma";
     rev = "refs/tags/v${version}";
-    hash = "sha256-Jq37/9w1GHr+GZ8Fvftmfz2XkL3zUpTjbDlokrUoLtw=";
+    hash = "sha256-lbpx5THSegZK09jREH15RpokmdfOng2vX4tClsc/x/A=";
   };
 
   nativeBuildInputs = [
     poetry-core
+    pythonRelaxDepsHook
+  ];
+
+  pythonRelaxDeps = [
+    "packaging"
   ];
 
   propagatedBuildInputs = [
+    packaging
     pyparsing
     pyyaml
+    requests
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
+  ];
+
+  disabledTests = [
+    # require network connection
+    "test_sigma_plugin_directory_default"
+    "test_sigma_plugin_installation"
   ];
 
   pythonImportsCheck = [
@@ -43,6 +59,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Library to parse and convert Sigma rules into queries";
     homepage = "https://github.com/SigmaHQ/pySigma";
+    changelog = "https://github.com/SigmaHQ/pySigma/releases/tag/v${version}";
     license = with licenses; [ lgpl21Only ];
     maintainers = with maintainers; [ fab ];
   };

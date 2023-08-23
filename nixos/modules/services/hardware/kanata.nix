@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, utils, ... }:
 
 with lib;
 
@@ -7,10 +7,10 @@ let
 
   keyboard = {
     options = {
-      device = mkOption {
-        type = types.str;
-        example = "/dev/input/by-id/usb-0000_0000-event-kbd";
-        description = "Path to the keyboard device.";
+      devices = mkOption {
+        type = types.listOf types.str;
+        example = [ "/dev/input/by-id/usb-0000_0000-event-kbd" ];
+        description = mdDoc "Paths to keyboard devices.";
       };
       config = mkOption {
         type = types.lines;
@@ -33,18 +33,37 @@ let
             ;; tap within 100ms for capslk, hold more than 100ms for lctl
             cap (tap-hold 100 100 caps lctl))
         '';
-        description = ''
-          Configuration other than defcfg.
-          See <link xlink:href="https://github.com/jtroo/kanata"/> for more information.
+        description = mdDoc ''
+          Configuration other than `defcfg`.
+
+          See [example config files](https://github.com/jtroo/kanata)
+          for more information.
         '';
       };
       extraDefCfg = mkOption {
         type = types.lines;
         default = "";
         example = "danger-enable-cmd yes";
-        description = ''
-          Configuration of defcfg other than linux-dev.
-          See <link xlink:href="https://github.com/jtroo/kanata"/> for more information.
+        description = mdDoc ''
+          Configuration of `defcfg` other than `linux-dev` (generated
+          from the devices option) and
+          `linux-continue-if-no-devs-found` (hardcoded to be yes).
+
+          See [example config files](https://github.com/jtroo/kanata)
+          for more information.
+        '';
+      };
+      extraArgs = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = mdDoc "Extra command line arguments passed to kanata.";
+      };
+      port = mkOption {
+        type = types.nullOr types.port;
+        default = null;
+        example = 6666;
+        description = mdDoc ''
+          Port to run the TCP server on. `null` will not run the server.
         '';
       };
     };
@@ -52,30 +71,32 @@ let
 
   mkName = name: "kanata-${name}";
 
+  mkDevices = devices:
+    optionalString ((length devices) > 0) "linux-dev ${concatStringsSep ":" devices}";
+
   mkConfig = name: keyboard: pkgs.writeText "${mkName name}-config.kdb" ''
     (defcfg
       ${keyboard.extraDefCfg}
-      linux-dev ${keyboard.device})
+      ${mkDevices keyboard.devices}
+      linux-continue-if-no-devs-found yes)
 
     ${keyboard.config}
   '';
 
   mkService = name: keyboard: nameValuePair (mkName name) {
-    description = "kanata for ${keyboard.device}";
-
-    # Because path units are used to activate service units, which
-    # will start the old stopped services during "nixos-rebuild
-    # switch", stopIfChanged here is a workaround to make sure new
-    # services are running after "nixos-rebuild switch".
-    stopIfChanged = false;
-
+    wantedBy = [ "multi-user.target" ];
     serviceConfig = {
+      Type = "notify";
       ExecStart = ''
-        ${cfg.package}/bin/kanata \
-          --cfg ${mkConfig name keyboard}
+        ${getExe cfg.package} \
+          --cfg ${mkConfig name keyboard} \
+          --symlink-path ''${RUNTIME_DIRECTORY}/${name} \
+          ${optionalString (keyboard.port != null) "--port ${toString keyboard.port}"} \
+          ${utils.escapeSystemdExecArgs keyboard.extraArgs}
       '';
 
       DynamicUser = true;
+      RuntimeDirectory = mkName name;
       SupplementaryGroups = with config.users.groups; [
         input.name
         uinput.name
@@ -83,15 +104,16 @@ let
 
       # hardening
       DeviceAllow = [
-        "/dev/uinput w"
+        "/dev/uinput rw"
         "char-input r"
       ];
-      CapabilityBoundingSet = "";
+      CapabilityBoundingSet = [ "" ];
       DevicePolicy = "closed";
-      IPAddressDeny = "any";
+      IPAddressAllow = optional (keyboard.port != null) "localhost";
+      IPAddressDeny = [ "any" ];
       LockPersonality = true;
       MemoryDenyWriteExecute = true;
-      PrivateNetwork = true;
+      PrivateNetwork = keyboard.port == null;
       PrivateUsers = true;
       ProcSubset = "pid";
       ProtectClock = true;
@@ -102,10 +124,10 @@ let
       ProtectKernelModules = true;
       ProtectKernelTunables = true;
       ProtectProc = "invisible";
-      RestrictAddressFamilies = "none";
+      RestrictAddressFamilies = [ "AF_UNIX" ] ++ optional (keyboard.port != null) "AF_INET";
       RestrictNamespaces = true;
       RestrictRealtime = true;
-      SystemCallArchitectures = "native";
+      SystemCallArchitectures = [ "native" ];
       SystemCallFilter = [
         "@system-service"
         "~@privileged"
@@ -114,43 +136,36 @@ let
       UMask = "0077";
     };
   };
-
-  mkPath = name: keyboard: nameValuePair (mkName name) {
-    description = "kanata trigger for ${keyboard.device}";
-    wantedBy = [ "multi-user.target" ];
-    pathConfig = {
-      PathExists = keyboard.device;
-    };
-  };
 in
 {
   options.services.kanata = {
-    enable = mkEnableOption "kanata";
+    enable = mkEnableOption (mdDoc "kanata");
     package = mkOption {
       type = types.package;
       default = pkgs.kanata;
-      defaultText = lib.literalExpression "pkgs.kanata";
-      example = lib.literalExpression "pkgs.kanata-with-cmd";
-      description = ''
-        kanata package to use.
-        If you enable danger-enable-cmd, pkgs.kanata-with-cmd should be used.
+      defaultText = literalExpression "pkgs.kanata";
+      example = literalExpression "pkgs.kanata-with-cmd";
+      description = mdDoc ''
+        The kanata package to use.
+
+        ::: {.note}
+        If `danger-enable-cmd` is enabled in any of the keyboards, the
+        `kanata-with-cmd` package should be used.
+        :::
       '';
     };
     keyboards = mkOption {
       type = types.attrsOf (types.submodule keyboard);
       default = { };
-      description = "Keyboard configurations.";
+      description = mdDoc "Keyboard configurations.";
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = mkIf cfg.enable {
     hardware.uinput.enable = true;
 
-    systemd = {
-      paths = mapAttrs' mkPath cfg.keyboards;
-      services = mapAttrs' mkService cfg.keyboards;
-    };
+    systemd.services = mapAttrs' mkService cfg.keyboards;
   };
 
-  meta.maintainers = with lib.maintainers; [ linj ];
+  meta.maintainers = with maintainers; [ linj ];
 }

@@ -44,7 +44,7 @@ in python3.pkgs.buildPythonApplication rec {
     webtest
   ];
 
-  checkInputs = with python3.pkgs; [
+  nativeCheckInputs = with python3.pkgs; [
     mock
     pytestCheckHook
   ];
@@ -63,7 +63,7 @@ in python3.pkgs.buildPythonApplication rec {
   meta = with lib; {
     description = "Chatbot designed to be simple to extend with plugins written in Python";
     homepage = "http://errbot.io/";
-    maintainers = with maintainers; [ fpletz globin ];
+    maintainers = with maintainers; [ globin ];
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
     # flaky on darwin, "RuntimeError: can't start new thread"

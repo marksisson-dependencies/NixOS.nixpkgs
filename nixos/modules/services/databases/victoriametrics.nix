@@ -2,7 +2,7 @@
 let cfg = config.services.victoriametrics; in
 {
   options.services.victoriametrics = with lib; {
-    enable = mkEnableOption "victoriametrics";
+    enable = mkEnableOption (lib.mdDoc "victoriametrics");
     package = mkOption {
       type = types.package;
       default = pkgs.victoriametrics;
@@ -28,10 +28,10 @@ let cfg = config.services.victoriametrics; in
     extraOptions = mkOption {
       type = types.listOf types.str;
       default = [];
-      description = ''
-        Extra options to pass to VictoriaMetrics. See the README: <link
-        xlink:href="https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/README.md" />
-        or <command>victoriametrics -help</command> for more
+      description = lib.mdDoc ''
+        Extra options to pass to VictoriaMetrics. See the README:
+        <https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/README.md>
+        or {command}`victoriametrics -help` for more
         information.
       '';
     };

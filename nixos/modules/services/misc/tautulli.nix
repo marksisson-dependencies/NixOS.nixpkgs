@@ -12,7 +12,7 @@ in
 
   options = {
     services.tautulli = {
-      enable = mkEnableOption "Tautulli Plex Monitor";
+      enable = mkEnableOption (lib.mdDoc "Tautulli Plex Monitor");
 
       dataDir = mkOption {
         type = types.str;
@@ -27,9 +27,15 @@ in
       };
 
       port = mkOption {
-        type = types.int;
+        type = types.port;
         default = 8181;
         description = lib.mdDoc "TCP port where Tautulli listens.";
+      };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = false;
+        description = lib.mdDoc "Open ports in the firewall for Tautulli.";
       };
 
       user = mkOption {
@@ -73,6 +79,8 @@ in
         Restart = "on-failure";
       };
     };
+
+    networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ cfg.port ];
 
     users.users = mkIf (cfg.user == "plexpy") {
       plexpy = { group = cfg.group; uid = config.ids.uids.plexpy; };

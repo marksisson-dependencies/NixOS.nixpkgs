@@ -11,7 +11,7 @@ let
 in
 {
   options.services.earlyoom = {
-    enable = mkEnableOption "Early out of memory killing";
+    enable = mkEnableOption (lib.mdDoc "Early out of memory killing");
 
     freeMemThreshold = mkOption {
       type = types.ints.between 1 100;
@@ -32,32 +32,32 @@ in
     freeMemKillThreshold = mkOption {
       type = types.nullOr (types.ints.between 1 100);
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Minimum available memory (in percent) before sending SIGKILL.
-        If unset, this defaults to half of <option>freeMemThreshold</option>.
+        If unset, this defaults to half of {option}`freeMemThreshold`.
 
-        See the description of <xref linkend="opt-services.earlyoom.freeMemThreshold"/>.
+        See the description of [](#opt-services.earlyoom.freeMemThreshold).
       '';
     };
 
     freeSwapThreshold = mkOption {
       type = types.ints.between 1 100;
       default = 10;
-      description = ''
+      description = lib.mdDoc ''
         Minimum free swap space (in percent) before sending SIGTERM.
 
-        See the description of <xref linkend="opt-services.earlyoom.freeMemThreshold"/>.
+        See the description of [](#opt-services.earlyoom.freeMemThreshold).
       '';
     };
 
     freeSwapKillThreshold = mkOption {
       type = types.nullOr (types.ints.between 1 100);
       default = null;
-      description = ''
+      description = lib.mdDoc ''
         Minimum free swap space (in percent) before sending SIGKILL.
-        If unset, this defaults to half of <option>freeSwapThreshold</option>.
+        If unset, this defaults to half of {option}`freeSwapThreshold`.
 
-        See the description of <xref linkend="opt-services.earlyoom.freeMemThreshold"/>.
+        See the description of [](#opt-services.earlyoom.freeMemThreshold).
       '';
     };
 
@@ -72,7 +72,7 @@ in
     enableNotifications = mkOption {
       type = types.bool;
       default = false;
-      description = ''
+      description = lib.mdDoc ''
         Send notifications about killed processes via the system d-bus.
 
         WARNING: enabling this option (while convenient) should *not* be done on a
@@ -80,10 +80,10 @@ in
         local user to DoS your session by spamming notifications.
 
         To actually see the notifications in your GUI session, you need to have
-        <literal>systembus-notify</literal> running as your user, which this
-        option handles by enabling <option>services.systembus-notify</option>.
+        `systembus-notify` running as your user, which this
+        option handles by enabling {option}`services.systembus-notify`.
 
-        See <link xlink:href="https://github.com/rfjakob/earlyoom#notifications">README</link> for details.
+        See [README](https://github.com/rfjakob/earlyoom#notifications) for details.
       '';
     };
 

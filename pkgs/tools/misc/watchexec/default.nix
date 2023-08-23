@@ -2,16 +2,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "watchexec";
-  version = "1.20.4";
+  version = "1.22.2";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
-    rev = "cli-v${version}";
-    sha256 = "sha256-se3iqz+qjwf71wvHQhCWYryEdUc+kY0Q0ZTg4i1ayNI=";
+    rev = "v${version}";
+    sha256 = "sha256-dO1vIzjsBrrMQ0H3Yv4X5rYPlCrWSlPbFmyooaODPeo=";
   };
 
-  cargoSha256 = "sha256-YM+Zm3wFp3Lsx5LmyjGwZywV/SZjriL6JMDO1l0tNf4=";
+  cargoHash = "sha256-6bLY9m6g7hSlYI3KrLS3fN4ATRkkbtq3Wf5xqS1G30s=";
 
   nativeBuildInputs = [ installShellFiles ];
 
@@ -20,6 +20,10 @@ rustPlatform.buildRustPackage rec {
   NIX_LDFLAGS = lib.optionalString stdenv.isDarwin "-framework AppKit";
 
   checkFlags = [ "--skip=help" "--skip=help_short" ];
+
+  postPatch = ''
+    rm .cargo/config
+  '';
 
   postInstall = ''
     installManPage doc/watchexec.1

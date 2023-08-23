@@ -2,16 +2,21 @@
 
 buildGoModule rec {
   pname = "docker-compose";
-  version = "2.9.0";
+  version = "2.20.3";
 
   src = fetchFromGitHub {
     owner = "docker";
     repo = "compose";
     rev = "v${version}";
-    sha256 = "sha256-CbYlu7dOpHGceGLFkI3p494SNlFL3JyBv+/yy0PRkPY=";
+    sha256 = "sha256-dCcCtQTow8S0dyAD8UT6p64erSAl7oiZdbpYsO4/Z/s=";
   };
 
-  vendorSha256 = "sha256-9ec34jpDA7MUoAhWZMGCmXkOi/iK9mdJpFZ1qu9QgrU=";
+  postPatch = ''
+    # entirely separate package that breaks the build
+    rm -rf e2e/
+  '';
+
+  vendorHash = "sha256-pNCAEuaF4FkSCmW1JcDMxOtVM6mL7dYLtVu4oUBqoS8=";
 
   ldflags = [ "-X github.com/docker/compose/v2/internal.Version=${version}" "-s" "-w" ];
 
@@ -29,6 +34,6 @@ buildGoModule rec {
     description = "Docker CLI plugin to define and run multi-container applications with Docker";
     homepage = "https://github.com/docker/compose";
     license = licenses.asl20;
-    maintainers = with maintainers; [ babariviere SuperSandro2000 ];
+    maintainers = with maintainers; [ babariviere ];
   };
 }

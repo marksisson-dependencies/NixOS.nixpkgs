@@ -7,7 +7,6 @@
 , fontconfig
 , freetype
 , fribidi
-, imlib
 , libSM
 , libX11
 , libXcursor
@@ -25,26 +24,27 @@
 , libxslt
 , perl
 , pkg-config
-, python3
+, python3Packages
 , readline
 , sharutils
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "fvwm3";
-  version = "1.0.4";
+  version = "1.0.7";
 
   src = fetchFromGitHub {
     owner = "fvwmorg";
     repo = "fvwm3";
     rev = finalAttrs.version;
-    hash = "sha256-ByMSX4nwXkp+ly39C2+cYy3e9B0vnGcJlyIiS7V6zoI=";
+    hash = "sha256-CPEGwZuYDh0zDXVKLn806c4DfZZJVaMlmIsVAZl20S4=";
   };
 
   nativeBuildInputs = [
     autoreconfHook
     asciidoctor
     pkg-config
+    python3Packages.wrapPython
   ];
 
   buildInputs = [
@@ -52,7 +52,6 @@ stdenv.mkDerivation (finalAttrs: {
     fontconfig
     freetype
     fribidi
-    imlib
     libSM
     libX11
     libXcursor
@@ -69,14 +68,24 @@ stdenv.mkDerivation (finalAttrs: {
     libstroke
     libxslt
     perl
-    python3
+    python3Packages.python
     readline
     sharutils
+  ];
+
+  pythonPath = [
+    python3Packages.pyxdg
   ];
 
   configureFlags = [
     "--enable-mandoc"
   ];
+
+  postFixup = ''
+    wrapPythonPrograms
+  '';
+
+  enableParallelBuilding = true;
 
   meta = with lib; {
     homepage = "http://fvwm.org";

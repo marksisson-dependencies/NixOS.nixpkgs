@@ -11,7 +11,7 @@ in
 
   options = {
     services.zrepl = {
-      enable = mkEnableOption "zrepl";
+      enable = mkEnableOption (lib.mdDoc "zrepl");
 
       package = mkOption {
         type = types.package;
@@ -22,9 +22,8 @@ in
 
       settings = mkOption {
         default = { };
-        description = ''
-          Configuration for zrepl. See <link
-          xlink:href="https://zrepl.github.io/configuration.html"/>
+        description = lib.mdDoc ''
+          Configuration for zrepl. See <https://zrepl.github.io/configuration.html>
           for more information.
         '';
         type = types.submodule {

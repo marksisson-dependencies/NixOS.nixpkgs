@@ -81,7 +81,7 @@ let
         type = types.package;
         default = pkgs.qemu;
         defaultText = literalExpression "pkgs.qemu";
-        description = ''
+        description = lib.mdDoc ''
           Qemu package to use with libvirt.
           `pkgs.qemu` can emulate alien architectures (e.g. aarch64 on x86)
           `pkgs.qemu_kvm` saves disk space allowing to emulate only host architectures.
@@ -125,6 +125,60 @@ let
         default = { };
         description = lib.mdDoc ''
           QEMU's swtpm options.
+        '';
+      };
+    };
+  };
+
+  hooksModule = types.submodule {
+    options = {
+      daemon = mkOption {
+        type = types.attrsOf types.path;
+        default = { };
+        description = lib.mdDoc ''
+          Hooks that will be placed under /var/lib/libvirt/hooks/daemon.d/
+          and called for daemon start/shutdown/SIGHUP events.
+          Please see https://libvirt.org/hooks.html for documentation.
+        '';
+      };
+
+      qemu = mkOption {
+        type = types.attrsOf types.path;
+        default = { };
+        description = lib.mdDoc ''
+          Hooks that will be placed under /var/lib/libvirt/hooks/qemu.d/
+          and called for qemu domains begin/end/migrate events.
+          Please see https://libvirt.org/hooks.html for documentation.
+        '';
+      };
+
+      lxc = mkOption {
+        type = types.attrsOf types.path;
+        default = { };
+        description = lib.mdDoc ''
+          Hooks that will be placed under /var/lib/libvirt/hooks/lxc.d/
+          and called for lxc domains begin/end events.
+          Please see https://libvirt.org/hooks.html for documentation.
+        '';
+      };
+
+      libxl = mkOption {
+        type = types.attrsOf types.path;
+        default = { };
+        description = lib.mdDoc ''
+          Hooks that will be placed under /var/lib/libvirt/hooks/libxl.d/
+          and called for libxl-handled xen domains begin/end events.
+          Please see https://libvirt.org/hooks.html for documentation.
+        '';
+      };
+
+      network = mkOption {
+        type = types.attrsOf types.path;
+        default = { };
+        description = lib.mdDoc ''
+          Hooks that will be placed under /var/lib/libvirt/hooks/lxc.d/
+          and called for networks begin/end events.
+          Please see https://libvirt.org/hooks.html for documentation.
         '';
       };
     };
@@ -220,6 +274,17 @@ in
       '';
     };
 
+    parallelShutdown = mkOption {
+      type = types.ints.unsigned;
+      default = 0;
+      description = lib.mdDoc ''
+        Number of guests that will be shutdown concurrently, taking effect when onShutdown
+        is set to "shutdown". If set to 0, guests will be shutdown one after another.
+        Number of guests on shutdown at any time will not exceed number set in this
+        variable.
+      '';
+    };
+
     allowedBridges = mkOption {
       type = types.listOf types.str;
       default = [ "virbr0" ];
@@ -233,6 +298,14 @@ in
       default = { };
       description = lib.mdDoc ''
         QEMU related options.
+      '';
+    };
+
+    hooks = mkOption {
+      type = hooksModule;
+      default = { };
+      description = lib.mdDoc ''
+        Hooks related options.
       '';
     };
   };
@@ -282,7 +355,7 @@ in
       setuid = true;
       owner = "root";
       group = "root";
-      source = "/run/${dirName}/nix-helpers/qemu-bridge-helper";
+      source = "${cfg.qemu.package}/libexec/qemu-bridge-helper";
     };
 
     systemd.packages = [ cfg.package ];
@@ -293,11 +366,13 @@ in
         # Copy default libvirt network config .xml files to /var/lib
         # Files modified by the user will not be overwritten
         for i in $(cd ${cfg.package}/var/lib && echo \
-            libvirt/qemu/networks/*.xml libvirt/qemu/networks/autostart/*.xml \
+            libvirt/qemu/networks/*.xml \
             libvirt/nwfilter/*.xml );
         do
             mkdir -p /var/lib/$(dirname $i) -m 755
-            cp -npd ${cfg.package}/var/lib/$i /var/lib/$i
+            if [ ! -e /var/lib/$i ]; then
+              cp -pd ${cfg.package}/var/lib/$i /var/lib/$i
+            fi
         done
 
         # Copy generated qemu config to libvirt directory
@@ -308,7 +383,7 @@ in
           ln -s --force "$emulator" /run/${dirName}/nix-emulators/
         done
 
-        for helper in libexec/qemu-bridge-helper bin/qemu-pr-helper; do
+        for helper in bin/qemu-pr-helper; do
           ln -s --force ${cfg.qemu.package}/$helper /run/${dirName}/nix-helpers/
         done
 
@@ -324,6 +399,15 @@ in
           ln -s --force ${ovmfpackage}/FV/AAVMF_VARS.fd /run/${dirName}/nix-ovmf/
           ln -s --force ${ovmfpackage}/FV/OVMF_VARS.fd /run/${dirName}/nix-ovmf/
         '')}
+
+        # Symlink hooks to /var/lib/libvirt
+        ${concatStringsSep "\n" (map (driver:
+          ''
+          mkdir -p /var/lib/${dirName}/hooks/${driver}.d
+          rm -rf /var/lib/${dirName}/hooks/${driver}.d/*
+          ${concatStringsSep "\n" (mapAttrsToList (name: value:
+            "ln -s --force ${value} /var/lib/${dirName}/hooks/${driver}.d/${name}") cfg.hooks.${driver})}
+        '') (attrNames cfg.hooks))}
       '';
 
       serviceConfig = {
@@ -336,6 +420,7 @@ in
     };
 
     systemd.services.libvirtd = {
+      wantedBy = [ "multi-user.target" ];
       requires = [ "libvirtd-config.service" ];
       after = [ "libvirtd-config.service" ]
         ++ optional vswitch.enable "ovs-vswitchd.service";
@@ -372,6 +457,7 @@ in
 
       environment.ON_BOOT = "${cfg.onBoot}";
       environment.ON_SHUTDOWN = "${cfg.onShutdown}";
+      environment.PARALLEL_SHUTDOWN = "${toString cfg.parallelShutdown}";
     };
 
     systemd.sockets.virtlogd = {
@@ -401,13 +487,16 @@ in
     # https://libvirt.org/daemons.html#monolithic-systemd-integration
     systemd.sockets.libvirtd.wantedBy = [ "sockets.target" ];
 
-    security.polkit.extraConfig = ''
-      polkit.addRule(function(action, subject) {
-        if (action.id == "org.libvirt.unix.manage" &&
-          subject.isInGroup("libvirtd")) {
-          return polkit.Result.YES;
-        }
-      });
-    '';
+    security.polkit = {
+      enable = true;
+      extraConfig = ''
+        polkit.addRule(function(action, subject) {
+          if (action.id == "org.libvirt.unix.manage" &&
+            subject.isInGroup("libvirtd")) {
+            return polkit.Result.YES;
+          }
+        });
+      '';
+    };
   };
 }

@@ -31,54 +31,54 @@ in
 
     services.mysql = {
 
-      enable = mkEnableOption "MySQL server";
+      enable = mkEnableOption (lib.mdDoc "MySQL server");
 
       package = mkOption {
         type = types.package;
         example = literalExpression "pkgs.mariadb";
-        description = "
+        description = lib.mdDoc ''
           Which MySQL derivation to use. MariaDB packages are supported too.
-        ";
+        '';
       };
 
       user = mkOption {
         type = types.str;
         default = "mysql";
-        description = ''
+        description = lib.mdDoc ''
           User account under which MySQL runs.
 
-          <note><para>
+          ::: {.note}
           If left as the default value this user will automatically be created
           on system activation, otherwise you are responsible for
           ensuring the user exists before the MySQL service starts.
-          </para></note>
+          :::
         '';
       };
 
       group = mkOption {
         type = types.str;
         default = "mysql";
-        description = ''
+        description = lib.mdDoc ''
           Group account under which MySQL runs.
 
-          <note><para>
+          ::: {.note}
           If left as the default value this group will automatically be created
           on system activation, otherwise you are responsible for
           ensuring the user exists before the MySQL service starts.
-          </para></note>
+          :::
         '';
       };
 
       dataDir = mkOption {
         type = types.path;
         example = "/var/lib/mysql";
-        description = ''
+        description = lib.mdDoc ''
           The data directory for MySQL.
 
-          <note><para>
-          If left as the default value of <literal>/var/lib/mysql</literal> this directory will automatically be created before the MySQL
+          ::: {.note}
+          If left as the default value of `/var/lib/mysql` this directory will automatically be created before the MySQL
           server starts, otherwise you are responsible for ensuring the directory exists with appropriate ownership and permissions.
-          </para></note>
+          :::
         '';
       };
 
@@ -107,20 +107,18 @@ in
       settings = mkOption {
         type = format.type;
         default = {};
-        description = ''
+        description = lib.mdDoc ''
           MySQL configuration. Refer to
-          <link xlink:href="https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html"/>,
-          <link xlink:href="https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html"/>,
-          and <link xlink:href="https://mariadb.com/kb/en/server-system-variables/"/>
+          <https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html>,
+          <https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html>,
+          and <https://mariadb.com/kb/en/server-system-variables/>
           for details on supported values.
 
-          <note>
-            <para>
-              MySQL configuration options such as <literal>--quick</literal> should be treated as
-              boolean options and provided values such as <literal>true</literal>, <literal>false</literal>,
-              <literal>1</literal>, or <literal>0</literal>. See the provided example below.
-            </para>
-          </note>
+          ::: {.note}
+          MySQL configuration options such as `--quick` should be treated as
+          boolean options and provided values such as `true`, `false`,
+          `1`, or `0`. See the provided example below.
+          :::
         '';
         example = literalExpression ''
           {
@@ -162,10 +160,12 @@ in
           List of database names and their initial schemas that should be used to create databases on the first startup
           of MySQL. The schema attribute is optional: If not specified, an empty database is created.
         '';
-        example = [
-          { name = "foodatabase"; schema = literalExpression "./foodatabase.sql"; }
-          { name = "bardatabase"; }
-        ];
+        example = literalExpression ''
+          [
+            { name = "foodatabase"; schema = ./foodatabase.sql; }
+            { name = "bardatabase"; }
+          ]
+        '';
       };
 
       initialScript = mkOption {
@@ -201,7 +201,7 @@ in
             ensurePermissions = mkOption {
               type = types.attrsOf types.str;
               default = {};
-              description = ''
+              description = lib.mdDoc ''
                 Permissions to ensure for the user, specified as attribute set.
                 The attribute names specify the database and tables to grant the permissions for,
                 separated by a dot. You may use wildcards here.
@@ -210,8 +210,8 @@ in
 
                 For more information on how to specify the target
                 and on which privileges exist, see the
-                <link xlink:href="https://mariadb.com/kb/en/library/grant/">GRANT syntax</link>.
-                The attributes are used as <code>GRANT ''${attrName} ON ''${attrValue}</code>.
+                [GRANT syntax](https://mariadb.com/kb/en/library/grant/).
+                The attributes are used as `GRANT ''${attrName} ON ''${attrValue}`.
               '';
               example = literalExpression ''
                 {

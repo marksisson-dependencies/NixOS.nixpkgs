@@ -1,26 +1,43 @@
-{ lib, stdenv, fetchurl, postgresql, openssl, pam ? null, libmemcached ? null }:
+{ lib
+, stdenv
+, fetchurl
+, postgresql
+, openssl
+, libxcrypt
+, withPam ? stdenv.isLinux
+, pam
+}:
 
 stdenv.mkDerivation rec {
   pname = "pgpool-II";
-  version = "4.3.2";
+  version = "4.4.3";
 
   src = fetchurl {
-    name = "${pname}-${version}.tar.gz";
-    url = "http://www.pgpool.net/download.php?f=${pname}-${version}.tar.gz";
-    sha256 = "02jg0c6k259i0r927dng9h0y58q965swshg2c9mzqhazcdiga5ap";
+    url = "https://www.pgpool.net/mediawiki/download.php?f=pgpool-II-${version}.tar.gz";
+    name = "pgpool-II-${version}.tar.gz";
+    sha256 = "sha256-RnRaqY9FTgl87LTaz1NvicN+0+xB8y8KhGk0Ip0OtzM=";
   };
 
-  buildInputs = [ postgresql openssl pam libmemcached ];
+  buildInputs = [
+    postgresql
+    openssl
+    libxcrypt
+  ] ++ lib.optional withPam pam;
 
   configureFlags = [
     "--sysconfdir=/etc"
     "--localstatedir=/var"
     "--with-openssl"
-  ] ++ lib.optional (pam != null) "--with-pam"
-    ++ lib.optional (libmemcached != null) "--with-memcached=${libmemcached}";
+  ] ++ lib.optional withPam "--with-pam";
 
   installFlags = [
     "sysconfdir=\${out}/etc"
+  ];
+
+  patches = lib.optionals (stdenv.isDarwin) [
+    # Build checks for strlcpy being available in the system, but doesn't
+    # actually exclude its own copy from being built
+    ./darwin-strlcpy.patch
   ];
 
   enableParallelBuilding = true;
@@ -29,6 +46,7 @@ stdenv.mkDerivation rec {
     homepage = "http://pgpool.net/mediawiki/index.php";
     description = "A middleware that works between postgresql servers and postgresql clients";
     license = licenses.free;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ ];
   };
 }

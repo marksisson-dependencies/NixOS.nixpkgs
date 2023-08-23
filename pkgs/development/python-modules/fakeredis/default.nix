@@ -16,7 +16,7 @@
 
 buildPythonPackage rec {
   pname = "fakeredis";
-  version = "1.8.2";
+  version = "2.18.0";
   format = "pyproject";
 
   disabled = pythonOlder "3.7";
@@ -25,7 +25,7 @@ buildPythonPackage rec {
     owner = "dsoftwareinc";
     repo = "fakeredis-py";
     rev = "refs/tags/v${version}";
-    hash = "sha256-T8A6vU1m7nlHpTMC62IpgsQGh3ksuBp1ty4GkjN+2T8=";
+    hash = "sha256-+bJbtqBUgix4oIq49hQEk3/cNXfvXFXE/m/qR1zy8jo=";
   };
 
   nativeBuildInputs = [
@@ -38,7 +38,7 @@ buildPythonPackage rec {
     sortedcontainers
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     hypothesis
     pytest-asyncio
     pytest-mock
@@ -61,6 +61,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Fake implementation of Redis API";
     homepage = "https://github.com/dsoftwareinc/fakeredis-py";
+    changelog = "https://github.com/cunla/fakeredis-py/releases/tag/v${version}";
     license = with licenses; [ mit ];
     maintainers = with maintainers; [ fab ];
   };

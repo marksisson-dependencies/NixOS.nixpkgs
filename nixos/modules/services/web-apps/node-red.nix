@@ -17,7 +17,7 @@ let
 in
 {
   options.services.node-red = {
-    enable = mkEnableOption "the Node-RED service";
+    enable = mkEnableOption (lib.mdDoc "the Node-RED service");
 
     package = mkOption {
       default = pkgs.nodePackages.node-red;
@@ -47,10 +47,9 @@ in
       type = types.path;
       default = "${cfg.package}/lib/node_modules/node-red/settings.js";
       defaultText = literalExpression ''"''${package}/lib/node_modules/node-red/settings.js"'';
-      description = ''
+      description = lib.mdDoc ''
         Path to the JavaScript configuration file.
-        See <link
-        xlink:href="https://github.com/node-red/node-red/blob/master/packages/node_modules/node-red/settings.js"/>
+        See <https://github.com/node-red/node-red/blob/master/packages/node_modules/node-red/settings.js>
         for a configuration example.
       '';
     };

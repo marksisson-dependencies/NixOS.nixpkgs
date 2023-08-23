@@ -2,19 +2,21 @@
 
 buildGoModule rec {
   pname = "kubepug";
-  version = "1.3.4";
+  version = "1.5.1";
 
   src = fetchFromGitHub {
     owner = "rikatz";
     repo = "kubepug";
     rev = "v${version}";
-    sha256 = "sha256-BljDmyueGtQztdHnix4YP+zvhor1+ofahQ8971/o1xY=";
+    hash = "sha256-HjnkGEzTobtILqML5xcjpYVtg6a5PqMKYyaGTYrqEDo=";
   };
 
-  vendorSha256 = "sha256-SZckJDFYGsjYEzpJOZ1BE0gNLqn4so23OcOUnPo6zdU=";
+  vendorHash = "sha256-w2WwJa8qaXmgFwZJo2r2TowcTehgQY0nGY4u1UROaxM=";
 
   ldflags = [
-    "-s" "-w" "-X=github.com/rikatz/kubepug/version.Version=${src.rev}"
+    "-s"
+    "-w"
+    "-X sigs.k8s.io/release-utils/version.gitVersion=${version}"
   ];
 
   patches = [

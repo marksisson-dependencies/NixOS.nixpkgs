@@ -8,7 +8,8 @@ let
   cfg = config.services.buildbot-worker;
   opt = options.services.buildbot-worker;
 
-  python = cfg.package.pythonModule;
+  package = pkgs.python3.pkgs.toPythonModule cfg.package;
+  python = package.pythonModule;
 
   tacFile = pkgs.writeText "aur-buildbot-worker.tac" ''
     import os
@@ -121,15 +122,15 @@ in {
       keepalive = mkOption {
         default = 600;
         type = types.int;
-        description = "
+        description = lib.mdDoc ''
           This is a number that indicates how frequently keepalive messages should be sent
           from the worker to the buildmaster, expressed in seconds.
-        ";
+        '';
       };
 
       package = mkOption {
         type = types.package;
-        default = pkgs.python3Packages.buildbot-worker;
+        default = pkgs.buildbot-worker;
         defaultText = literalExpression "pkgs.python3Packages.buildbot-worker";
         description = lib.mdDoc "Package to use for buildbot worker.";
         example = literalExpression "pkgs.python2Packages.buildbot-worker";
@@ -168,7 +169,7 @@ in {
       after = [ "network.target" "buildbot-master.service" ];
       wantedBy = [ "multi-user.target" ];
       path = cfg.packages;
-      environment.PYTHONPATH = "${python.withPackages (p: [ cfg.package ])}/${python.sitePackages}";
+      environment.PYTHONPATH = "${python.withPackages (p: [ package ])}/${python.sitePackages}";
 
       preStart = ''
         mkdir -vp "${cfg.buildbotDir}/info"

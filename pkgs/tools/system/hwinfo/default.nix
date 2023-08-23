@@ -9,13 +9,13 @@
 
 stdenv.mkDerivation rec {
   pname = "hwinfo";
-  version = "21.82";
+  version = "23.2";
 
   src = fetchFromGitHub {
     owner = "opensuse";
     repo = "hwinfo";
     rev = version;
-    sha256 = "sha256-kFoOqMaejvlv8RnAcUPi03qrhV/Jcy8jQ4AQA1/eBsY=";
+    hash = "sha256-YAhsnE1DJ5UlYAuhDxS/5IpfIJB6DrhCT3E0YiKENjU=";
   };
 
   nativeBuildInputs = [
